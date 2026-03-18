@@ -1,65 +1,175 @@
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { NewsArticle, StockPrice, Stock } from "@/lib/types";
+import Link from "next/link";
 import Image from "next/image";
 
-export default function Home() {
+async function getTopMovers(): Promise<(StockPrice & { stocks: Stock })[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("stock_prices")
+    .select("*, stocks(*)")
+    .not("change_pct", "is", null)
+    .order("change_pct", { ascending: false })
+    .limit(10);
+  return (data as (StockPrice & { stocks: Stock })[]) ?? [];
+}
+
+async function getLatestNews(): Promise<NewsArticle[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("news_articles")
+    .select("*")
+    .order("published_at", { ascending: false })
+    .limit(20);
+  return data ?? [];
+}
+
+function formatChangePct(pct: number | null) {
+  if (pct === null) return null;
+  const sign = pct >= 0 ? "+" : "";
+  return `${sign}${pct.toFixed(2)}%`;
+}
+
+function timeAgo(dateStr: string | null): string {
+  if (!dateStr) return "";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const h = Math.floor(diff / 3_600_000);
+  if (h < 1) return "< 1h ago";
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+export default async function HomePage() {
+  const [movers, news] = await Promise.all([getTopMovers(), getLatestNews()]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="max-w-7xl mx-auto px-4 py-8 space-y-10">
+      {/* Today's Movers */}
+      <section>
+        <h2 className="text-lg font-semibold text-gray-300 mb-4">
+          Today&apos;s Movers
+        </h2>
+        {movers.length === 0 ? (
+          <p className="text-gray-500 text-sm">
+            Market data unavailable — check back during trading hours.
           </p>
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            {movers.map((m) => {
+              const pct = m.change_pct ?? 0;
+              const isUp = pct >= 0;
+              return (
+                <Link
+                  key={m.ticker}
+                  href={`/stock/${m.ticker}`}
+                  className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-lg px-3 py-2 transition-colors"
+                >
+                  {m.stocks?.logo_url && (
+                    <Image
+                      src={m.stocks.logo_url}
+                      alt={m.ticker}
+                      width={20}
+                      height={20}
+                      className="rounded-sm object-contain bg-white"
+                    />
+                  )}
+                  <span className="font-medium text-sm">{m.ticker}</span>
+                  <span
+                    className={`text-sm font-semibold ${isUp ? "text-emerald-400" : "text-red-400"}`}
+                  >
+                    {formatChangePct(m.change_pct)}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Latest News */}
+      <section>
+        <h2 className="text-lg font-semibold text-gray-300 mb-4">
+          Latest News
+        </h2>
+        <div className="space-y-4">
+          {news.length === 0 ? (
+            <p className="text-gray-500 text-sm">No news yet.</p>
+          ) : (
+            news.map((article) => (
+              <article
+                key={article.id}
+                className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-2"
+              >
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  {article.ticker && (
+                    <Link
+                      href={`/stock/${article.ticker}`}
+                      className="text-blue-400 hover:text-blue-300 font-medium"
+                    >
+                      [{article.ticker}]
+                    </Link>
+                  )}
+                  {article.source && <span>{article.source}</span>}
+                  <span>{timeAgo(article.published_at)}</span>
+                </div>
+
+                <a
+                  href={article.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block font-medium text-gray-100 hover:text-white leading-snug"
+                >
+                  {article.title}
+                </a>
+
+                {article.ai_summary ? (
+                  <div className="bg-gray-800 rounded-lg p-3 text-sm text-gray-300 space-y-1">
+                    <p>{article.ai_summary}</p>
+                    {article.ai_sentiment && (
+                      <span
+                        className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${
+                          article.ai_sentiment === "positive"
+                            ? "bg-emerald-900 text-emerald-300"
+                            : article.ai_sentiment === "negative"
+                            ? "bg-red-900 text-red-300"
+                            : "bg-gray-700 text-gray-300"
+                        }`}
+                      >
+                        {article.ai_sentiment}
+                      </span>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">
+                      ⚠ Not investment advice.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-800/50 border border-gray-700 border-dashed rounded-lg px-3 py-2 text-sm text-gray-500">
+                    🔒{" "}
+                    <Link
+                      href="/auth/login"
+                      className="text-blue-400 hover:text-blue-300"
+                    >
+                      Sign up free
+                    </Link>{" "}
+                    to see AI Summary
+                  </div>
+                )}
+              </article>
+            ))
+          )}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+
+        {news.length > 0 && (
+          <div className="mt-6 text-center">
+            <Link
+              href="/news"
+              className="text-sm text-blue-400 hover:text-blue-300"
+            >
+              View all news →
+            </Link>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
