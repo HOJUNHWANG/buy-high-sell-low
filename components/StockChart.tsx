@@ -173,10 +173,20 @@ export function StockChart({ ticker, history }: Props) {
         </div>
       ) : filtered.length === 0 ? (
         <div
-          className="h-64 flex items-center justify-center text-xs"
+          className="h-64 flex flex-col items-center justify-center gap-1.5 text-xs text-center px-6"
           style={{ color: "var(--text-3)" }}
         >
-          No data for this range — try a wider window
+          <span>No data for {range}</span>
+          {range === "1D" && (
+            <span style={{ color: "var(--text-3)", fontSize: "10px" }}>
+              Intraday data is collected during market hours (9:30 AM – 4:00 PM ET, Mon–Fri)
+            </span>
+          )}
+          {range !== "1D" && (
+            <span style={{ color: "var(--text-3)", fontSize: "10px" }}>
+              Try a wider range
+            </span>
+          )}
         </div>
       ) : (
         <div ref={chartRef} className="w-full" style={{ touchAction: "pan-y" }} />
