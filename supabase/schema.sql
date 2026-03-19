@@ -92,6 +92,11 @@ CREATE TABLE IF NOT EXISTS ai_usage (
 CREATE INDEX IF NOT EXISTS idx_stocks_name_trgm   ON stocks USING gin (name gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_stocks_ticker_trgm ON stocks USING gin (ticker gin_trgm_ops);
 
+-- News index: supports date-filtered dedup in fetch_news.py and weekly cleanup
+CREATE INDEX IF NOT EXISTS idx_news_fetched_at ON news_articles (fetched_at DESC);
+-- Also useful for per-ticker news queries on the stock detail page
+CREATE INDEX IF NOT EXISTS idx_news_ticker_published ON news_articles (ticker, published_at DESC);
+
 -- =========================================
 -- RLS (Row Level Security)
 -- =========================================

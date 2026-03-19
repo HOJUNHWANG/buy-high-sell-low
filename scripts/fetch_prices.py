@@ -23,6 +23,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 from tickers import SP100_TICKERS
 
 BATCH_SIZE = 8
+TWELVE_DATA_DAILY_LIMIT = 800
+BATCH_SLEEP = 1  # seconds between batches
 
 
 def is_market_open() -> bool:
@@ -37,7 +39,8 @@ def is_market_open() -> bool:
 
 def fetch_batch(tickers: list[str]) -> dict:
     symbols = ",".join(tickers)
-    url = "https://api.twelvedata.com/price"
+    # /quote returns price + change_pct + volume (same free tier allowance as /price)
+    url = "https://api.twelvedata.com/quote"
     params = {"symbol": symbols, "apikey": TWELVE_DATA_API_KEY}
     r = requests.get(url, params=params, timeout=15)
     r.raise_for_status()
@@ -45,7 +48,7 @@ def fetch_batch(tickers: list[str]) -> dict:
 
     # Single ticker returns flat dict, multiple returns nested
     if len(tickers) == 1:
-        return {tickers[0]: data} if "price" in data else {}
+        return {tickers[0]: data} if "close" in data else {}
     return data
 
 
@@ -54,14 +57,21 @@ def upsert_prices(results: dict) -> tuple[int, list[str]]:
     now = datetime.utcnow().isoformat()
 
     for ticker, data in results.items():
-        if not isinstance(data, dict) or "price" not in data:
+        if not isinstance(data, dict) or "close" not in data:
             failed.append(ticker)
             continue
 
-        price = float(data["price"])
+        price = float(data["close"])
+
+        # percent_change and volume are included in /quote response
+        change_pct = float(data["percent_change"]) if data.get("percent_change") not in (None, "") else None
+        volume     = int(data["volume"])            if data.get("volume")         not in (None, "") else None
+
         row_price = {
             "ticker":     ticker,
             "price":      price,
+            "change_pct": change_pct,
+            "volume":     volume,
             "fetched_at": now,
         }
         row_history = {

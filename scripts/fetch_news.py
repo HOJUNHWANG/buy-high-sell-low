@@ -8,7 +8,7 @@ import json
 import time
 import requests
 import feedparser
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from supabase import create_client
 import anthropic
@@ -25,6 +25,8 @@ claude         = anthropic.Anthropic(api_key=ANTHROPIC_KEY) if ANTHROPIC_KEY els
 
 sys.path.insert(0, os.path.dirname(__file__))
 from tickers import SP100_TICKERS, COMPANY_NAMES
+
+MAX_AI_PER_RUN = 30  # Claude calls per cron run — prevents surprise billing
 
 RSS_FEEDS = [
     "https://feeds.reuters.com/reuters/businessNews",
@@ -104,7 +106,10 @@ Content: {content[:1000]}"""
 
 
 def get_existing_urls() -> set[str]:
-    result = supabase.table("news_articles").select("url").execute()
+    # Limit to last 7 days to avoid hitting PostgREST 1000-row default max-rows cap.
+    # NewsAPI returns articles from the last ~24–48h, so 7 days is ample for dedup.
+    since = (datetime.utcnow() - timedelta(days=7)).isoformat()
+    result = supabase.table("news_articles").select("url").gte("fetched_at", since).execute()
     return {row["url"] for row in result.data}
 
 
@@ -123,6 +128,7 @@ def main():
     print(f"  New articles: {len(new_articles)}")
 
     fetched, failed = 0, []
+    ai_calls_this_run = 0
     for article in new_articles:
         title   = article.get("title", "")
         url     = article.get("url", "")
@@ -132,7 +138,13 @@ def main():
         content     = article.get("content") or article.get("description") or ""
         ticker      = map_ticker(title)
 
-        ai = generate_ai_summary(title, content)
+        # Cap Claude calls per run to avoid unexpected cost spikes
+        if ai_calls_this_run < MAX_AI_PER_RUN:
+            ai = generate_ai_summary(title, content)
+            if ai:
+                ai_calls_this_run += 1
+        else:
+            ai = None
 
         row = {
             "ticker":          ticker,

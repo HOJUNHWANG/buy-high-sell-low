@@ -22,8 +22,8 @@ async function getStockData(ticker: string) {
       .from("stock_price_history")
       .select("price, recorded_at")
       .eq("ticker", ticker)
-      .order("recorded_at", { ascending: false })  // newest first
-      .limit(2500),                                  // ~90 days at 15-min intervals
+      .gte("recorded_at", new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString())
+      .order("recorded_at", { ascending: false }),  // newest first, no row cap
     supabase
       .from("news_articles")
       .select("*")

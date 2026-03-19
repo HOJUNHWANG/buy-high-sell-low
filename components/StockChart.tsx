@@ -8,7 +8,7 @@ interface Props {
   history: StockPriceHistory[];
 }
 
-type Range = "1D" | "1W" | "1M" | "1Y";
+type Range = "1D" | "1W" | "1M" | "3M";
 
 function filterByRange(data: StockPriceHistory[], range: Range): StockPriceHistory[] {
   const now = Date.now();
@@ -16,7 +16,7 @@ function filterByRange(data: StockPriceHistory[], range: Range): StockPriceHisto
     "1D": 24 * 60 * 60 * 1000,
     "1W": 7 * 24 * 60 * 60 * 1000,
     "1M": 30 * 24 * 60 * 60 * 1000,
-    "1Y": 365 * 24 * 60 * 60 * 1000,
+    "3M": 90 * 24 * 60 * 60 * 1000,
   };
   return data.filter((d) => new Date(d.recorded_at).getTime() >= now - ms[range]);
 }
@@ -36,7 +36,7 @@ function getRangeStats(data: StockPriceHistory[]) {
 export function StockChart({ ticker, history }: Props) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [range, setRange] = useState<Range>("1W");
-  const ranges: Range[]   = ["1D", "1W", "1M", "1Y"];
+  const ranges: Range[]   = ["1D", "1W", "1M", "3M"];
 
   const filtered = filterByRange(history, range);
   const stats    = getRangeStats(filtered);
@@ -182,9 +182,14 @@ export function StockChart({ ticker, history }: Props) {
               Intraday data is collected during market hours (9:30 AM – 4:00 PM ET, Mon–Fri)
             </span>
           )}
-          {range !== "1D" && (
+          {range !== "1D" && range !== "3M" && (
             <span style={{ color: "var(--text-3)", fontSize: "10px" }}>
               Try a wider range
+            </span>
+          )}
+          {range === "3M" && (
+            <span style={{ color: "var(--text-3)", fontSize: "10px" }}>
+              No data available for this period
             </span>
           )}
         </div>
