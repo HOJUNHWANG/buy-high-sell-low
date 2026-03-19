@@ -148,12 +148,20 @@ export default async function StockDetailPage({ params }: Props) {
           {/* Affiliate CTA */}
           <div className="card-accent rounded-xl p-4 flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Trade {ticker}</p>
-              <p className="text-xs mt-0.5" style={{ color: "var(--text-2)" }}>
+              <div className="flex items-center gap-2 mb-0.5">
+                <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Trade {ticker}</p>
+                <span
+                  className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                  style={{ background: "var(--surface-3)", color: "var(--text-3)" }}
+                >
+                  Sponsored
+                </span>
+              </div>
+              <p className="text-xs" style={{ color: "var(--text-2)" }}>
                 Commission-free with Interactive Brokers
               </p>
             </div>
-            <a href="#" target="_blank" rel="noopener noreferrer nofollow"
+            <a href="https://www.interactivebrokers.com" target="_blank" rel="noopener noreferrer nofollow sponsored"
               className="shrink-0 text-xs font-semibold px-4 py-2 rounded-lg"
               style={{ background: "var(--accent)", color: "#fff" }}>
               Open account →

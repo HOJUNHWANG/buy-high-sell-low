@@ -30,9 +30,16 @@ export async function POST(request: Request) {
     );
   }
 
-  const { articleId } = await request.json();
-  if (!articleId) {
-    return NextResponse.json({ error: "articleId required" }, { status: 400 });
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const articleId = (body as Record<string, unknown>)?.articleId;
+  if (!articleId || typeof articleId !== "number" || !Number.isInteger(articleId) || articleId <= 0) {
+    return NextResponse.json({ error: "articleId must be a positive integer" }, { status: 400 });
   }
 
   // Fetch article

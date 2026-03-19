@@ -3,7 +3,10 @@ import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const q = searchParams.get("q")?.trim();
+  const raw = searchParams.get("q")?.trim() ?? "";
+
+  // Strip characters that have no use in a ticker/name search
+  const q = raw.replace(/[^a-zA-Z0-9\s.&'-]/g, "").slice(0, 50);
 
   if (!q || q.length < 1) {
     return NextResponse.json([]);
