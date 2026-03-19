@@ -11,8 +11,9 @@ export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const navLinks = [
-    { href: "/",     label: "Home" },
-    { href: "/news", label: "News" },
+    { href: "/",        label: "Home"    },
+    { href: "/stocks",  label: "Stocks"  },
+    { href: "/news",    label: "News"    },
   ];
 
   return (
