@@ -1,6 +1,142 @@
 @import "tailwindcss";
 
-body {
-  background: #030712;
-  color: #f9fafb;
+:root {
+  --bg:           #080808;
+  --surface:      #0f0f0f;
+  --surface-2:    #141414;
+  --surface-3:    #1c1c1c;
+  --border:       rgba(255,255,255,0.06);
+  --border-md:    rgba(255,255,255,0.1);
+  --border-lg:    rgba(255,255,255,0.18);
+  --text:         #f0f0f0;
+  --text-2:       #888;
+  --text-3:       #444;
+  --accent:       #7c6cfc;
+  --accent-dim:   rgba(124,108,252,0.12);
+  --accent-hover: rgba(124,108,252,0.2);
+  --up:           #4ade80;
+  --up-dim:       rgba(74,222,128,0.1);
+  --down:         #f87171;
+  --down-dim:     rgba(248,113,113,0.1);
+}
+
+html, body {
+  background: #080808 !important;
+  color: #f0f0f0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100%;
+}
+
+* { box-sizing: border-box; }
+::selection { background: var(--accent-dim); }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 4px; }
+
+/* ── Card hover (works in Server Components via CSS) ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: border-color 0.15s, background 0.15s;
+}
+.card:hover { border-color: var(--border-md); }
+
+.card-clickable {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: border-color 0.15s, transform 0.1s;
+  cursor: pointer;
+}
+.card-clickable:hover {
+  border-color: var(--border-md);
+  transform: translateY(-1px);
+}
+
+.card-accent {
+  background: var(--accent-dim);
+  border: 1px solid rgba(124,108,252,0.2);
+  transition: border-color 0.15s, background 0.15s;
+}
+.card-accent:hover { background: var(--accent-hover); border-color: rgba(124,108,252,0.35); }
+
+/* ── Nav ── */
+.nav-link { color: var(--text-2); transition: color 0.15s; }
+.nav-link:hover { color: var(--text); }
+.nav-link-active { color: var(--text); }
+
+.link-accent { color: var(--accent); transition: opacity 0.15s; }
+.link-accent:hover { opacity: 0.75; }
+
+/* ── Skeleton shimmer ── */
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%);
+  background-size: 1200px 100%;
+  animation: shimmer 1.8s infinite linear;
+  border-radius: 6px;
+}
+
+/* ── Fade in ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp 0.4s ease both; }
+
+/* ── External link ── */
+.external-link::after { content: " ↗"; font-size: 0.7em; opacity: 0.35; }
+
+/* ── Pill badge ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+/* ── Gradient hero ── */
+.hero-gradient {
+  background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(124,108,252,0.15) 0%, transparent 70%);
+}
+
+/* ── Dropdown menu item ── */
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  width: 100%;
+  text-align: left;
+  color: var(--text-2);
+  transition: background 0.1s;
+}
+.dropdown-item:hover { background: var(--surface-3); }
+.dropdown-item-danger { color: var(--down); }
+
+/* ── Filter tab ── */
+.filter-tab {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+  border: 1px solid transparent;
+  transition: all 0.15s;
+  cursor: pointer;
+  background: transparent;
+}
+.filter-tab:hover { color: var(--text); background: var(--surface-2); }
+.filter-tab.active {
+  color: var(--text);
+  background: var(--surface-3);
+  border-color: var(--border-md);
 }

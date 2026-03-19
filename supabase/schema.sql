@@ -96,6 +96,16 @@ CREATE INDEX IF NOT EXISTS idx_stocks_ticker_trgm ON stocks USING gin (ticker gi
 -- RLS (Row Level Security)
 -- =========================================
 
+-- Drop existing policies first (safe to re-run)
+DROP POLICY IF EXISTS "users can read own watchlist"      ON watchlist;
+DROP POLICY IF EXISTS "users can insert own watchlist"    ON watchlist;
+DROP POLICY IF EXISTS "users can delete own watchlist"    ON watchlist;
+DROP POLICY IF EXISTS "public read stocks"                ON stocks;
+DROP POLICY IF EXISTS "public read prices"                ON stock_prices;
+DROP POLICY IF EXISTS "public read price history"         ON stock_price_history;
+DROP POLICY IF EXISTS "public read news"                  ON news_articles;
+DROP POLICY IF EXISTS "public read active affiliates"     ON affiliate_links;
+
 -- watchlist: own data only
 ALTER TABLE watchlist ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "users can read own watchlist"   ON watchlist FOR SELECT USING (auth.uid() = user_id);

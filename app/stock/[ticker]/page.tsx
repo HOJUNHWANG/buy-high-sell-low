@@ -5,6 +5,7 @@ import type { Stock, StockPrice, StockPriceHistory, NewsArticle } from "@/lib/ty
 import Image from "next/image";
 import Link from "next/link";
 import { StockChart } from "@/components/StockChart";
+import { WatchlistButton } from "@/components/WatchlistButton";
 
 interface Props {
   params: Promise<{ ticker: string }>;
@@ -12,7 +13,6 @@ interface Props {
 
 async function getStockData(ticker: string) {
   const supabase = await createSupabaseServerClient();
-
   const [stockRes, priceRes, historyRes, newsRes] = await Promise.all([
     supabase.from("stocks").select("*").eq("ticker", ticker).single(),
     supabase.from("stock_prices").select("*").eq("ticker", ticker).single(),
@@ -21,7 +21,7 @@ async function getStockData(ticker: string) {
       .select("price, recorded_at")
       .eq("ticker", ticker)
       .order("recorded_at", { ascending: true })
-      .limit(390), // ~1D full resolution
+      .limit(390),
     supabase
       .from("news_articles")
       .select("*")
@@ -29,242 +29,211 @@ async function getStockData(ticker: string) {
       .order("published_at", { ascending: false })
       .limit(10),
   ]);
-
   return {
-    stock: stockRes.data as Stock | null,
-    price: priceRes.data as StockPrice | null,
+    stock:   stockRes.data as Stock | null,
+    price:   priceRes.data as StockPrice | null,
     history: (historyRes.data ?? []) as StockPriceHistory[],
-    news: (newsRes.data ?? []) as NewsArticle[],
+    news:    (newsRes.data ?? []) as NewsArticle[],
   };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { ticker } = await params;
-  const supabase = await createSupabaseServerClient();
-  const { data: stock } = await supabase
-    .from("stocks")
-    .select("name")
-    .eq("ticker", ticker)
-    .single();
-  const { data: price } = await supabase
-    .from("stock_prices")
-    .select("price, change_pct")
-    .eq("ticker", ticker)
-    .single();
-
+  const supabase   = await createSupabaseServerClient();
+  const { data: stock } = await supabase.from("stocks").select("name").eq("ticker", ticker).single();
+  const { data: price } = await supabase.from("stock_prices").select("price, change_pct").eq("ticker", ticker).single();
   if (!stock) return { title: ticker };
-
-  const pctStr =
-    price?.change_pct != null
-      ? ` (${price.change_pct >= 0 ? "+" : ""}${price.change_pct.toFixed(2)}%)`
-      : "";
-
+  const pctStr = price?.change_pct != null
+    ? ` (${price.change_pct >= 0 ? "+" : ""}${price.change_pct.toFixed(2)}%)`
+    : "";
   return {
-    title: `${stock.name} (${ticker}) Stock Price & News`,
+    title:       `${stock.name} (${ticker}) Stock Price & News`,
     description: `${stock.name} stock price $${price?.price ?? "N/A"}${pctStr}. Latest news and AI analysis.`,
-    openGraph: {
-      images: [`/og?ticker=${ticker}`],
-    },
+    openGraph:   { images: [`/og?ticker=${ticker}`] },
   };
-}
-
-function formatPrice(price: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(price);
-}
-
-function formatChangePct(pct: number | null) {
-  if (pct === null) return null;
-  const sign = pct >= 0 ? "+" : "";
-  return `${sign}${pct.toFixed(2)}%`;
-}
-
-function formatVolume(vol: number | null) {
-  if (!vol) return null;
-  if (vol >= 1_000_000) return `${(vol / 1_000_000).toFixed(1)}M`;
-  if (vol >= 1_000) return `${(vol / 1_000).toFixed(0)}K`;
-  return vol.toString();
 }
 
 function timeAgo(dateStr: string | null): string {
   if (!dateStr) return "";
   const diff = Date.now() - new Date(dateStr).getTime();
   const h = Math.floor(diff / 3_600_000);
-  if (h < 1) return "< 1h ago";
+  if (h < 1) return "< 1h";
   if (h < 24) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
+}
+
+function SentimentBadge({ sentiment }: { sentiment: string | null }) {
+  if (!sentiment) return null;
+  const color = sentiment === "positive" ? "var(--up)" : sentiment === "negative" ? "var(--down)" : "var(--text-3)";
+  const bg    = sentiment === "positive" ? "var(--up-dim)" : sentiment === "negative" ? "var(--down-dim)" : "var(--surface-3)";
+  return (
+    <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
+      style={{ background: bg, color }}>
+      {sentiment}
+    </span>
+  );
 }
 
 export default async function StockDetailPage({ params }: Props) {
   const { ticker } = await params;
   const { stock, price, history, news } = await getStockData(ticker.toUpperCase());
-
   if (!stock) notFound();
 
-  const isUp = (price?.change_pct ?? 0) >= 0;
+  const isUp   = (price?.change_pct ?? 0) >= 0;
+  const pctStr = price?.change_pct != null
+    ? `${price.change_pct >= 0 ? "+" : ""}${price.change_pct.toFixed(2)}%`
+    : null;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-5 py-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left: Main content */}
-        <div className="lg:col-span-2 space-y-6">
+
+        {/* ── Main column ── */}
+        <div className="lg:col-span-2 space-y-5">
+
           {/* Header */}
-          <div className="flex items-start gap-4">
-            {stock.logo_url && (
-              <Image
-                src={stock.logo_url}
-                alt={stock.name}
-                width={48}
-                height={48}
-                className="rounded-lg object-contain bg-white p-1"
-              />
-            )}
-            <div>
-              <h1 className="text-2xl font-bold text-white">{stock.name}</h1>
-              <p className="text-sm text-gray-400">
-                {stock.exchange}
-                {stock.sector && ` · ${stock.sector}`}
-              </p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              {stock.logo_url && (
+                <Image src={stock.logo_url} alt={stock.name} width={40} height={40}
+                  className="rounded-xl object-contain bg-white p-0.5 shrink-0" />
+              )}
+              <div>
+                <h1 className="text-xl font-semibold" style={{ color: "var(--text)" }}>
+                  {stock.name}
+                </h1>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-3)" }}>
+                  {[stock.ticker, stock.exchange, stock.sector].filter(Boolean).join(" · ")}
+                </p>
+              </div>
             </div>
+            <WatchlistButton ticker={stock.ticker} />
           </div>
 
-          {/* Price */}
+          {/* Price card */}
           {price ? (
-            <div className="space-y-1">
-              <div className="flex items-baseline gap-3">
-                <span className="text-4xl font-bold text-white">
-                  {formatPrice(price.price)}
+            <div className="card rounded-xl p-5">
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <span className="text-4xl font-bold" style={{ color: "var(--text)" }}>
+                  ${price.price.toFixed(2)}
                 </span>
-                {price.change_pct !== null && (
-                  <span
-                    className={`text-xl font-semibold ${isUp ? "text-emerald-400" : "text-red-400"}`}
-                  >
-                    {formatChangePct(price.change_pct)}
+                {pctStr && (
+                  <span className="text-base font-semibold px-2 py-0.5 rounded-lg"
+                    style={{
+                      color:      isUp ? "var(--up)"     : "var(--down)",
+                      background: isUp ? "var(--up-dim)" : "var(--down-dim)",
+                    }}>
+                    {pctStr}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-gray-500">
-                {price.volume && `Vol ${formatVolume(price.volume)} · `}
+              <p className="text-xs mt-2" style={{ color: "var(--text-3)" }}>
+                {price.volume ? `Vol ${(price.volume / 1_000_000).toFixed(1)}M · ` : ""}
                 Delayed · as of{" "}
                 {new Date(price.fetched_at).toLocaleTimeString("en-US", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  timeZone: "America/New_York",
-                })}{" "}
-                ET
+                  hour: "2-digit", minute: "2-digit", timeZone: "America/New_York",
+                })} ET
               </p>
             </div>
           ) : (
-            <p className="text-gray-500 text-sm">Price data unavailable.</p>
+            <div className="rounded-xl px-5 py-4 text-sm"
+              style={{ border: "1px dashed var(--border-md)", color: "var(--text-2)" }}>
+              Price data unavailable
+            </div>
           )}
 
           {/* Chart */}
           <StockChart ticker={ticker} history={history} />
 
           {/* Affiliate CTA */}
-          <div className="bg-blue-950 border border-blue-800 rounded-xl p-4 flex items-center justify-between">
+          <div className="card-accent rounded-xl p-4 flex items-center justify-between gap-4">
             <div>
-              <p className="font-medium text-white text-sm">Trade {ticker}</p>
-              <p className="text-xs text-blue-300">
+              <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Trade {ticker}</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-2)" }}>
                 Commission-free with Interactive Brokers
               </p>
             </div>
-            <a
-              href="#"
-              className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg transition-colors"
-              target="_blank"
-              rel="noopener noreferrer nofollow"
-            >
+            <a href="#" target="_blank" rel="noopener noreferrer nofollow"
+              className="shrink-0 text-xs font-semibold px-4 py-2 rounded-lg"
+              style={{ background: "var(--accent)", color: "#fff" }}>
               Open account →
             </a>
           </div>
 
           {/* Related News */}
           <section>
-            <h2 className="text-lg font-semibold text-gray-300 mb-4">
+            <p className="text-[11px] font-semibold uppercase tracking-widest mb-3"
+              style={{ color: "var(--text-3)" }}>
               Related News
-            </h2>
-            {news.length === 0 ? (
-              <p className="text-gray-500 text-sm">No news found for {ticker}.</p>
-            ) : (
-              <div className="space-y-4">
-                {news.map((article) => (
-                  <article
-                    key={article.id}
-                    className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-2"
-                  >
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      {article.source && <span>{article.source}</span>}
-                      <span>{timeAgo(article.published_at)}</span>
-                    </div>
-                    <a
-                      href={article.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block font-medium text-gray-100 hover:text-white leading-snug"
-                    >
-                      {article.title}
-                    </a>
+            </p>
 
-                    {article.ai_summary && (
-                      <div className="bg-gray-800 rounded-lg p-3 text-sm text-gray-300 space-y-1">
-                        <p>{article.ai_summary}</p>
-                        {article.ai_insight && (
-                          <p className="text-gray-400 italic text-xs">
-                            Impact: {article.ai_insight}
-                          </p>
-                        )}
-                        {article.ai_sentiment && (
-                          <span
-                            className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${
-                              article.ai_sentiment === "positive"
-                                ? "bg-emerald-900 text-emerald-300"
-                                : article.ai_sentiment === "negative"
-                                ? "bg-red-900 text-red-300"
-                                : "bg-gray-700 text-gray-300"
-                            }`}
-                          >
-                            {article.ai_sentiment}
-                          </span>
-                        )}
-                        <p className="text-xs text-gray-500">
-                          ⚠ Not investment advice.
-                        </p>
+            {news.length === 0 ? (
+              <p className="text-sm" style={{ color: "var(--text-2)" }}>No news for {ticker}.</p>
+            ) : (
+              <div className="space-y-2">
+                {news.map((article) => {
+                  const sc     = article.ai_sentiment;
+                  const barClr = sc === "positive" ? "var(--up)" : sc === "negative" ? "var(--down)" : "var(--border-md)";
+                  return (
+                    <article key={article.id} className="card rounded-xl p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-0.5 self-stretch rounded-full shrink-0"
+                          style={{ background: barClr }} />
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="flex items-center gap-2 text-[10px]" style={{ color: "var(--text-3)" }}>
+                            {article.source && <span>{article.source}</span>}
+                            <span>{timeAgo(article.published_at)}</span>
+                          </div>
+                          <a href={article.url} target="_blank" rel="noopener noreferrer"
+                            className="block text-sm font-medium leading-snug external-link"
+                            style={{ color: "var(--text)" }}>
+                            {article.title}
+                          </a>
+                          {article.ai_summary && (
+                            <div className="rounded-lg p-3 space-y-1.5"
+                              style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                              <div className="flex gap-1.5">
+                                <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                                  style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>AI</span>
+                                <SentimentBadge sentiment={sc} />
+                              </div>
+                              <p className="text-xs leading-relaxed" style={{ color: "var(--text-2)" }}>
+                                {article.ai_summary}
+                              </p>
+                              {article.ai_insight && (
+                                <p className="text-[11px]" style={{ color: "var(--text-3)" }}>
+                                  Impact: {article.ai_insight}
+                                </p>
+                              )}
+                              <p className="text-[10px]" style={{ color: "var(--text-3)" }}>Not investment advice</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </article>
-                ))}
+                    </article>
+                  );
+                })}
               </div>
             )}
           </section>
         </div>
 
-        {/* Right: Sidebar */}
-        <aside className="space-y-6">
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
-              About
-            </h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Ticker</span>
-                <span className="text-white font-medium">{stock.ticker}</span>
+        {/* ── Sidebar ── */}
+        <aside className="space-y-4">
+          <div className="card rounded-xl p-4 space-y-3">
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>
+              Overview
+            </p>
+            {[
+              ["Ticker",   stock.ticker],
+              ["Exchange", stock.exchange],
+              ["Sector",   stock.sector],
+            ].filter(([, v]) => v).map(([label, value]) => (
+              <div key={label as string} className="flex justify-between items-start gap-2">
+                <span className="text-xs shrink-0" style={{ color: "var(--text-3)" }}>{label}</span>
+                <span className="text-xs font-medium text-right" style={{ color: "var(--text)" }}>{value}</span>
               </div>
-              {stock.exchange && (
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Exchange</span>
-                  <span className="text-white">{stock.exchange}</span>
-                </div>
-              )}
-              {stock.sector && (
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Sector</span>
-                  <span className="text-white text-right max-w-32">{stock.sector}</span>
-                </div>
-              )}
-            </div>
+            ))}
           </div>
         </aside>
       </div>

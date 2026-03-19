@@ -18,10 +18,10 @@ load_dotenv()
 SUPABASE_URL   = os.environ["SUPABASE_URL"]
 SUPABASE_KEY   = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 NEWSAPI_KEY    = os.environ["NEWSAPI_KEY"]
-ANTHROPIC_KEY  = os.environ["ANTHROPIC_API_KEY"]
+ANTHROPIC_KEY  = os.environ.get("ANTHROPIC_API_KEY", "")
 
 supabase       = create_client(SUPABASE_URL, SUPABASE_KEY)
-claude         = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+claude         = anthropic.Anthropic(api_key=ANTHROPIC_KEY) if ANTHROPIC_KEY else None
 
 sys.path.insert(0, os.path.dirname(__file__))
 from tickers import SP100_TICKERS, COMPANY_NAMES
@@ -89,6 +89,8 @@ def generate_ai_summary(title: str, content: str) -> dict | None:
 Title: {title}
 Content: {content[:1000]}"""
 
+    if not claude:
+        return None
     try:
         msg = claude.messages.create(
             model="claude-3-5-haiku-20241022",

@@ -1,12 +1,12 @@
 """
 seed_stocks.py — Run once to populate stocks + affiliate_links tables.
 Usage: python scripts/seed_stocks.py
-Requires: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, FMP_API_KEY in env
+Data source: yfinance (free, no API key needed)
 """
 import os
 import sys
 import time
-import requests
+import yfinance as yf
 from dotenv import load_dotenv
 from supabase import create_client
 
@@ -14,7 +14,6 @@ load_dotenv()
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
-FMP_API_KEY  = os.environ["FMP_API_KEY"]
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
@@ -22,40 +21,37 @@ sys.path.insert(0, os.path.dirname(__file__))
 from tickers import SP100_TICKERS
 
 
-def fetch_fmp_profile(ticker: str) -> dict | None:
-    url = f"https://financialmodelingprep.com/api/v3/profile/{ticker}?apikey={FMP_API_KEY}"
+def fetch_yfinance_profile(ticker: str) -> dict | None:
     try:
-        r = requests.get(url, timeout=10)
-        r.raise_for_status()
-        data = r.json()
-        if data and isinstance(data, list):
-            return data[0]
+        info = yf.Ticker(ticker).info
+        if not info or info.get("trailingPegRatio") is None and not info.get("longName"):
+            return None
+        return {
+            "name":     info.get("longName") or info.get("shortName") or ticker,
+            "exchange": info.get("exchange"),
+            "sector":   info.get("sector"),
+            "logo_url": info.get("logo_url"),
+        }
     except Exception as e:
-        print(f"  FMP error for {ticker}: {e}")
-    return None
+        print(f"  yfinance error for {ticker}: {e}")
+        return None
 
 
 def seed_stocks():
-    print(f"Seeding {len(SP100_TICKERS)} stocks...")
+    print(f"Seeding {len(SP100_TICKERS)} stocks via yfinance...")
     success, failed = 0, []
 
     for ticker in SP100_TICKERS:
-        profile = fetch_fmp_profile(ticker)
+        profile = fetch_yfinance_profile(ticker)
         if profile:
-            row = {
-                "ticker":   ticker,
-                "name":     profile.get("companyName", ticker),
-                "exchange": profile.get("exchangeShortName"),
-                "sector":   profile.get("sector"),
-                "logo_url": profile.get("image"),
-            }
+            row = {"ticker": ticker, **profile}
         else:
             row = {"ticker": ticker, "name": ticker}
             failed.append(ticker)
 
         supabase.table("stocks").upsert(row).execute()
         print(f"  {'OK' if profile else 'FALLBACK'} {ticker}: {row.get('name')}")
-        time.sleep(0.3)  # FMP rate limit
+        time.sleep(0.5)
 
         success += 1
 
@@ -83,7 +79,6 @@ def seed_affiliate_links():
         },
     ]
     for link in links:
-        # Only insert if partner doesn't exist yet
         existing = supabase.table("affiliate_links").select("id").eq("partner", link["partner"]).execute()
         if not existing.data:
             supabase.table("affiliate_links").insert(link).execute()
