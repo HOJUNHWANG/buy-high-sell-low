@@ -21,7 +21,6 @@ export async function GET(request: Request) {
     .limit(10);
 
   if (error) {
-    console.error("Search error:", error);
     return NextResponse.json([], { status: 500 });
   }
 

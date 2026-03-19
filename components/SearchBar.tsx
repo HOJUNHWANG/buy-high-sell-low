@@ -7,19 +7,26 @@ import Image from "next/image";
 import type { Stock } from "@/lib/types";
 
 export function SearchBar() {
-  const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
+  const [query,   setQuery]   = useState("");
+  const [debounced, setDebounced] = useState("");
+  const [open,    setOpen]    = useState(false);
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // 300ms debounce — avoids API call on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(query), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
   const { data: results = [] } = useQuery<Stock[]>({
-    queryKey: ["search", query],
+    queryKey: ["search", debounced],
     queryFn: async () => {
-      if (!query) return [];
-      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+      if (!debounced) return [];
+      const res = await fetch(`/api/search?q=${encodeURIComponent(debounced)}`);
       return res.json();
     },
-    enabled: query.length > 0,
+    enabled: debounced.length > 0,
   });
 
   useEffect(() => {

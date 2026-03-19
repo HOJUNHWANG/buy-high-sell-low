@@ -8,16 +8,24 @@ import { MarketStatusWidget } from "@/components/MarketStatusWidget";
 import { SectorWidget } from "@/components/SectorWidget";
 import { MarketStatsWidget } from "@/components/MarketStatsWidget";
 import { SentimentWidget } from "@/components/SentimentWidget";
+import { SentimentBadge } from "@/components/SentimentBadge";
+import { timeAgo } from "@/lib/utils";
 
-async function getTopMovers(): Promise<(StockPrice & { stocks: Stock })[]> {
+async function getMovers(): Promise<{
+  gainers: (StockPrice & { stocks: Stock })[];
+  losers:  (StockPrice & { stocks: Stock })[];
+}> {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("stock_prices")
     .select("*, stocks(*)")
-    .not("change_pct", "is", null)
-    .order("change_pct", { ascending: false })
-    .limit(10);
-  return (data as (StockPrice & { stocks: Stock })[]) ?? [];
+    .not("change_pct", "is", null);
+  const all = (data as (StockPrice & { stocks: Stock })[]) ?? [];
+  const sorted = [...all].sort((a, b) => (b.change_pct ?? 0) - (a.change_pct ?? 0));
+  return {
+    gainers: sorted.slice(0, 5),
+    losers:  sorted.slice(-5).reverse(),
+  };
 }
 
 async function getLatestNews(limit = 20): Promise<NewsArticle[]> {
@@ -28,15 +36,6 @@ async function getLatestNews(limit = 20): Promise<NewsArticle[]> {
     .order("published_at", { ascending: false })
     .limit(limit);
   return data ?? [];
-}
-
-function timeAgo(dateStr: string | null): string {
-  if (!dateStr) return "";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const h = Math.floor(diff / 3_600_000);
-  if (h < 1) return "< 1h";
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
 }
 
 function SidebarSkeleton() {
@@ -53,8 +52,8 @@ export default async function HomePage() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [movers, news] = await Promise.all([
-    getTopMovers(),
+  const [{ gainers, losers }, news] = await Promise.all([
+    getMovers(),
     getLatestNews(user ? 20 : 6),
   ]);
 
@@ -167,7 +166,7 @@ export default async function HomePage() {
                 </Link>
               </div>
 
-              {movers.length === 0 ? (
+              {gainers.length === 0 ? (
                 <div
                   className="card rounded-xl px-5 py-8 text-sm text-center"
                   style={{ color: "var(--text-2)" }}
@@ -175,56 +174,27 @@ export default async function HomePage() {
                   Market data unavailable — updates during trading hours (9:30 AM – 4:00 PM ET)
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                  {movers.map((m) => {
-                    const pct  = m.change_pct ?? 0;
-                    const isUp = pct >= 0;
-                    const sign = isUp ? "+" : "";
-                    return (
-                      <Link
-                        key={m.ticker}
-                        href={`/stock/${m.ticker}`}
-                        className="card-clickable rounded-xl p-4 flex flex-col gap-3"
-                      >
-                        <div className="flex items-center gap-2">
-                          {m.stocks?.logo_url ? (
-                            <Image
-                              src={m.stocks.logo_url}
-                              alt={m.ticker}
-                              width={20}
-                              height={20}
-                              className="rounded object-contain bg-white p-0.5 shrink-0"
-                            />
-                          ) : (
-                            <div
-                              className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold shrink-0"
-                              style={{ background: "var(--surface-3)", color: "var(--text-2)" }}
-                            >
-                              {m.ticker[0]}
-                            </div>
-                          )}
-                          <span
-                            className="text-xs font-semibold truncate"
-                            style={{ color: "var(--text)" }}
-                          >
-                            {m.ticker}
-                          </span>
-                        </div>
-
-                        <div>
-                          <div
-                            className="text-sm font-bold"
-                            style={{ color: isUp ? "var(--up)" : "var(--down)" }}
-                          >
-                            {sign}{pct.toFixed(2)}%
-                          </div>
-                          <div className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>
-                            ${m.price.toFixed(2)}
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {/* Gainers */}
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1"
+                      style={{ color: "var(--up)" }}>
+                      <span>▲</span> Top Gainers
+                    </p>
+                    <div className="space-y-1.5">
+                      {gainers.map((m) => <MoverRow key={m.ticker} m={m} />)}
+                    </div>
+                  </div>
+                  {/* Losers */}
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1"
+                      style={{ color: "var(--down)" }}>
+                      <span>▼</span> Top Losers
+                    </p>
+                    <div className="space-y-1.5">
+                      {losers.map((m) => <MoverRow key={m.ticker} m={m} />)}
+                    </div>
+                  </div>
                 </div>
               )}
             </section>
@@ -321,23 +291,48 @@ export default async function HomePage() {
   );
 }
 
-function SentimentBadge({ sentiment }: { sentiment: string | null }) {
-  if (!sentiment) return null;
-  const color =
-    sentiment === "positive" ? "var(--up)" :
-    sentiment === "negative" ? "var(--down)" :
-    "var(--text-3)";
-  const bg =
-    sentiment === "positive" ? "var(--up-dim)" :
-    sentiment === "negative" ? "var(--down-dim)" :
-    "var(--surface-3)";
+function MoverRow({ m }: { m: StockPrice & { stocks: Stock } }) {
+  const pct  = m.change_pct ?? 0;
+  const isUp = pct >= 0;
   return (
-    <span
-      className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
-      style={{ background: bg, color }}
+    <Link
+      href={`/stock/${m.ticker}`}
+      className="card-clickable rounded-xl px-3 py-2.5 flex items-center justify-between gap-2"
     >
-      {sentiment}
-    </span>
+      <div className="flex items-center gap-2 min-w-0">
+        {m.stocks?.logo_url ? (
+          <Image
+            src={m.stocks.logo_url}
+            alt={m.ticker}
+            width={18}
+            height={18}
+            className="rounded object-contain bg-white p-0.5 shrink-0"
+          />
+        ) : (
+          <div
+            className="w-[18px] h-[18px] rounded flex items-center justify-center text-[8px] font-bold shrink-0"
+            style={{ background: "var(--surface-3)", color: "var(--text-2)" }}
+          >
+            {m.ticker[0]}
+          </div>
+        )}
+        <div className="min-w-0">
+          <p className="text-xs font-semibold" style={{ color: "var(--text)" }}>{m.ticker}</p>
+          <p className="text-[10px] truncate" style={{ color: "var(--text-3)" }}>
+            {m.stocks?.name}
+          </p>
+        </div>
+      </div>
+      <div className="text-right shrink-0">
+        <p className="text-xs font-bold tabular-nums"
+          style={{ color: isUp ? "var(--up)" : "var(--down)" }}>
+          {isUp ? "+" : ""}{pct.toFixed(2)}%
+        </p>
+        <p className="text-[10px] tabular-nums" style={{ color: "var(--text-3)" }}>
+          ${m.price.toFixed(2)}
+        </p>
+      </div>
+    </Link>
   );
 }
 

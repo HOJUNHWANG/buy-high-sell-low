@@ -6,6 +6,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { StockChart } from "@/components/StockChart";
 import { WatchlistButton } from "@/components/WatchlistButton";
+import { timeAgo } from "@/lib/utils";
+import { SentimentBadge } from "@/components/SentimentBadge";
 
 interface Props {
   params: Promise<{ ticker: string }>;
@@ -51,27 +53,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description: `${stock.name} stock price $${price?.price ?? "N/A"}${pctStr}. Latest news and AI analysis.`,
     openGraph:   { images: [`/og?ticker=${ticker}`] },
   };
-}
-
-function timeAgo(dateStr: string | null): string {
-  if (!dateStr) return "";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const h = Math.floor(diff / 3_600_000);
-  if (h < 1) return "< 1h";
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
-
-function SentimentBadge({ sentiment }: { sentiment: string | null }) {
-  if (!sentiment) return null;
-  const color = sentiment === "positive" ? "var(--up)" : sentiment === "negative" ? "var(--down)" : "var(--text-3)";
-  const bg    = sentiment === "positive" ? "var(--up-dim)" : sentiment === "negative" ? "var(--down-dim)" : "var(--surface-3)";
-  return (
-    <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
-      style={{ background: bg, color }}>
-      {sentiment}
-    </span>
-  );
 }
 
 export default async function StockDetailPage({ params }: Props) {
@@ -228,21 +209,119 @@ export default async function StockDetailPage({ params }: Props) {
 
         {/* ── Sidebar ── */}
         <aside className="space-y-4">
+
+          {/* Overview */}
           <div className="card rounded-xl p-4 space-y-3">
             <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>
               Overview
             </p>
-            {[
+            {([
               ["Ticker",   stock.ticker],
               ["Exchange", stock.exchange],
               ["Sector",   stock.sector],
-            ].filter(([, v]) => v).map(([label, value]) => (
-              <div key={label as string} className="flex justify-between items-start gap-2">
+            ] as [string, string | null][]).filter(([, v]) => v).map(([label, value]) => (
+              <div key={label} className="flex justify-between items-start gap-2">
                 <span className="text-xs shrink-0" style={{ color: "var(--text-3)" }}>{label}</span>
                 <span className="text-xs font-medium text-right" style={{ color: "var(--text)" }}>{value}</span>
               </div>
             ))}
           </div>
+
+          {/* Price stats */}
+          {price && (() => {
+            const changeDollar = price.change_pct != null
+              ? (price.price * price.change_pct) / 100
+              : null;
+            const prices52w = history.map(h => h.price);
+            const high52w   = prices52w.length > 0 ? Math.max(...prices52w) : null;
+            const low52w    = prices52w.length > 0 ? Math.min(...prices52w) : null;
+
+            return (
+              <div className="card rounded-xl p-4 space-y-3">
+                <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>
+                  Price Stats
+                </p>
+                {changeDollar !== null && (
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="text-xs" style={{ color: "var(--text-3)" }}>Change ($)</span>
+                    <span className="text-xs font-semibold tabular-nums"
+                      style={{ color: changeDollar >= 0 ? "var(--up)" : "var(--down)" }}>
+                      {changeDollar >= 0 ? "+" : ""}${Math.abs(changeDollar).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {price.volume != null && (
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="text-xs" style={{ color: "var(--text-3)" }}>Volume</span>
+                    <span className="text-xs font-medium tabular-nums" style={{ color: "var(--text)" }}>
+                      {price.volume >= 1_000_000
+                        ? `${(price.volume / 1_000_000).toFixed(1)}M`
+                        : price.volume >= 1_000
+                        ? `${(price.volume / 1_000).toFixed(0)}K`
+                        : price.volume}
+                    </span>
+                  </div>
+                )}
+                {high52w !== null && (
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="text-xs" style={{ color: "var(--text-3)" }}>90d High</span>
+                    <span className="text-xs font-medium tabular-nums" style={{ color: "var(--up)" }}>
+                      ${high52w.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {low52w !== null && (
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="text-xs" style={{ color: "var(--text-3)" }}>90d Low</span>
+                    <span className="text-xs font-medium tabular-nums" style={{ color: "var(--down)" }}>
+                      ${low52w.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {high52w !== null && low52w !== null && high52w > low52w && (
+                  <div>
+                    <div className="flex justify-between text-[9px] mb-1" style={{ color: "var(--text-3)" }}>
+                      <span>L</span><span>90d Range</span><span>H</span>
+                    </div>
+                    <div className="h-1.5 rounded-full relative" style={{ background: "var(--surface-3)" }}>
+                      <div
+                        className="absolute h-full rounded-full"
+                        style={{
+                          left:  `${((low52w - low52w) / (high52w - low52w)) * 100}%`,
+                          width: `${((price.price - low52w) / (high52w - low52w)) * 100}%`,
+                          background: "var(--accent)",
+                          opacity: 0.7,
+                        }}
+                      />
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border-2"
+                        style={{
+                          left: `calc(${((price.price - low52w) / (high52w - low52w)) * 100}% - 5px)`,
+                          background: "var(--accent)",
+                          borderColor: "var(--bg)",
+                        }}
+                      />
+                    </div>
+                    <p className="text-[9px] text-center mt-1" style={{ color: "var(--text-3)" }}>
+                      ${price.price.toFixed(2)} current
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Back to screener */}
+          <Link
+            href="/stocks"
+            className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg transition-colors"
+            style={{ color: "var(--text-3)", border: "1px solid var(--border)" }}
+          >
+            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            All stocks
+          </Link>
         </aside>
       </div>
     </div>

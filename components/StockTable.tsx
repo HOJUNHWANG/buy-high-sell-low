@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import type { Stock, StockPrice } from "@/lib/types";
+import { fmtVol } from "@/lib/utils";
 
 type StockRow = Stock & { price?: StockPrice };
 type SortKey = "ticker" | "name" | "price" | "change_pct" | "volume";
@@ -27,13 +28,6 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   );
 }
 
-function fmtVol(v: number | null | undefined): string {
-  if (!v) return "—";
-  if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}B`;
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
-  return v.toString();
-}
 
 export function StockTable({ stocks }: { stocks: StockRow[] }) {
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({
@@ -222,8 +216,8 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                   return (
                     <tr
                       key={stock.ticker}
+                      className="tr-hover group"
                       style={{ borderBottom: "1px solid var(--border)" }}
-                      className="transition-colors group"
                     >
                       <td className="px-4 py-3 tabular-nums" style={{ color: "var(--text-3)" }}>
                         {idx + 1}

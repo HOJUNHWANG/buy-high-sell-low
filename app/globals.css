@@ -122,6 +122,10 @@ html, body {
 .dropdown-item:hover { background: var(--surface-3); }
 .dropdown-item-danger { color: var(--down); }
 
+/* ── Table row hover ── */
+.tr-hover { transition: background 0.1s; }
+.tr-hover:hover { background: var(--surface-2) !important; }
+
 /* ── Filter tab ── */
 .filter-tab {
   padding: 5px 12px;

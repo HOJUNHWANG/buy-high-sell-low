@@ -1,34 +1,31 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import type { NewsArticle } from "@/lib/types";
 import Link from "next/link";
+import { timeAgo } from "@/lib/utils";
+import { SentimentBadge } from "@/components/SentimentBadge";
 
 type Tab = "all" | "positive" | "neutral" | "negative";
 
-function timeAgo(dateStr: string | null): string {
-  if (!dateStr) return "";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const h = Math.floor(diff / 3_600_000);
-  if (h < 1) return "< 1h";
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
+export function NewsFilter({
+  articles,
+  initialTab = "all",
+}: {
+  articles: NewsArticle[];
+  initialTab?: Tab;
+}) {
+  const [tab, setTab] = useState<Tab>(initialTab);
+  const router = useRouter();
+  const pathname = usePathname();
 
-function SentimentBadge({ sentiment }: { sentiment: string | null }) {
-  if (!sentiment) return null;
-  const color = sentiment === "positive" ? "var(--up)" : sentiment === "negative" ? "var(--down)" : "var(--text-3)";
-  const bg    = sentiment === "positive" ? "var(--up-dim)" : sentiment === "negative" ? "var(--down-dim)" : "var(--surface-3)";
-  return (
-    <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
-      style={{ background: bg, color }}>
-      {sentiment}
-    </span>
-  );
-}
-
-export function NewsFilter({ articles }: { articles: NewsArticle[] }) {
-  const [tab, setTab] = useState<Tab>("all");
+  function handleTab(next: Tab) {
+    setTab(next);
+    const params = new URLSearchParams();
+    if (next !== "all") params.set("sentiment", next);
+    router.replace(`${pathname}${params.size ? `?${params}` : ""}`, { scroll: false });
+  }
 
   const tabs: { id: Tab; label: string; color?: string }[] = [
     { id: "all",      label: "All" },
@@ -55,7 +52,7 @@ export function NewsFilter({ articles }: { articles: NewsArticle[] }) {
         {tabs.map(({ id, label, color }) => (
           <button
             key={id}
-            onClick={() => setTab(id)}
+            onClick={() => handleTab(id)}
             className={`filter-tab${tab === id ? " active" : ""}`}
           >
             <span style={tab === id && color ? { color } : undefined}>{label}</span>
