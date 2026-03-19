@@ -8,7 +8,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .select("ticker, updated_at");
 
   const stockRoutes = (stocks ?? []).map((s) => ({
-    url: `https://globalstock.vercel.app/stock/${s.ticker}`,
+    url: `https://global-stock-navy.vercel.app/stock/${s.ticker}`,
     lastModified: new Date(s.updated_at),
     changeFrequency: "hourly" as const,
     priority: 0.8,
@@ -16,19 +16,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     {
-      url: "https://globalstock.vercel.app",
+      url: "https://global-stock-navy.vercel.app",
       lastModified: new Date(),
       changeFrequency: "hourly",
       priority: 1,
     },
     {
-      url: "https://globalstock.vercel.app/news",
+      url: "https://global-stock-navy.vercel.app/news",
       lastModified: new Date(),
       changeFrequency: "hourly",
       priority: 0.7,
     },
     {
-      url: "https://globalstock.vercel.app/privacy",
+      url: "https://global-stock-navy.vercel.app/privacy",
       lastModified: new Date(),
       changeFrequency: "yearly",
       priority: 0.3,

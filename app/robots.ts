@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/api/", "/auth/callback"],
     },
-    sitemap: "https://globalstock.vercel.app/sitemap.xml",
+    sitemap: "https://global-stock-navy.vercel.app/sitemap.xml",
   };
 }
