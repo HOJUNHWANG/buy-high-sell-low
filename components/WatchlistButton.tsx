@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
 export function WatchlistButton({ ticker }: { ticker: string }) {
   const [saved,   setSaved]   = useState(false);
   const [loading, setLoading] = useState(true);
   const [userId,  setUserId]  = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -29,7 +31,7 @@ export function WatchlistButton({ ticker }: { ticker: string }) {
   async function toggle() {
     if (loading) return;
     if (!userId) {
-      window.location.href = "/auth/login";
+      router.push("/auth/login");
       return;
     }
     const supabase = createSupabaseBrowserClient();

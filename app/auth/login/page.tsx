@@ -28,6 +28,14 @@ function LoginForm() {
     if (err) setError(err);
   }, [searchParams]);
 
+  // Redirect if already logged in
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) router.replace("/");
+    });
+  }, [router]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
