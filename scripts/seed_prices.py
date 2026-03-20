@@ -36,9 +36,9 @@ def main():
                 failed.append(ticker)
                 continue
 
-            price     = float(closes.iloc[-1])
-            prev      = float(closes.iloc[-2])
-            change_pct = round((price - prev) / prev * 100, 4)
+            price      = float(closes.iloc[-1])
+            prev       = float(closes.iloc[-2])
+            change_pct = round((price - prev) / prev * 100, 4) if prev != 0 else 0.0
 
             supabase.table("stock_prices").upsert({
                 "ticker":     ticker,

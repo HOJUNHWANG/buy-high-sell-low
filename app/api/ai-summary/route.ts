@@ -13,22 +13,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Rate limit check
-  const today = new Date().toISOString().split("T")[0];
-  const { data: usage } = await supabase
-    .from("ai_usage")
-    .select("count")
-    .eq("user_id", user.id)
-    .eq("date", today)
-    .single();
-
-  if ((usage?.count ?? 0) >= DAILY_LIMIT) {
-    return NextResponse.json(
-      { error: "Daily limit reached (30/30). Resets tomorrow." },
-      { status: 429 }
-    );
-  }
-
   let body: unknown;
   try {
     body = await request.json();
@@ -37,16 +21,22 @@ export async function POST(request: Request) {
   }
 
   const articleId = (body as Record<string, unknown>)?.articleId;
-  if (!articleId || typeof articleId !== "number" || !Number.isInteger(articleId) || articleId <= 0) {
+  if (!articleId || typeof articleId !== "number" || !Number.isInteger(articleId) || articleId < 1) {
     return NextResponse.json({ error: "articleId must be a positive integer" }, { status: 400 });
   }
 
   // Fetch article
-  const { data: article } = await supabase
-    .from("news_articles")
-    .select("title, ai_summary, ai_insight, ai_sentiment")
-    .eq("id", articleId)
-    .single();
+  let article: { title: string; ai_summary: string | null; ai_insight: string | null; ai_sentiment: string | null; ai_caution: string | null } | null = null;
+  try {
+    const { data } = await supabase
+      .from("news_articles")
+      .select("title, ai_summary, ai_insight, ai_sentiment, ai_caution")
+      .eq("id", articleId)
+      .single();
+    article = data;
+  } catch {
+    return NextResponse.json({ error: "Article not found" }, { status: 404 });
+  }
 
   if (!article) {
     return NextResponse.json({ error: "Article not found" }, { status: 404 });
@@ -55,11 +45,36 @@ export async function POST(request: Request) {
   // Return cached summary if available
   if (article.ai_summary) {
     return NextResponse.json({
-      summary: article.ai_summary,
-      insight: article.ai_insight,
+      summary:   article.ai_summary,
+      insight:   article.ai_insight,
       sentiment: article.ai_sentiment,
+      caution:   article.ai_caution,
     });
   }
+
+  // Atomically claim a usage slot BEFORE generating to prevent race conditions.
+  // Read current count and increment immediately; refund on generation failure.
+  const today = new Date().toISOString().split("T")[0];
+  const { data: usage } = await supabase
+    .from("ai_usage")
+    .select("count")
+    .eq("user_id", user.id)
+    .eq("date", today)
+    .single();
+
+  const currentCount = usage?.count ?? 0;
+  if (currentCount >= DAILY_LIMIT) {
+    return NextResponse.json(
+      { error: `Daily limit reached (${DAILY_LIMIT}/${DAILY_LIMIT}). Resets tomorrow.` },
+      { status: 429 }
+    );
+  }
+
+  // Increment BEFORE generation so concurrent requests can't both slip through
+  await supabase.from("ai_usage").upsert(
+    { user_id: user.id, date: today, count: currentCount + 1 },
+    { onConflict: "user_id,date" }
+  );
 
   // Generate new summary
   const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -91,6 +106,11 @@ Title: ${article.title}`;
     });
     result = JSON.parse(msg.choices[0].message.content ?? "{}");
   } catch {
+    // Refund the usage slot on generation failure
+    await supabase.from("ai_usage").upsert(
+      { user_id: user.id, date: today, count: currentCount },
+      { onConflict: "user_id,date" }
+    );
     return NextResponse.json({ error: "AI generation failed" }, { status: 500 });
   }
 
@@ -98,22 +118,18 @@ Title: ${article.title}`;
   await supabase
     .from("news_articles")
     .update({
-      ai_summary:      result.summary,
-      ai_insight:      result.impact,
-      ai_sentiment:    result.sentiment,
+      ai_summary:      result.summary   ?? null,
+      ai_insight:      result.impact    ?? null,
+      ai_sentiment:    result.sentiment ?? null,
+      ai_caution:      result.caution   ?? null,
       ai_generated_at: new Date().toISOString(),
     })
     .eq("id", articleId);
 
-  // Increment usage
-  await supabase.from("ai_usage").upsert(
-    { user_id: user.id, date: today, count: (usage?.count ?? 0) + 1 },
-    { onConflict: "user_id,date" }
-  );
-
   return NextResponse.json({
-    summary:   result.summary,
-    insight:   result.impact,
-    sentiment: result.sentiment,
+    summary:   result.summary   ?? null,
+    insight:   result.impact    ?? null,
+    sentiment: result.sentiment ?? null,
+    caution:   result.caution   ?? null,
   });
 }

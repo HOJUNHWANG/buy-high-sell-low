@@ -32,6 +32,7 @@ export interface NewsArticle {
   ai_summary: string | null;
   ai_insight: string | null;
   ai_sentiment: "positive" | "neutral" | "negative" | null;
+  ai_caution: string | null;
   ai_generated_at: string | null;
   fetched_at: string;
 }

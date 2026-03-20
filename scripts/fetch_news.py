@@ -159,9 +159,10 @@ def main():
             "url":             url,
             "source":          source_name,
             "published_at":    published,
-            "ai_summary":      ai.get("summary") if ai else None,
-            "ai_insight":      ai.get("impact") if ai else None,
+            "ai_summary":      ai.get("summary")   if ai else None,
+            "ai_insight":      ai.get("impact")    if ai else None,
             "ai_sentiment":    ai.get("sentiment") if ai else None,
+            "ai_caution":      ai.get("caution")   if ai else None,
             "ai_generated_at": datetime.utcnow().isoformat() if ai else None,
         }
 

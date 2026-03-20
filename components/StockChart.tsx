@@ -35,8 +35,9 @@ function getRangeStats(data: StockPriceHistory[]) {
 
 export function StockChart({ ticker, history }: Props) {
   const chartRef = useRef<HTMLDivElement>(null);
-  const [range, setRange] = useState<Range>("1W");
-  const ranges: Range[]   = ["1D", "1W", "1M", "3M"];
+  const [range, setRange]       = useState<Range>("1W");
+  const [chartError, setChartError] = useState(false);
+  const ranges: Range[]         = ["1D", "1W", "1M", "3M"];
 
   const filtered = filterByRange(history, range);
   const stats    = getRangeStats(filtered);
@@ -47,7 +48,13 @@ export function StockChart({ ticker, history }: Props) {
     let chart: ReturnType<typeof import("lightweight-charts")["createChart"]> | null = null;
 
     async function init() {
-      const { createChart, ColorType, AreaSeries } = await import("lightweight-charts");
+      let createChart, ColorType, AreaSeries;
+      try {
+        ({ createChart, ColorType, AreaSeries } = await import("lightweight-charts"));
+      } catch {
+        setChartError(true);
+        return;
+      }
       if (!chartRef.current) return;
 
       const accentColor = isUp ? "#4ade80" : "#f87171";
@@ -160,7 +167,14 @@ export function StockChart({ ticker, history }: Props) {
         )}
       </div>
 
-      {history.length === 0 ? (
+      {chartError ? (
+        <div
+          className="h-64 flex flex-col items-center justify-center gap-2 text-xs"
+          style={{ color: "var(--text-3)" }}
+        >
+          Chart failed to load
+        </div>
+      ) : history.length === 0 ? (
         <div
           className="h-64 flex flex-col items-center justify-center gap-2 text-xs"
           style={{ color: "var(--text-3)" }}
@@ -196,6 +210,7 @@ export function StockChart({ ticker, history }: Props) {
       ) : (
         <div ref={chartRef} className="w-full" style={{ touchAction: "pan-y" }} />
       )}
+
     </div>
   );
 }

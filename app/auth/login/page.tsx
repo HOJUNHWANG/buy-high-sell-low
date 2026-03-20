@@ -76,25 +76,39 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-3">
-            {["email","password"].map((field) => (
+            <div className="space-y-1">
+              <label htmlFor="email" className="sr-only">Email address</label>
               <input
-                key={field}
-                type={field}
-                value={field === "email" ? email : password}
-                onChange={(e) => field === "email" ? setEmail(e.target.value) : setPassword(e.target.value)}
-                placeholder={field === "email" ? "Email" : "Password"}
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
                 required
-                minLength={field === "password" ? 6 : undefined}
+                autoComplete="email"
                 className="w-full px-3 py-2.5 text-sm rounded-lg outline-none transition-all"
-                style={{
-                  background: "var(--surface-2)",
-                  border: "1px solid var(--border)",
-                  color: "var(--text)",
-                }}
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}
                 onFocus={(e) => (e.target.style.borderColor = "var(--border-lg)")}
                 onBlur={(e)  => (e.target.style.borderColor = "var(--border)")}
               />
-            ))}
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="password" className="sr-only">Password</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                required
+                minLength={6}
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                className="w-full px-3 py-2.5 text-sm rounded-lg outline-none transition-all"
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}
+                onFocus={(e) => (e.target.style.borderColor = "var(--border-lg)")}
+                onBlur={(e)  => (e.target.style.borderColor = "var(--border)")}
+              />
+            </div>
 
             {mode === "signup" && (
               <p className="text-[11px]" style={{ color: "var(--text-3)" }}>

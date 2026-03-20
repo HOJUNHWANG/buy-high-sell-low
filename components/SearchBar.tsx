@@ -19,7 +19,7 @@ export function SearchBar() {
     return () => clearTimeout(t);
   }, [query]);
 
-  const { data: results = [] } = useQuery<Stock[]>({
+  const { data: results = [], isFetching } = useQuery<Stock[]>({
     queryKey: ["search", debounced],
     queryFn: async () => {
       if (!debounced) return [];
@@ -64,13 +64,17 @@ export function SearchBar() {
           onFocus={(e) => { e.target.style.borderColor = "var(--border-md)"; setOpen(true); }}
           onBlur={(e) => { e.target.style.borderColor = "var(--border)"; }}
           placeholder="Search stocks..."
-          className="w-full pl-8 pr-3 py-1.5 text-xs rounded-md outline-none transition-all"
+          className="w-full pl-8 pr-7 py-1.5 text-xs rounded-md outline-none transition-all"
           style={{
             background: "var(--surface-2)",
             border: "1px solid var(--border)",
             color: "var(--text)",
           }}
         />
+        {isFetching && (
+          <div className="absolute right-2.5 w-3 h-3 rounded-full border border-t-transparent animate-spin"
+            style={{ borderColor: "var(--text-3)", borderTopColor: "transparent" }} />
+        )}
       </div>
 
       {open && results.length > 0 && (
@@ -124,7 +128,7 @@ export function SearchBar() {
         </ul>
       )}
 
-      {open && query.length > 0 && results.length === 0 && (
+      {open && query.length > 0 && !isFetching && results.length === 0 && (
         <div
           className="absolute top-full mt-1.5 w-full rounded-lg px-3 py-3 text-xs z-50"
           style={{

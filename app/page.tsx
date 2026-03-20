@@ -15,27 +15,35 @@ async function getMovers(): Promise<{
   gainers: (StockPrice & { stocks: Stock })[];
   losers:  (StockPrice & { stocks: Stock })[];
 }> {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("stock_prices")
-    .select("*, stocks(*)")
-    .not("change_pct", "is", null);
-  const all = (data as (StockPrice & { stocks: Stock })[]) ?? [];
-  const sorted = [...all].sort((a, b) => (b.change_pct ?? 0) - (a.change_pct ?? 0));
-  return {
-    gainers: sorted.slice(0, 5),
-    losers:  sorted.slice(-5).reverse(),
-  };
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase
+      .from("stock_prices")
+      .select("*, stocks(*)")
+      .not("change_pct", "is", null);
+    const all = (data as (StockPrice & { stocks: Stock })[]) ?? [];
+    const sorted = [...all].sort((a, b) => (b.change_pct ?? 0) - (a.change_pct ?? 0));
+    return {
+      gainers: sorted.slice(0, 5),
+      losers:  sorted.slice(-5).reverse(),
+    };
+  } catch {
+    return { gainers: [], losers: [] };
+  }
 }
 
 async function getLatestNews(limit = 20): Promise<NewsArticle[]> {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("news_articles")
-    .select("*")
-    .order("published_at", { ascending: false })
-    .limit(limit);
-  return data ?? [];
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase
+      .from("news_articles")
+      .select("*")
+      .order("published_at", { ascending: false })
+      .limit(limit);
+    return data ?? [];
+  } catch {
+    return [];
+  }
 }
 
 function SidebarSkeleton() {

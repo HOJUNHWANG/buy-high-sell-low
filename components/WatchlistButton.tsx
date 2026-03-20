@@ -27,6 +27,7 @@ export function WatchlistButton({ ticker }: { ticker: string }) {
   }, [ticker]);
 
   async function toggle() {
+    if (loading) return;
     if (!userId) {
       window.location.href = "/auth/login";
       return;
