@@ -53,7 +53,7 @@ export default function PrivacyPage() {
           <li>Account data: retained while your account is active</li>
           <li>Watchlist data: deleted when you remove items or delete your account</li>
           <li>Stock price history: 90 days rolling retention</li>
-          <li>News articles: retained indefinitely for archival purposes</li>
+          <li>News articles: 90 days rolling retention (older articles are automatically deleted)</li>
           <li>AI usage logs: 12 months</li>
           <li>Fetch/error logs: 90 days</li>
         </ul>
@@ -85,14 +85,14 @@ export default function PrivacyPage() {
             </a>
           </li>
           <li>
-            <strong>Anthropic Claude</strong>: Generates AI summaries of news articles. Article
-            titles and content snippets are sent to Anthropic&apos;s API.{" "}
-            <a href="https://www.anthropic.com/legal/privacy" className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">
-              Anthropic Privacy Policy
+            <strong>Groq</strong>: Generates AI summaries of news articles using the Llama 3.3
+            model. Article titles and content snippets are sent to Groq&apos;s API.{" "}
+            <a href="https://groq.com/privacy-policy/" className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">
+              Groq Privacy Policy
             </a>
           </li>
           <li>
-            <strong>Twelve Data / NewsAPI / FMP</strong>: Financial data and news providers.
+            <strong>Twelve Data / NewsAPI</strong>: Financial data and news providers.
             No personal data is shared with these services.
           </li>
         </ul>
@@ -113,10 +113,8 @@ export default function PrivacyPage() {
               </thead>
               <tbody>
                 {[
-                  ["Supabase auth token",    "Keeps you logged in",                         "Yes"],
-                  ["cookie_consent",         "Remembers your cookie preference",            "Yes"],
-                  ["Google AdSense (__gads)", "Personalized advertising",                   "No (opt-out available)"],
-                  ["Google Analytics (_ga)", "Anonymous usage analytics (if enabled)",      "No"],
+                  ["Supabase auth token", "Keeps you logged in",               "Yes"],
+                  ["cookie_consent",      "Remembers your cookie preference",  "Yes"],
                 ].map(([name, purpose, req]) => (
                   <tr key={name} style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
                     <td className="px-3 py-2 text-gray-300 font-mono">{name}</td>
@@ -128,11 +126,8 @@ export default function PrivacyPage() {
             </table>
           </div>
           <p>
-            You can opt out of Google personalised ads via{" "}
-            <a href="https://adssettings.google.com" className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">
-              Google Ad Settings
-            </a>{" "}
-            or the cookie banner shown on your first visit.
+            We use only essential cookies required to operate the service. No advertising or
+            analytics cookies are currently in use.
           </p>
         </div>
       </section>

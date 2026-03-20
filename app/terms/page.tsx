@@ -55,7 +55,7 @@ export default function TermsPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-white">3. AI-Generated Content</h2>
         <p className="text-sm leading-relaxed">
-          GlobalStock uses Anthropic Claude to generate AI summaries and analysis of news
+          GlobalStock uses Groq (Llama 3.3) to generate AI summaries and analysis of news
           articles. These summaries:
         </p>
         <ul className="list-disc list-inside space-y-1 text-sm">
