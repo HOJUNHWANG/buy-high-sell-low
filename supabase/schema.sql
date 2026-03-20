@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS news_articles (
   ai_summary       TEXT,
   ai_insight       TEXT,
   ai_sentiment     TEXT CHECK (ai_sentiment IN ('positive', 'neutral', 'negative')),
+  ai_caution       TEXT,
   ai_generated_at  TIMESTAMPTZ,
   fetched_at       TIMESTAMPTZ DEFAULT NOW()
 );
@@ -110,6 +111,8 @@ DROP POLICY IF EXISTS "public read prices"                ON stock_prices;
 DROP POLICY IF EXISTS "public read price history"         ON stock_price_history;
 DROP POLICY IF EXISTS "public read news"                  ON news_articles;
 DROP POLICY IF EXISTS "public read active affiliates"     ON affiliate_links;
+DROP POLICY IF EXISTS "no public access fetch_logs"       ON fetch_logs;
+DROP POLICY IF EXISTS "users can read own ai_usage"       ON ai_usage;
 
 -- watchlist: own data only
 ALTER TABLE watchlist ENABLE ROW LEVEL SECURITY;
@@ -132,3 +135,15 @@ CREATE POLICY "public read news" ON news_articles FOR SELECT USING (true);
 
 ALTER TABLE affiliate_links ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "public read active affiliates" ON affiliate_links FOR SELECT USING (is_active = true);
+
+-- fetch_logs: internal only — no public or user access
+DROP POLICY IF EXISTS "no public access fetch_logs" ON fetch_logs;
+ALTER TABLE fetch_logs ENABLE ROW LEVEL SECURITY;
+-- No SELECT policy = blocked for all anon/authenticated client queries.
+-- Only service role key (used by Python scripts) can write.
+
+-- ai_usage: users can only read their own usage
+DROP POLICY IF EXISTS "users can read own ai_usage" ON ai_usage;
+ALTER TABLE ai_usage ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "users can read own ai_usage" ON ai_usage FOR SELECT USING (auth.uid() = user_id);
+-- No INSERT/UPDATE policy for client — writes go through service role in API route.
