@@ -29,7 +29,10 @@ from tickers import SP100_TICKERS, COMPANY_NAMES
 MAX_AI_PER_RUN = 30  # Claude calls per cron run — prevents surprise billing
 
 RSS_FEEDS = [
-    "https://feeds.reuters.com/reuters/businessNews",
+    "https://feeds.finance.yahoo.com/rss/2.0/headline?region=US&lang=en-US",
+    "https://feeds.marketwatch.com/marketwatch/topstories/",
+    "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+    "https://www.cnbc.com/id/10001147/device/rss/rss.html",
     "https://feeds.bbci.co.uk/news/business/rss.xml",
 ]
 
@@ -115,13 +118,16 @@ def get_existing_urls() -> set[str]:
 
 def main():
     print("Fetching news...")
-    try:
-        articles = fetch_from_newsapi()
-        print(f"  NewsAPI: {len(articles)} articles")
-    except Exception as e:
-        print(f"  NewsAPI failed ({e}), falling back to RSS...")
-        articles = fetch_from_rss()
-        print(f"  RSS: {len(articles)} articles")
+    articles = fetch_from_rss()
+    print(f"  RSS: {len(articles)} articles")
+
+    if len(articles) < 10:
+        print("  RSS low yield — supplementing with NewsAPI...")
+        try:
+            articles += fetch_from_newsapi()
+            print(f"  Total after NewsAPI supplement: {len(articles)} articles")
+        except Exception as e:
+            print(f"  NewsAPI also failed ({e})")
 
     existing_urls = get_existing_urls()
     new_articles = [a for a in articles if a.get("url") and a["url"] not in existing_urls]
