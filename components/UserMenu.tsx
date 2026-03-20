@@ -14,10 +14,18 @@ export function UserMenu() {
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
+
     supabase.auth.getUser().then(({ data }) => {
       setEmail(data.user?.email ?? null);
       setLoading(false);
     });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setEmail(session?.user?.email ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -29,6 +37,8 @@ export function UserMenu() {
   }, []);
 
   async function signOut() {
+    setEmail(null);
+    setOpen(false);
     const supabase = createSupabaseBrowserClient();
     await supabase.auth.signOut();
     router.refresh();
