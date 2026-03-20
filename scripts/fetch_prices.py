@@ -46,6 +46,10 @@ def fetch_batch(tickers: list[str]) -> dict:
     r.raise_for_status()
     data = r.json()
 
+    # Top-level error response (e.g. rate limit, invalid key)
+    if isinstance(data, dict) and data.get("status") == "error":
+        raise Exception(f"Twelve Data API error {data.get('code', '?')}: {data.get('message', 'unknown')}")
+
     # Single ticker returns flat dict, multiple returns nested
     if len(tickers) == 1:
         return {tickers[0]: data} if "close" in data else {}
@@ -108,6 +112,7 @@ def main():
     batches = [SP100_TICKERS[i:i+BATCH_SIZE] for i in range(0, len(SP100_TICKERS), BATCH_SIZE)]
 
     twelve_data_failed = False
+    twelve_data_error = ""
     for batch in batches:
         try:
             results = fetch_batch(batch)
@@ -118,6 +123,7 @@ def main():
         except Exception as e:
             print(f"  Twelve Data error: {e}")
             twelve_data_failed = True
+            twelve_data_error = str(e)
             all_failed.extend(batch)
 
     if twelve_data_failed:
@@ -129,7 +135,7 @@ def main():
         )
         print(result.stdout)
         if result.returncode == 0:
-            log_result("prices", "partial", total_fetched, all_failed, "yfinance fallback used")
+            log_result("prices", "partial", total_fetched, all_failed, f"yfinance fallback used. Twelve Data: {twelve_data_error}")
             return
 
     status = "success" if not all_failed else "partial"
