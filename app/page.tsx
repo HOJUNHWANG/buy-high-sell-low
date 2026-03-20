@@ -96,7 +96,7 @@ export default async function HomePage() {
               className="text-base max-w-xl mx-auto mb-8"
               style={{ color: "var(--text-2)" }}
             >
-              Real-time prices, curated market news with Claude AI summaries,
+              Real-time prices, curated market news with AI summaries,
               and a personal watchlist — completely free.
             </p>
 
