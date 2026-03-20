@@ -2,7 +2,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const DAILY_LIMIT = 30;
 
 export async function POST(request: Request) {
@@ -63,6 +62,7 @@ export async function POST(request: Request) {
   }
 
   // Generate new summary
+  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
   const prompt = `Analyze the following financial news for a general investor audience.
 
 [STRICT RULES]
