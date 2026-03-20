@@ -11,17 +11,17 @@ import feedparser
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from supabase import create_client
-import anthropic
+from groq import Groq
 
 load_dotenv()
 
-SUPABASE_URL   = os.environ["SUPABASE_URL"]
-SUPABASE_KEY   = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
-NEWSAPI_KEY    = os.environ["NEWSAPI_KEY"]
-ANTHROPIC_KEY  = os.environ.get("ANTHROPIC_API_KEY", "")
+SUPABASE_URL = os.environ["SUPABASE_URL"]
+SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+NEWSAPI_KEY  = os.environ["NEWSAPI_KEY"]
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 
-supabase       = create_client(SUPABASE_URL, SUPABASE_KEY)
-claude         = anthropic.Anthropic(api_key=ANTHROPIC_KEY) if ANTHROPIC_KEY else None
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+groq     = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 sys.path.insert(0, os.path.dirname(__file__))
 from tickers import SP100_TICKERS, COMPANY_NAMES
@@ -94,15 +94,16 @@ def generate_ai_summary(title: str, content: str) -> dict | None:
 Title: {title}
 Content: {content[:1000]}"""
 
-    if not claude:
+    if not groq:
         return None
     try:
-        msg = claude.messages.create(
-            model="claude-3-5-haiku-20241022",
+        msg = groq.chat.completions.create(
+            model="llama-3.3-70b-versatile",
             max_tokens=512,
             messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
         )
-        return json.loads(msg.content[0].text)
+        return json.loads(msg.choices[0].message.content or "{}")
     except Exception as e:
         print(f"  AI error: {e}")
         return None

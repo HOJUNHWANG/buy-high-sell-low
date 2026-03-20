@@ -1,8 +1,8 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import Groq from "groq-sdk";
 
-const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const DAILY_LIMIT = 30;
 
 export async function POST(request: Request) {
@@ -83,12 +83,13 @@ Title: ${article.title}`;
 
   let result;
   try {
-    const msg = await claude.messages.create({
-      model: "claude-3-5-haiku-20241022",
+    const msg = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
       max_tokens: 512,
       messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
     });
-    result = JSON.parse((msg.content[0] as { text: string }).text);
+    result = JSON.parse(msg.choices[0].message.content ?? "{}");
   } catch {
     return NextResponse.json({ error: "AI generation failed" }, { status: 500 });
   }
