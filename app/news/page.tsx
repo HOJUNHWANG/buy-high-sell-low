@@ -14,13 +14,17 @@ export const metadata: Metadata = {
 type Sentiment = "all" | "positive" | "neutral" | "negative";
 
 async function getNews(): Promise<NewsArticle[]> {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("news_articles")
-    .select("*")
-    .order("published_at", { ascending: false })
-    .limit(60);
-  return data ?? [];
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase
+      .from("news_articles")
+      .select("*")
+      .order("published_at", { ascending: false })
+      .limit(60);
+    return data ?? [];
+  } catch {
+    return [];
+  }
 }
 
 function WidgetSkeleton() {
