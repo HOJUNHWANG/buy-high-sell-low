@@ -31,7 +31,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 
 export function StockTable({ stocks }: { stocks: StockRow[] }) {
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({
-    key: "change_pct",
+    key: "price",
     dir: "desc",
   });
   const [assetType, setAssetType] = useState<"stocks" | "crypto">("stocks");
@@ -72,7 +72,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
           default:           return 0;
         }
       });
-  }, [stocks, sector, query, sort]);
+  }, [stocks, assetType, sector, query, sort]);
 
   function toggleSort(key: SortKey) {
     setSort((prev) =>
@@ -147,6 +147,32 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
         </div>
 
         <div className="flex items-center gap-2 ml-auto">
+          {/* Quick sort presets */}
+          <div
+            className="flex rounded-lg overflow-hidden"
+            style={{ border: "1px solid var(--border-md)" }}
+          >
+            {([
+              { label: "Market Cap", key: "price" as SortKey, dir: "desc" as SortDir },
+              { label: "Top Movers", key: "change_pct" as SortKey, dir: "desc" as SortDir },
+            ]).map((preset) => {
+              const active = sort.key === preset.key && sort.dir === preset.dir;
+              return (
+                <button
+                  key={preset.label}
+                  onClick={() => setSort({ key: preset.key, dir: preset.dir })}
+                  className="px-2.5 py-1 text-[10px] font-medium transition-colors"
+                  style={{
+                    background: active ? "var(--surface-3)" : "transparent",
+                    color: active ? "var(--text)" : "var(--text-3)",
+                  }}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
+          </div>
+
           <span className="text-xs" style={{ color: "var(--text-3)" }}>
             {filtered.length} {assetType === "crypto" ? "coins" : "stocks"}
           </span>
