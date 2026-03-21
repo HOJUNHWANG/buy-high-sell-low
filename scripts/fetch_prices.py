@@ -109,7 +109,7 @@ def fetch_crypto_yfinance():
     print(f"\nFetching crypto prices for {len(CRYPTO_TICKERS)} tickers via yfinance...")
     import yfinance as yf
     tickers_str = " ".join(CRYPTO_TICKERS)
-    data = yf.download(tickers_str, period="1d", interval="1m", group_by="ticker", progress=False)
+    data = yf.download(tickers_str, period="2d", interval="1h", group_by="ticker", progress=False)
 
     now = datetime.utcnow().isoformat()
     fetched, failed = 0, []
@@ -120,11 +120,28 @@ def fetch_crypto_yfinance():
                 ticker_data = data
             else:
                 ticker_data = data[ticker]
-            latest = ticker_data["Close"].dropna().iloc[-1]
-            price = float(latest)
+            closes = ticker_data["Close"].dropna()
+            volumes = ticker_data["Volume"].dropna()
+            if closes.empty:
+                failed.append(ticker)
+                continue
+            price = float(closes.iloc[-1])
+
+            # Calculate 24h change %
+            change_pct = None
+            if len(closes) >= 2:
+                # Find the price ~24h ago (hourly data, so ~24 rows back)
+                idx_24h = max(0, len(closes) - 24)
+                prev_price = float(closes.iloc[idx_24h])
+                if prev_price > 0:
+                    change_pct = round(((price - prev_price) / prev_price) * 100, 4)
+
+            # Sum last 24h volume
+            volume = int(volumes.iloc[-24:].sum()) if not volumes.empty else None
 
             supabase.table("stock_prices").upsert({
-                "ticker": ticker, "price": price, "fetched_at": now
+                "ticker": ticker, "price": price, "change_pct": change_pct,
+                "volume": volume, "fetched_at": now,
             }).execute()
             supabase.table("stock_price_history").insert({
                 "ticker": ticker, "price": price, "recorded_at": now

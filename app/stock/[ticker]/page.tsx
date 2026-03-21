@@ -133,7 +133,7 @@ export default async function StockDetailPage({ params }: Props) {
           )}
 
           {/* Chart */}
-          <StockChart ticker={ticker} history={history} />
+          <StockChart ticker={ticker} history={history} isCrypto={stock.sector === "Cryptocurrency"} />
 
           {/* Ad: below chart */}
           <AdSlot slot="stock-below-chart" format="horizontal" />

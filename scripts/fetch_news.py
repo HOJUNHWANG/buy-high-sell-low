@@ -25,16 +25,21 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 groq     = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import SP100_TICKERS, COMPANY_NAMES
+from tickers import SP100_TICKERS, CRYPTO_TICKERS, COMPANY_NAMES
 
 MAX_AI_PER_RUN = 30  # Claude calls per cron run — prevents surprise billing
 
 RSS_FEEDS = [
+    # Stock feeds
     "https://feeds.finance.yahoo.com/rss/2.0/headline?region=US&lang=en-US",
     "https://feeds.marketwatch.com/marketwatch/topstories/",
     "https://www.cnbc.com/id/100003114/device/rss/rss.html",
     "https://www.cnbc.com/id/10001147/device/rss/rss.html",
     "https://feeds.bbci.co.uk/news/business/rss.xml",
+    # Crypto feeds
+    "https://cointelegraph.com/rss",
+    "https://www.coindesk.com/arc/outboundfeeds/rss/",
+    "https://decrypt.co/feed",
 ]
 
 
@@ -49,7 +54,7 @@ def map_ticker(title: str) -> str | None:
 def fetch_from_newsapi() -> list[dict]:
     url = "https://newsapi.org/v2/everything"
     params = {
-        "q":        "stock market OR earnings OR revenue",
+        "q":        "stock market OR earnings OR revenue OR Bitcoin OR Ethereum OR crypto",
         "language": "en",
         "sortBy":   "publishedAt",
         "pageSize": 100,

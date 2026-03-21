@@ -6,6 +6,7 @@ import type { StockPriceHistory } from "@/lib/types";
 interface Props {
   ticker: string;
   history: StockPriceHistory[];
+  isCrypto?: boolean;
 }
 
 type Range = "1D" | "1W" | "1M" | "3M" | "6M" | "1Y";
@@ -64,7 +65,7 @@ function getRangeStats(data: StockPriceHistory[]) {
   return { low, high, first, last, change, changePct };
 }
 
-export function StockChart({ ticker, history }: Props) {
+export function StockChart({ ticker, history, isCrypto }: Props) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [range, setRange] = useState<Range>("1M");
   const [chartError, setChartError] = useState(false);
@@ -117,11 +118,13 @@ export function StockChart({ ticker, history }: Props) {
           borderColor: "rgba(255,255,255,0.06)",
           timeVisible: showTime,
           secondsVisible: false,
+          fixLeftEdge: true,
+          fixRightEdge: true,
+          rightOffset: 2,
           tickMarkFormatter: showTime
             ? undefined
             : (time: number) => {
                 const d = new Date(time * 1000);
-                // For monthly+ views: show "Mar 5" style
                 return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
               },
         },
@@ -252,12 +255,12 @@ export function StockChart({ ticker, history }: Props) {
           style={{ color: "var(--text-3)" }}
         >
           <span>No data for {range}</span>
-          {range === "1D" && (
+          {range === "1D" && !isCrypto && (
             <span style={{ color: "var(--text-3)", fontSize: "10px" }}>
               Intraday data is collected during market hours (9:30 AM – 4:00 PM ET, Mon–Fri)
             </span>
           )}
-          {range !== "1D" && (
+          {(range !== "1D" || isCrypto) && (
             <span style={{ color: "var(--text-3)", fontSize: "10px" }}>
               Try a wider range or wait for more data to be collected
             </span>

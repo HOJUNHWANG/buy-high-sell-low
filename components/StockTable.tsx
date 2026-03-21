@@ -34,18 +34,24 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
     key: "change_pct",
     dir: "desc",
   });
+  const [assetType, setAssetType] = useState<"stocks" | "crypto">("stocks");
   const [sector, setSector] = useState("All");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"table" | "grid">("table");
 
+  const isCrypto = (s: StockRow) => s.sector === "Cryptocurrency";
+
   const sectors = useMemo(() => {
     const s = new Set<string>();
-    stocks.forEach((st) => { if (st.sector) s.add(st.sector); });
-    return ["All", ...Array.from(s).sort()];
-  }, [stocks]);
+    stocks
+      .filter((st) => assetType === "crypto" ? isCrypto(st) : !isCrypto(st))
+      .forEach((st) => { if (st.sector) s.add(st.sector); });
+    return assetType === "crypto" ? ["All"] : ["All", ...Array.from(s).sort()];
+  }, [stocks, assetType]);
 
   const filtered = useMemo(() => {
     return stocks
+      .filter((s) => assetType === "crypto" ? isCrypto(s) : !isCrypto(s))
       .filter((s) => sector === "All" || s.sector === sector)
       .filter((s) => {
         if (!query.trim()) return true;
@@ -92,6 +98,26 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
 
   return (
     <div className="space-y-4">
+      {/* Asset type tabs */}
+      <div
+        className="flex rounded-lg overflow-hidden w-fit"
+        style={{ border: "1px solid var(--border-md)", background: "var(--surface)" }}
+      >
+        {(["stocks", "crypto"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => { setAssetType(t); setSector("All"); }}
+            className="px-4 py-2 text-xs font-semibold transition-colors"
+            style={{
+              background: assetType === t ? "var(--accent)" : "transparent",
+              color: assetType === t ? "#fff" : "var(--text-2)",
+            }}
+          >
+            {t === "stocks" ? "Stocks" : "Crypto"}
+          </button>
+        ))}
+      </div>
+
       {/* Controls */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
         {/* Search */}
@@ -122,7 +148,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
 
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-xs" style={{ color: "var(--text-3)" }}>
-            {filtered.length} stocks
+            {filtered.length} {assetType === "crypto" ? "coins" : "stocks"}
           </span>
 
           {/* View toggle */}
