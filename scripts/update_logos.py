@@ -96,7 +96,7 @@ def update_crypto_logos():
 
 
 def update_stock_logos():
-    """Use Clearbit Logo API (free, no key needed)."""
+    """Use Google Favicon service (free, always available, no API key)."""
     # Only update stocks that don't have a logo yet
     result = supabase.table("stocks").select("ticker").is_("logo_url", "null").neq("sector", "Cryptocurrency").execute()
     missing = [r["ticker"] for r in result.data]
@@ -104,7 +104,7 @@ def update_stock_logos():
         print("\nAll stocks already have logos!")
         return
 
-    print(f"\nUpdating logos for {len(missing)} stocks via Clearbit...")
+    print(f"\nUpdating logos for {len(missing)} stocks via Google Favicon...")
     updated, failed = 0, 0
 
     for ticker in missing:
@@ -114,22 +114,12 @@ def update_stock_logos():
             failed += 1
             continue
 
-        logo_url = f"https://logo.clearbit.com/{domain}"
-        # Verify it actually returns an image
-        try:
-            r = requests.head(logo_url, timeout=5, allow_redirects=True)
-            if r.status_code == 200:
-                supabase.table("stocks").update({"logo_url": logo_url}).eq("ticker", ticker).execute()
-                print(f"  {ticker}: OK ({domain})")
-                updated += 1
-            else:
-                print(f"  {ticker}: Clearbit returned {r.status_code}")
-                failed += 1
-        except Exception as e:
-            print(f"  {ticker}: error — {e}")
-            failed += 1
-
-        time.sleep(0.2)
+        # Google's favicon service — reliable, high-res, always available
+        logo_url = f"https://www.google.com/s2/favicons?domain={domain}&sz=128"
+        supabase.table("stocks").update({"logo_url": logo_url}).eq("ticker", ticker).execute()
+        print(f"  {ticker}: OK ({domain})")
+        updated += 1
+        time.sleep(0.1)
 
     print(f"Stock logos updated: {updated}, failed: {failed}")
 
