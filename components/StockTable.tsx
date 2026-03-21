@@ -7,8 +7,16 @@ import type { Stock, StockPrice } from "@/lib/types";
 import { fmtVol } from "@/lib/utils";
 
 type StockRow = Stock & { price?: StockPrice };
-type SortKey = "ticker" | "name" | "price" | "change_pct" | "volume";
+type SortKey = "ticker" | "name" | "market_cap" | "price" | "change_pct" | "volume";
 type SortDir = "asc" | "desc";
+
+function fmtMarketCap(val: number | null | undefined): string {
+  if (val == null) return "—";
+  if (val >= 1e12) return `$${(val / 1e12).toFixed(2)}T`;
+  if (val >= 1e9) return `$${(val / 1e9).toFixed(1)}B`;
+  if (val >= 1e6) return `$${(val / 1e6).toFixed(0)}M`;
+  return `$${val.toLocaleString()}`;
+}
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   return (
@@ -31,7 +39,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 
 export function StockTable({ stocks }: { stocks: StockRow[] }) {
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({
-    key: "price",
+    key: "market_cap",
     dir: "desc",
   });
   const [assetType, setAssetType] = useState<"stocks" | "crypto">("stocks");
@@ -66,6 +74,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
         switch (sort.key) {
           case "ticker":     return a.ticker.localeCompare(b.ticker) * dir;
           case "name":       return a.name.localeCompare(b.name) * dir;
+          case "market_cap": return ((a.market_cap ?? 0) - (b.market_cap ?? 0)) * dir;
           case "price":      return ((a.price?.price ?? 0) - (b.price?.price ?? 0)) * dir;
           case "change_pct": return ((a.price?.change_pct ?? -999) - (b.price?.change_pct ?? -999)) * dir;
           case "volume":     return ((a.price?.volume ?? 0) - (b.price?.volume ?? 0)) * dir;
@@ -153,10 +162,10 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
             style={{ border: "1px solid var(--border-md)" }}
           >
             {([
-              { label: "Market Cap", key: "price" as SortKey, dir: "desc" as SortDir },
+              { label: "Market Cap", key: "market_cap" as SortKey, dir: "desc" as SortDir },
               { label: "Top Movers", key: "change_pct" as SortKey, dir: "desc" as SortDir },
             ]).map((preset) => {
-              const active = sort.key === preset.key && sort.dir === preset.dir;
+              const active = sort.key === preset.key;
               return (
                 <button
                   key={preset.label}
@@ -252,10 +261,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                       Name <SortIcon active={sort.key === "name"} dir={sort.dir} />
                     </div>
                   </th>
-                  <th className="text-left px-4 py-2.5 font-medium hidden md:table-cell"
-                    style={{ color: "var(--text-3)" }}>
-                    Sector
-                  </th>
+                  {th("market_cap", "Mkt Cap", "right")}
                   {th("price",      "Price",   "right")}
                   {th("change_pct", "Change%", "right")}
                   {th("volume",     "Volume",  "right")}
@@ -309,8 +315,8 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                           {stock.name}
                         </Link>
                       </td>
-                      <td className="px-4 py-3 hidden md:table-cell" style={{ color: "var(--text-3)" }}>
-                        {stock.sector ?? "—"}
+                      <td className="px-4 py-3 text-right hidden md:table-cell tabular-nums" style={{ color: "var(--text-2)" }}>
+                        {fmtMarketCap(stock.market_cap)}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold tabular-nums" style={{ color: "var(--text)" }}>
                         {stock.price ? `$${stock.price.price.toFixed(2)}` : "—"}

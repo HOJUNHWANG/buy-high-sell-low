@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS stocks (
   exchange    TEXT,
   sector      TEXT,
   logo_url    TEXT,
+  market_cap  BIGINT,
   updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
 

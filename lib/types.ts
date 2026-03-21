@@ -4,6 +4,7 @@ export interface Stock {
   exchange: string | null;
   sector: string | null;
   logo_url: string | null;
+  market_cap: number | null;
   updated_at: string;
 }
 
