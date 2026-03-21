@@ -21,6 +21,19 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 sys.path.insert(0, os.path.dirname(__file__))
 from tickers import ALL_TICKERS
 
+# yfinance lookup overrides: some tickers need a different symbol or don't return marketCap
+YFINANCE_OVERRIDES = {
+    "BRK.B": "BRK-B",       # yfinance uses dash
+    "MATIC-USD": "POL-USD",  # Polygon rebranded
+}
+
+# Manual fallbacks for tickers where yfinance returns no marketCap (approximate, update periodically)
+MANUAL_MARKET_CAPS = {
+    "APT-USD":   11_000_000_000,   # Aptos ~$11B
+    "ARB-USD":    8_000_000_000,   # Arbitrum ~$8B
+    "MMC":      100_000_000_000,   # Marsh & McLennan ~$100B
+}
+
 
 def main():
     print(f"Updating market caps for {len(ALL_TICKERS)} tickers...")
@@ -28,8 +41,15 @@ def main():
 
     for ticker in ALL_TICKERS:
         try:
-            info = yf.Ticker(ticker).info
+            # Try yfinance first (with override if needed)
+            yf_ticker = YFINANCE_OVERRIDES.get(ticker, ticker)
+            info = yf.Ticker(yf_ticker).info
             market_cap = info.get("marketCap")
+
+            # Fall back to manual values
+            if not market_cap:
+                market_cap = MANUAL_MARKET_CAPS.get(ticker)
+
             if market_cap:
                 supabase.table("stocks").update({"market_cap": market_cap}).eq("ticker", ticker).execute()
                 label = f"${market_cap / 1e9:.1f}B" if market_cap >= 1e9 else f"${market_cap / 1e6:.0f}M"
