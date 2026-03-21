@@ -2,16 +2,20 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
 
 export async function SentimentWidget() {
-  const supabase = await createSupabaseServerClient();
-
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-
-  const { data } = await supabase
-    .from("news_articles")
-    .select("ai_sentiment")
-    .gte("fetched_at", todayStart.toISOString())
-    .not("ai_sentiment", "is", null);
+  let data: { ai_sentiment: string | null }[] | null = null;
+  try {
+    const supabase = await createSupabaseServerClient();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const res = await supabase
+      .from("news_articles")
+      .select("ai_sentiment")
+      .gte("fetched_at", todayStart.toISOString())
+      .not("ai_sentiment", "is", null);
+    data = res.data;
+  } catch {
+    return null;
+  }
 
   let pos = 0, neu = 0, neg = 0;
   for (const row of data ?? []) {

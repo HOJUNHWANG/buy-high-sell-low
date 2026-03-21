@@ -2,15 +2,19 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
 
 export async function TrendingTickersWidget() {
-  const supabase = await createSupabaseServerClient();
-
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-  const { data } = await supabase
-    .from("news_articles")
-    .select("ticker, ai_sentiment")
-    .gte("published_at", yesterday)
-    .not("ticker", "is", null);
+  let data: { ticker: string | null; ai_sentiment: string | null }[] | null = null;
+  try {
+    const supabase = await createSupabaseServerClient();
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const res = await supabase
+      .from("news_articles")
+      .select("ticker, ai_sentiment")
+      .gte("published_at", yesterday)
+      .not("ticker", "is", null);
+    data = res.data;
+  } catch {
+    return null;
+  }
 
   // Count mentions + sentiment score per ticker
   const map = new Map<string, { count: number; pos: number; neg: number }>();
