@@ -2,9 +2,10 @@
 
 # yfinance uses different symbols for some tickers.
 # Keys = our DB ticker, Values = yfinance symbol.
+# yfinance uses different symbols for some tickers.
+# Note: MATIC-USD NOT mapped — POL-USD has no data on yfinance yet.
 YFINANCE_MAP = {
     "BRK.B": "BRK-B",
-    "MATIC-USD": "POL-USD",
 }
 
 
