@@ -1,7 +1,7 @@
 import { MetadataRoute } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://global-stock-navy.vercel.app";
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://buyhighselllow.vercel.app";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const supabase = await createSupabaseServerClient();

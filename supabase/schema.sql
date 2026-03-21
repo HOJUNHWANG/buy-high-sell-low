@@ -1,4 +1,4 @@
--- GlobalStock Database Schema
+-- Buy High Sell Low Database Schema
 -- Run this in Supabase SQL Editor
 
 -- Extensions
