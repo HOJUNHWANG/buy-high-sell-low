@@ -53,14 +53,8 @@ export async function TrendingTickersWidget() {
             <Link
               key={ticker}
               href={`/stock/${ticker}`}
-              className="flex items-center justify-between py-1.5 px-2 rounded-lg transition-colors"
+              className="flex items-center justify-between py-1.5 px-2 rounded-lg transition-colors hover:bg-[var(--surface-2)]"
               style={{ color: "var(--text-2)" }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "var(--surface-2)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "transparent")
-              }
             >
               <div className="flex items-center gap-2">
                 <div
