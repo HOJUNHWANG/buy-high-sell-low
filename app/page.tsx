@@ -144,6 +144,17 @@ export default async function HomePage() {
 
       {/* ── 3-column layout ── */}
       <div className="max-w-7xl mx-auto px-5 py-8" id="markets">
+
+        {/* Page title — always visible */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>
+            Buy High Sell Low{" "}
+            <span className="text-sm font-normal" style={{ color: "var(--text-3)" }}>
+              (wait... wasn&apos;t it the other way around?)
+            </span>
+          </h1>
+        </div>
+
         <div className="flex gap-5 items-start">
 
           {/* ── Left sidebar ── */}
