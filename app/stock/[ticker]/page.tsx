@@ -1,13 +1,14 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import type { Stock, StockPrice, StockPriceHistory, NewsArticle } from "@/lib/types";
+import type { Stock, StockPrice, StockPriceHistory, NewsArticle, AffiliateLink } from "@/lib/types";
 import Image from "next/image";
 import Link from "next/link";
 import { StockChart } from "@/components/StockChart";
 import { WatchlistButton } from "@/components/WatchlistButton";
 import { timeAgo } from "@/lib/utils";
 import { SentimentBadge } from "@/components/SentimentBadge";
+import { AdSlot } from "@/components/AdSlot";
 
 interface Props {
   params: Promise<{ ticker: string }>;
@@ -15,7 +16,7 @@ interface Props {
 
 async function getStockData(ticker: string) {
   const supabase = await createSupabaseServerClient();
-  const [stockRes, priceRes, historyRes, newsRes] = await Promise.all([
+  const [stockRes, priceRes, historyRes, newsRes, affiliateRes] = await Promise.all([
     supabase.from("stocks").select("*").eq("ticker", ticker).single(),
     supabase.from("stock_prices").select("*").eq("ticker", ticker).single(),
     supabase
@@ -30,12 +31,20 @@ async function getStockData(ticker: string) {
       .eq("ticker", ticker)
       .order("published_at", { ascending: false })
       .limit(10),
+    supabase
+      .from("affiliate_links")
+      .select("*")
+      .eq("placement", "stock_detail")
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle(),
   ]);
   return {
-    stock:   stockRes.data as Stock | null,
-    price:   priceRes.data as StockPrice | null,
-    history: (historyRes.data ?? []) as StockPriceHistory[],
-    news:    (newsRes.data ?? []) as NewsArticle[],
+    stock:     stockRes.data as Stock | null,
+    price:     priceRes.data as StockPrice | null,
+    history:   (historyRes.data ?? []) as StockPriceHistory[],
+    news:      (newsRes.data ?? []) as NewsArticle[],
+    affiliate: affiliateRes.data as AffiliateLink | null,
   };
 }
 
@@ -57,7 +66,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function StockDetailPage({ params }: Props) {
   const { ticker } = await params;
-  const { stock, price, history, news } = await getStockData(ticker.toUpperCase());
+  const { stock, price, history, news, affiliate } = await getStockData(ticker.toUpperCase());
   if (!stock) notFound();
 
   const isUp   = (price?.change_pct ?? 0) >= 0;
@@ -126,28 +135,33 @@ export default async function StockDetailPage({ params }: Props) {
           {/* Chart */}
           <StockChart ticker={ticker} history={history} />
 
-          {/* Affiliate CTA */}
-          <div className="card-accent rounded-xl p-4 flex items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-0.5">
-                <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Trade {ticker}</p>
-                <span
-                  className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
-                  style={{ background: "var(--surface-3)", color: "var(--text-3)" }}
-                >
-                  Sponsored
-                </span>
+          {/* Ad: below chart */}
+          <AdSlot slot="stock-below-chart" format="horizontal" />
+
+          {/* Affiliate CTA (from DB) */}
+          {affiliate && affiliate.url && (
+            <div className="card-accent rounded-xl p-4 flex items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Trade {ticker}</p>
+                  <span
+                    className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                    style={{ background: "var(--surface-3)", color: "var(--text-3)" }}
+                  >
+                    Sponsored
+                  </span>
+                </div>
+                <p className="text-xs" style={{ color: "var(--text-2)" }}>
+                  {affiliate.label}
+                </p>
               </div>
-              <p className="text-xs" style={{ color: "var(--text-2)" }}>
-                Commission-free with Interactive Brokers
-              </p>
+              <a href={affiliate.url} target="_blank" rel="noopener noreferrer nofollow sponsored"
+                className="shrink-0 text-xs font-semibold px-4 py-2 rounded-lg"
+                style={{ background: "var(--accent)", color: "#fff" }}>
+                Open account →
+              </a>
             </div>
-            <a href="https://www.interactivebrokers.com" target="_blank" rel="noopener noreferrer nofollow sponsored"
-              className="shrink-0 text-xs font-semibold px-4 py-2 rounded-lg"
-              style={{ background: "var(--accent)", color: "#fff" }}>
-              Open account →
-            </a>
-          </div>
+          )}
 
           {/* Related News */}
           <section>
@@ -310,6 +324,9 @@ export default async function StockDetailPage({ params }: Props) {
               </div>
             );
           })()}
+
+          {/* Ad: sidebar rectangle */}
+          <AdSlot slot="stock-sidebar" format="rectangle" />
 
           {/* Back to screener */}
           <Link

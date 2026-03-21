@@ -6,6 +6,7 @@ import type { NewsArticle } from "@/lib/types";
 import Link from "next/link";
 import { timeAgo } from "@/lib/utils";
 import { SentimentBadge } from "@/components/SentimentBadge";
+import { AdSlot } from "@/components/AdSlot";
 
 type Tab = "all" | "positive" | "neutral" | "negative";
 
@@ -81,14 +82,17 @@ export function NewsFilter({
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((article) => {
+          {filtered.map((article, idx) => {
             const sc = article.ai_sentiment;
             const barColor =
               sc === "positive" ? "var(--up)" : sc === "negative" ? "var(--down)" : "var(--border-md)";
 
             return (
+              <div key={article.id}>
+              {idx > 0 && idx % 5 === 0 && (
+                <AdSlot slot="news-feed" format="horizontal" className="my-2" />
+              )}
               <article
-                key={article.id}
                 className="card rounded-xl p-4"
               >
                 <div className="flex items-start gap-3">
@@ -172,6 +176,7 @@ export function NewsFilter({
                   </div>
                 </div>
               </article>
+              </div>
             );
           })}
         </div>

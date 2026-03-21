@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import type { Stock, StockPrice } from "@/lib/types";
 import { StockTable } from "@/components/StockTable";
 import { MarketStatusWidget } from "@/components/MarketStatusWidget";
+import { AdSlot } from "@/components/AdSlot";
 
 export const metadata: Metadata = {
   title: "Screener — S&P 100 + Crypto",
@@ -74,6 +75,7 @@ export default async function StocksPage() {
         )}
       </div>
 
+      <AdSlot slot="screener-leaderboard" format="horizontal" className="mb-4" />
       <StockTable stocks={stocks} />
     </div>
   );

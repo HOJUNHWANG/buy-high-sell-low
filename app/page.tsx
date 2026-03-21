@@ -10,6 +10,7 @@ import { MarketStatsWidget } from "@/components/MarketStatsWidget";
 import { SentimentWidget } from "@/components/SentimentWidget";
 import { SentimentBadge } from "@/components/SentimentBadge";
 import { timeAgo } from "@/lib/utils";
+import { AdSlot } from "@/components/AdSlot";
 
 async function getMovers(): Promise<{
   gainers: (StockPrice & { stocks: Stock })[];
@@ -217,6 +218,9 @@ export default async function HomePage() {
                 </div>
               )}
             </section>
+
+            {/* Ad: leaderboard between movers and news */}
+            <AdSlot slot="home-leaderboard" format="horizontal" className="mb-10" />
 
             {/* News */}
             <section>
