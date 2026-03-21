@@ -35,7 +35,7 @@ export default function UpdatePasswordPage() {
       <div className="w-full max-w-sm space-y-5">
         <div className="text-center space-y-1">
           <Link href="/" className="text-xl font-semibold tracking-tight">
-            Global<span style={{ color: "var(--accent)" }}>Stock</span>
+            Buy High<span style={{ color: "var(--accent)" }}> Sell Low</span>
           </Link>
           <p className="text-sm" style={{ color: "var(--text-2)" }}>
             Set your new password

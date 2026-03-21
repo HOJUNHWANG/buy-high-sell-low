@@ -8,7 +8,7 @@ export default function TermsPage() {
       <h1 className="text-3xl font-bold text-white">Terms of Use</h1>
       <p className="text-gray-500 text-sm">Last updated: March 2026</p>
       <p className="text-sm leading-relaxed">
-        Please read these Terms of Use carefully before using GlobalStock. By accessing or
+        Please read these Terms of Use carefully before using Buy High Sell Low. By accessing or
         using this service, you agree to be bound by these terms. If you do not agree, do not
         use the service.
       </p>
@@ -23,13 +23,13 @@ export default function TermsPage() {
             IMPORTANT — INVESTMENT RISK DISCLAIMER
           </p>
           <p>
-            GlobalStock provides market data, news aggregation, and AI-generated content for
+            Buy High Sell Low provides market data, news aggregation, and AI-generated content for
             <strong> informational and educational purposes only</strong>. Nothing on this site
             constitutes or should be construed as financial, investment, tax, or legal advice.
           </p>
           <p>
             AI-generated summaries and analysis are produced by automated systems and may be
-            inaccurate, incomplete, or outdated. They do not reflect the views of GlobalStock
+            inaccurate, incomplete, or outdated. They do not reflect the views of Buy High Sell Low
             and must not be relied upon as the basis for any investment decision.
           </p>
           <p>
@@ -43,10 +43,10 @@ export default function TermsPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-white">2. Data Accuracy &amp; Delays</h2>
         <p className="text-sm leading-relaxed">
-          Market prices, percentage changes, and financial data displayed on GlobalStock may
+          Market prices, percentage changes, and financial data displayed on Buy High Sell Low may
           be delayed by up to 15 minutes or more. Data is sourced from third-party providers
           (Twelve Data, Financial Modeling Prep, NewsAPI) and is provided &quot;as-is&quot; without
-          warranty of accuracy, completeness, or timeliness. GlobalStock makes no guarantees
+          warranty of accuracy, completeness, or timeliness. Buy High Sell Low makes no guarantees
           about the reliability of market data and is not liable for decisions made based on
           information displayed on this site.
         </p>
@@ -55,7 +55,7 @@ export default function TermsPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-white">3. AI-Generated Content</h2>
         <p className="text-sm leading-relaxed">
-          GlobalStock uses Groq (Llama 3.3) to generate AI summaries and analysis of news
+          Buy High Sell Low uses Groq (Llama 3.3) to generate AI summaries and analysis of news
           articles. These summaries:
         </p>
         <ul className="list-disc list-inside space-y-1 text-sm">
@@ -65,13 +65,13 @@ export default function TermsPage() {
           <li>Are limited to 30 requests per user per day to ensure fair use</li>
         </ul>
         <p className="text-sm">
-          GlobalStock is not responsible for any actions taken based on AI-generated content.
+          Buy High Sell Low is not responsible for any actions taken based on AI-generated content.
         </p>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-white">4. Acceptable Use</h2>
-        <p className="text-sm">By using GlobalStock, you agree not to:</p>
+        <p className="text-sm">By using Buy High Sell Low, you agree not to:</p>
         <ul className="list-disc list-inside space-y-1 text-sm">
           <li>Scrape, crawl, or systematically extract data from the site without prior written consent</li>
           <li>Attempt to reverse-engineer, decompile, or exploit any part of the platform</li>
@@ -94,7 +94,7 @@ export default function TermsPage() {
           <a href="mailto:adind96@gmail.com" className="text-blue-400 hover:underline">
             adind96@gmail.com
           </a>{" "}
-          if you suspect unauthorised access to your account. GlobalStock is not liable for any
+          if you suspect unauthorised access to your account. Buy High Sell Low is not liable for any
           losses resulting from unauthorised account use.
         </p>
         <p className="text-sm">
@@ -106,7 +106,7 @@ export default function TermsPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-white">6. Affiliate Links &amp; Third-Party Sites</h2>
         <p className="text-sm leading-relaxed">
-          GlobalStock may display links to third-party websites, including affiliate partners
+          Buy High Sell Low may display links to third-party websites, including affiliate partners
           (clearly labelled &quot;Sponsored&quot;). We may earn a commission if you sign up or make a
           purchase through such links. We are not responsible for the content, privacy practices,
           or services of any third-party sites. Following an affiliate link and signing up with
@@ -117,8 +117,8 @@ export default function TermsPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-white">7. Intellectual Property</h2>
         <p className="text-sm leading-relaxed">
-          The GlobalStock brand, logo, and original content (excluding third-party news and
-          financial data) are owned by or licensed to GlobalStock. You may not reproduce,
+          The Buy High Sell Low brand, logo, and original content (excluding third-party news and
+          financial data) are owned by or licensed to Buy High Sell Low. You may not reproduce,
           distribute, or create derivative works from our content without explicit written
           permission. News articles displayed are the property of their respective publishers
           and are linked to, not reproduced in full.
@@ -128,7 +128,7 @@ export default function TermsPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-white">8. Limitation of Liability</h2>
         <p className="text-sm leading-relaxed">
-          To the maximum extent permitted by applicable law, GlobalStock and its operators
+          To the maximum extent permitted by applicable law, Buy High Sell Low and its operators
           shall not be liable for any direct, indirect, incidental, consequential, or punitive
           damages arising from:
         </p>
@@ -147,7 +147,7 @@ export default function TermsPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-white">9. Disclaimer of Warranties</h2>
         <p className="text-sm leading-relaxed">
-          GlobalStock is provided &quot;as is&quot; and &quot;as available&quot; without warranties of any kind,
+          Buy High Sell Low is provided &quot;as is&quot; and &quot;as available&quot; without warranties of any kind,
           express or implied. We do not warrant that the service will be uninterrupted,
           error-free, or free of viruses or other harmful components. We disclaim all implied
           warranties, including merchantability, fitness for a particular purpose, and
@@ -159,7 +159,7 @@ export default function TermsPage() {
         <h2 className="text-xl font-semibold text-white">10. Governing Law</h2>
         <p className="text-sm leading-relaxed">
           These Terms are governed by and construed in accordance with applicable law. Any
-          disputes arising from these Terms or your use of GlobalStock shall be resolved through
+          disputes arising from these Terms or your use of Buy High Sell Low shall be resolved through
           good-faith negotiation. If unresolved, disputes shall be subject to the exclusive
           jurisdiction of the courts in the operator&apos;s country of residence.
         </p>

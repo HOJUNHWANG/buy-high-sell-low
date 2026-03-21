@@ -10,8 +10,8 @@ const geist = Geist({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    default: "GlobalStock — US Stock News & AI Analysis",
-    template: "%s — GlobalStock",
+    default: "Buy High Sell Low — US Stock News & AI Analysis",
+    template: "%s — Buy High Sell Low",
   },
   description:
     "Real-time US stock prices, news, and AI-powered analysis for everyday investors.",

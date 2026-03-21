@@ -47,7 +47,7 @@ export async function GET(request: Request) {
           fontFamily: "Inter",
         }}
       >
-        <div style={{ color: "#6b7280", fontSize: 20 }}>GlobalStock</div>
+        <div style={{ color: "#6b7280", fontSize: 20 }}>Buy High Sell Low</div>
         <div style={{ color: "#ffffff", fontSize: 48, fontWeight: 700, marginTop: 16 }}>
           {name}
         </div>

@@ -83,7 +83,7 @@ function LoginForm() {
         {/* Logo */}
         <div className="text-center space-y-1">
           <Link href="/" className="text-xl font-semibold tracking-tight">
-            Global<span style={{ color: "var(--accent)" }}>Stock</span>
+            Buy High<span style={{ color: "var(--accent)" }}> Sell Low</span>
           </Link>
           <p className="text-sm" style={{ color: "var(--text-2)" }}>
             {mode === "reset"

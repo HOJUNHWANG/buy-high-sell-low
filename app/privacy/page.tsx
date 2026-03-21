@@ -8,14 +8,14 @@ export default function PrivacyPage() {
       <h1 className="text-3xl font-bold text-white">Privacy Policy</h1>
       <p className="text-gray-500 text-sm">Last updated: March 2026</p>
       <p className="text-sm leading-relaxed">
-        GlobalStock (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) operates this website as an informational
+        Buy High Sell Low (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) operates this website as an informational
         platform for US stock market data. This Privacy Policy explains how we collect, use,
-        and protect your information when you visit GlobalStock.
+        and protect your information when you visit Buy High Sell Low.
       </p>
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-white">1. Information We Collect</h2>
-        <p className="text-sm">We collect the following information when you use GlobalStock:</p>
+        <p className="text-sm">We collect the following information when you use Buy High Sell Low:</p>
         <ul className="list-disc list-inside space-y-1 text-sm">
           <li>Email address (when you create an account or sign in via Google)</li>
           <li>Usage logs (pages visited, features used, stocks viewed, AI summaries requested)</li>
@@ -144,7 +144,7 @@ export default function PrivacyPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-white">7. Affiliate Disclosure</h2>
         <p className="text-sm">
-          GlobalStock participates in affiliate programmes. Some links on this site (clearly
+          Buy High Sell Low participates in affiliate programmes. Some links on this site (clearly
           labelled &quot;Sponsored&quot;) are affiliate links. If you click and open an account, we may
           receive a commission at no additional cost to you. We only include affiliate links
           for services we believe may be of genuine interest. Affiliate relationships do not
@@ -210,7 +210,7 @@ export default function PrivacyPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-white">11. Children&apos;s Privacy</h2>
         <p className="text-sm">
-          GlobalStock is not directed at children under the age of 13 (or 16 in the EEA).
+          Buy High Sell Low is not directed at children under the age of 13 (or 16 in the EEA).
           We do not knowingly collect personal information from children. If you believe a
           child has provided us with their data, contact us and we will delete it promptly.
         </p>
@@ -231,7 +231,7 @@ export default function PrivacyPage() {
           For any privacy-related questions, data requests, or complaints, please contact:
         </p>
         <p className="text-sm">
-          <strong className="text-white">GlobalStock</strong>
+          <strong className="text-white">Buy High Sell Low</strong>
           <br />
           Email:{" "}
           <a href="mailto:adind96@gmail.com" className="text-blue-400 hover:underline">

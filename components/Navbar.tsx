@@ -28,7 +28,7 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-5 h-12 flex items-center gap-4">
         {/* Logo */}
         <Link href="/" className="text-sm font-semibold tracking-tight shrink-0">
-          Global<span style={{ color: "var(--accent)" }}>Stock</span>
+          Buy High<span style={{ color: "var(--accent)" }}> Sell Low</span>
         </Link>
 
         {/* Desktop nav */}

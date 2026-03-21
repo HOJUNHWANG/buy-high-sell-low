@@ -11,7 +11,7 @@ export function Disclaimer() {
           style={{ color: "var(--text-3)" }}
         >
           <strong style={{ color: "var(--text-2)" }}>Investment Risk Disclaimer:</strong>{" "}
-          All content on GlobalStock is for informational and educational purposes only and does
+          All content on Buy High Sell Low is for informational and educational purposes only and does
           not constitute financial, investment, tax, or legal advice. Past performance is not
           indicative of future results. Stock prices and market data may be delayed. Always
           conduct your own research and consult a qualified financial advisor before making any
@@ -41,7 +41,7 @@ export function Disclaimer() {
           <span style={{ color: "var(--border-md)" }}>·</span>
           <a href="/terms" className="nav-link">Terms of Use</a>
           <span style={{ color: "var(--border-md)" }}>·</span>
-          <span>© {new Date().getFullYear()} GlobalStock. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} Buy High Sell Low. All rights reserved.</span>
         </div>
       </div>
     </footer>
