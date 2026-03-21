@@ -96,32 +96,45 @@ def update_crypto_logos():
 
 
 def update_stock_logos():
-    """Use Google Favicon service (free, always available, no API key)."""
-    # Only update stocks that don't have a logo yet
-    result = supabase.table("stocks").select("ticker").is_("logo_url", "null").neq("sector", "Cryptocurrency").execute()
-    missing = [r["ticker"] for r in result.data]
-    if not missing:
-        print("\nAll stocks already have logos!")
-        return
+    """Use Google gstatic favicon service with size validation."""
+    # Update ALL stock logos (not just missing) to catch broken ones
+    result = supabase.table("stocks").select("ticker").neq("sector", "Cryptocurrency").execute()
+    all_stocks = [r["ticker"] for r in result.data]
 
-    print(f"\nUpdating logos for {len(missing)} stocks via Google Favicon...")
-    updated, failed = 0, 0
+    print(f"\nUpdating logos for {len(all_stocks)} stocks via Google Favicon...")
+    updated, too_small, no_domain = 0, 0, 0
 
-    for ticker in missing:
+    for ticker in all_stocks:
         domain = STOCK_DOMAINS.get(ticker)
         if not domain:
             print(f"  {ticker}: no domain mapping, skipping")
-            failed += 1
+            no_domain += 1
             continue
 
-        # Google's favicon service — reliable, high-res, always available
-        logo_url = f"https://www.google.com/s2/favicons?domain={domain}&sz=128"
-        supabase.table("stocks").update({"logo_url": logo_url}).eq("ticker", ticker).execute()
-        print(f"  {ticker}: OK ({domain})")
-        updated += 1
+        # Use gstatic directly (no redirect)
+        logo_url = f"https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://{domain}&size=128"
+
+        # Check actual image size — reject 16x16 (looks broken when scaled)
+        try:
+            r = requests.get(logo_url, timeout=5)
+            if r.status_code == 200 and len(r.content) > 1000:
+                # Files > 1KB are almost always 32x32+ (16x16 PNGs are ~300-800 bytes)
+                supabase.table("stocks").update({"logo_url": logo_url}).eq("ticker", ticker).execute()
+                print(f"  {ticker}: OK ({domain}, {len(r.content)}B)")
+                updated += 1
+            else:
+                # Too small — clear logo so UI uses letter fallback
+                supabase.table("stocks").update({"logo_url": None}).eq("ticker", ticker).execute()
+                print(f"  {ticker}: too small ({len(r.content)}B), using letter fallback")
+                too_small += 1
+        except Exception as e:
+            print(f"  {ticker}: error — {e}")
+            supabase.table("stocks").update({"logo_url": None}).eq("ticker", ticker).execute()
+            too_small += 1
+
         time.sleep(0.1)
 
-    print(f"Stock logos updated: {updated}, failed: {failed}")
+    print(f"Stock logos: {updated} OK, {too_small} letter fallback, {no_domain} no domain")
 
 
 if __name__ == "__main__":

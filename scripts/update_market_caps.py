@@ -23,8 +23,9 @@ from tickers import ALL_TICKERS, to_yf
 
 # Manual fallbacks for tickers where yfinance returns no marketCap (approximate, update periodically)
 MANUAL_MARKET_CAPS = {
-    "APT-USD":   11_000_000_000,   # Aptos ~$11B
-    "ARB-USD":    8_000_000_000,   # Arbitrum ~$8B
+    "APT-USD":     11_000_000_000,   # Aptos ~$11B
+    "ARB-USD":      8_000_000_000,   # Arbitrum ~$8B
+    "MATIC-USD":    4_500_000_000,   # Polygon (POL) ~$4.5B
 }
 
 
