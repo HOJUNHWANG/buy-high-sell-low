@@ -26,6 +26,7 @@ MANUAL_MARKET_CAPS = {
     "APT-USD":     11_000_000_000,   # Aptos ~$11B
     "ARB-USD":      8_000_000_000,   # Arbitrum ~$8B
     "MATIC-USD":    4_500_000_000,   # Polygon (POL) ~$4.5B
+    "MMC":        100_000_000_000,   # Marsh & McLennan ~$100B
 }
 
 
