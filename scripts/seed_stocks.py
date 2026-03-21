@@ -92,7 +92,7 @@ CRYPTO_ICON_BASE = "https://raw.githubusercontent.com/spothq/cryptocurrency-icon
 CRYPTO_LOGO_MAP = {
     "BTC-USD": "btc", "ETH-USD": "eth", "BNB-USD": "bnb", "SOL-USD": "sol",
     "XRP-USD": "xrp", "ADA-USD": "ada", "DOGE-USD": "doge", "AVAX-USD": "avax",
-    "DOT-USD": "dot", "MATIC-USD": "matic", "LINK-USD": "link", "UNI-USD": "uni",
+    "DOT-USD": "dot", "LINK-USD": "link", "UNI-USD": "uni",
     "ATOM-USD": "atom", "LTC-USD": "ltc", "FIL-USD": "fil", "NEAR-USD": "near",
     "APT-USD": "apt", "ARB-USD": "arb", "OP-USD": "op", "AAVE-USD": "aave",
 }

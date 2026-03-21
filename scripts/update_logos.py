@@ -33,7 +33,6 @@ CRYPTO_LOGO_MAP = {
     "DOGE-USD": f"{CRYPTO_ICON_BASE}/doge.png",
     "AVAX-USD": f"{CRYPTO_ICON_BASE}/avax.png",
     "DOT-USD": f"{CRYPTO_ICON_BASE}/dot.png",
-    "MATIC-USD": f"{CRYPTO_ICON_BASE}/matic.png",
     "LINK-USD": f"{CRYPTO_ICON_BASE}/link.png",
     "UNI-USD": f"{CRYPTO_ICON_BASE}/uni.png",
     "ATOM-USD": f"{CRYPTO_ICON_BASE}/atom.png",
