@@ -20,7 +20,7 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABAS
 supabase = create_client(SUPABASE_URL, os.environ["SUPABASE_SERVICE_ROLE_KEY"])
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import SP100_TICKERS, CRYPTO_TICKERS, ALL_TICKERS
+from tickers import SP100_TICKERS, CRYPTO_TICKERS, ALL_TICKERS, to_yf
 
 BATCH_SIZE = 20  # yfinance handles multi-ticker downloads well
 
@@ -39,7 +39,8 @@ def get_existing_dates(ticker: str) -> set[str]:
 def seed_ticker_history(tickers: list[str]):
     """Download 1 year of daily data and insert missing rows."""
     print(f"Downloading 1Y daily data for {len(tickers)} tickers...")
-    tickers_str = " ".join(tickers)
+    yf_tickers = [to_yf(t) for t in tickers]
+    tickers_str = " ".join(yf_tickers)
     data = yf.download(
         tickers_str,
         period="1y",
@@ -55,10 +56,11 @@ def seed_ticker_history(tickers: list[str]):
 
     for ticker in tickers:
         try:
+            yf_sym = to_yf(ticker)
             if len(tickers) == 1:
                 ticker_data = data
             else:
-                ticker_data = data[ticker]
+                ticker_data = data[yf_sym]
 
             closes = ticker_data["Close"].dropna()
             if closes.empty:

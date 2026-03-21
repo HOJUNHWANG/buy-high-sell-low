@@ -1,5 +1,24 @@
 """Central ticker lists — imported by all data scripts."""
 
+# yfinance uses different symbols for some tickers.
+# Keys = our DB ticker, Values = yfinance symbol.
+YFINANCE_MAP = {
+    "BRK.B": "BRK-B",
+    "MATIC-USD": "POL-USD",
+}
+
+
+def to_yf(ticker: str) -> str:
+    """Convert our DB ticker to yfinance-compatible symbol."""
+    return YFINANCE_MAP.get(ticker, ticker)
+
+
+def from_yf(yf_symbol: str) -> str:
+    """Convert yfinance symbol back to our DB ticker."""
+    _reverse = {v: k for k, v in YFINANCE_MAP.items()}
+    return _reverse.get(yf_symbol, yf_symbol)
+
+
 SP100_TICKERS = [
     "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "BRK.B",
     "UNH", "XOM", "LLY", "JPM", "JNJ", "V", "PG", "MA", "HD", "CVX",

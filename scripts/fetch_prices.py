@@ -21,7 +21,7 @@ TWELVE_DATA_API_KEY = os.environ["TWELVE_DATA_API_KEY"]
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import SP100_TICKERS, CRYPTO_TICKERS
+from tickers import SP100_TICKERS, CRYPTO_TICKERS, to_yf
 
 BATCH_SIZE = 8
 TWELVE_DATA_DAILY_LIMIT = 800
@@ -108,7 +108,8 @@ def fetch_crypto_yfinance():
         return
     print(f"\nFetching crypto prices for {len(CRYPTO_TICKERS)} tickers via yfinance...")
     import yfinance as yf
-    tickers_str = " ".join(CRYPTO_TICKERS)
+    yf_tickers = [to_yf(t) for t in CRYPTO_TICKERS]
+    tickers_str = " ".join(yf_tickers)
     data = yf.download(tickers_str, period="2d", interval="1h", group_by="ticker", progress=False)
 
     now = datetime.utcnow().isoformat()
@@ -116,10 +117,11 @@ def fetch_crypto_yfinance():
 
     for ticker in CRYPTO_TICKERS:
         try:
+            yf_sym = to_yf(ticker)
             if len(CRYPTO_TICKERS) == 1:
                 ticker_data = data
             else:
-                ticker_data = data[ticker]
+                ticker_data = data[yf_sym]
             closes = ticker_data["Close"].dropna()
             volumes = ticker_data["Volume"].dropna()
             if closes.empty:
