@@ -4,8 +4,8 @@ on:
   schedule:
     # Stocks: every 15 min during US market hours (Mon-Fri)
     - cron: "*/15 14-21 * * 1-5"
-    # Crypto: every 4 hours, every day (24/7 market — script skips stocks when closed)
-    - cron: "0 */4 * * *"
+    # Crypto: every hour, every day (24/7 market — script skips stocks when closed)
+    - cron: "0 * * * *"
   workflow_dispatch:
 
 jobs:
