@@ -11,16 +11,17 @@ from datetime import datetime
 from dotenv import load_dotenv
 from supabase import create_client
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env.local"))
+load_dotenv()  # fallback to .env
 
-SUPABASE_URL        = os.environ["SUPABASE_URL"]
+SUPABASE_URL        = os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABASE_URL"]
 SUPABASE_KEY        = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 TWELVE_DATA_API_KEY = os.environ["TWELVE_DATA_API_KEY"]
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import SP100_TICKERS
+from tickers import SP100_TICKERS, CRYPTO_TICKERS
 
 BATCH_SIZE = 8
 TWELVE_DATA_DAILY_LIMIT = 800
@@ -101,10 +102,53 @@ def log_result(job: str, status: str, fetched: int, failed: list[str], error: st
     }).execute()
 
 
+def fetch_crypto_yfinance():
+    """Fetch crypto prices via yfinance (24/7, no market hours check)."""
+    if not CRYPTO_TICKERS:
+        return
+    print(f"\nFetching crypto prices for {len(CRYPTO_TICKERS)} tickers via yfinance...")
+    import yfinance as yf
+    tickers_str = " ".join(CRYPTO_TICKERS)
+    data = yf.download(tickers_str, period="1d", interval="1m", group_by="ticker", progress=False)
+
+    now = datetime.utcnow().isoformat()
+    fetched, failed = 0, []
+
+    for ticker in CRYPTO_TICKERS:
+        try:
+            if len(CRYPTO_TICKERS) == 1:
+                ticker_data = data
+            else:
+                ticker_data = data[ticker]
+            latest = ticker_data["Close"].dropna().iloc[-1]
+            price = float(latest)
+
+            supabase.table("stock_prices").upsert({
+                "ticker": ticker, "price": price, "fetched_at": now
+            }).execute()
+            supabase.table("stock_price_history").insert({
+                "ticker": ticker, "price": price, "recorded_at": now
+            }).execute()
+            fetched += 1
+        except Exception as e:
+            print(f"  {ticker} failed: {e}")
+            failed.append(ticker)
+
+    log_result("crypto_prices", "success" if not failed else "partial", fetched, failed)
+    print(f"Crypto done. Fetched: {fetched}, Failed: {len(failed)}")
+
+
 def main():
+    # Always fetch crypto (24/7 market)
+    try:
+        fetch_crypto_yfinance()
+    except Exception as e:
+        print(f"Crypto fetch error: {e}")
+
+    # Stocks only during market hours
     if not is_market_open():
-        print("Market closed — skipping.")
-        sys.exit(0)
+        print("Stock market closed — skipping stocks.")
+        return
 
     print(f"Fetching prices for {len(SP100_TICKERS)} tickers...")
     total_fetched, all_failed = 0, []

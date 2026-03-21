@@ -22,7 +22,7 @@ async function getStockData(ticker: string) {
       .from("stock_price_history")
       .select("price, recorded_at")
       .eq("ticker", ticker)
-      .gte("recorded_at", new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString())
+      .gte("recorded_at", new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString())
       .order("recorded_at", { ascending: false }),  // newest first, no row cap
     supabase
       .from("news_articles")
@@ -264,7 +264,7 @@ export default async function StockDetailPage({ params }: Props) {
                 )}
                 {high52w !== null && (
                   <div className="flex justify-between items-center gap-2">
-                    <span className="text-xs" style={{ color: "var(--text-3)" }}>90d High</span>
+                    <span className="text-xs" style={{ color: "var(--text-3)" }}>1Y High</span>
                     <span className="text-xs font-medium tabular-nums" style={{ color: "var(--up)" }}>
                       ${high52w.toFixed(2)}
                     </span>
@@ -272,7 +272,7 @@ export default async function StockDetailPage({ params }: Props) {
                 )}
                 {low52w !== null && (
                   <div className="flex justify-between items-center gap-2">
-                    <span className="text-xs" style={{ color: "var(--text-3)" }}>90d Low</span>
+                    <span className="text-xs" style={{ color: "var(--text-3)" }}>1Y Low</span>
                     <span className="text-xs font-medium tabular-nums" style={{ color: "var(--down)" }}>
                       ${low52w.toFixed(2)}
                     </span>
@@ -281,7 +281,7 @@ export default async function StockDetailPage({ params }: Props) {
                 {high52w !== null && low52w !== null && high52w > low52w && (
                   <div>
                     <div className="flex justify-between text-[9px] mb-1" style={{ color: "var(--text-3)" }}>
-                      <span>L</span><span>90d Range</span><span>H</span>
+                      <span>L</span><span>1Y Range</span><span>H</span>
                     </div>
                     <div className="h-1.5 rounded-full relative" style={{ background: "var(--surface-3)" }}>
                       <div

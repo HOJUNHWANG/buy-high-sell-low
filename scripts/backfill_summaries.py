@@ -12,9 +12,10 @@ from dotenv import load_dotenv
 from supabase import create_client
 from groq import Groq
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env.local"))
+load_dotenv()  # fallback to .env
 
-SUPABASE_URL = os.environ["SUPABASE_URL"]
+SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 GROQ_API_KEY = os.environ["GROQ_API_KEY"]
 

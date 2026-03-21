@@ -10,15 +10,16 @@ import yfinance as yf
 from dotenv import load_dotenv
 from supabase import create_client
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env.local"))
+load_dotenv()  # fallback to .env
 
-SUPABASE_URL = os.environ["SUPABASE_URL"]
+SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import SP100_TICKERS
+from tickers import SP100_TICKERS, CRYPTO_TICKERS, COMPANY_NAMES
 
 
 def fetch_yfinance_profile(ticker: str) -> dict | None:
@@ -87,6 +88,24 @@ def seed_affiliate_links():
             print(f"  Skip {link['partner']} (already exists)")
 
 
+def seed_crypto():
+    """Seed crypto assets into the stocks table."""
+    print(f"\nSeeding {len(CRYPTO_TICKERS)} crypto tickers...")
+    for ticker in CRYPTO_TICKERS:
+        name = COMPANY_NAMES.get(ticker, ticker.replace("-USD", ""))
+        row = {
+            "ticker": ticker,
+            "name": name,
+            "exchange": "CRYPTO",
+            "sector": "Cryptocurrency",
+            "logo_url": None,
+        }
+        supabase.table("stocks").upsert(row).execute()
+        print(f"  OK {ticker}: {name}")
+    print(f"Done. {len(CRYPTO_TICKERS)} crypto tickers seeded.")
+
+
 if __name__ == "__main__":
     seed_stocks()
+    seed_crypto()
     seed_affiliate_links()

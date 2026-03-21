@@ -1,4 +1,4 @@
-"""Central S&P 100 ticker list — imported by all data scripts."""
+"""Central ticker lists — imported by all data scripts."""
 
 SP100_TICKERS = [
     "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "BRK.B",
@@ -13,6 +13,17 @@ SP100_TICKERS = [
     "NOC", "TGT", "USB", "EMR", "F", "GM", "PNC", "NSC", "ICE",
     "AON", "MCO", "HUM", "REGN", "VRTX", "PANW", "SNPS", "CDNS",
 ]  # 100 tickers
+
+# Top 20 crypto by market cap (yfinance format: SYMBOL-USD)
+CRYPTO_TICKERS = [
+    "BTC-USD", "ETH-USD", "BNB-USD", "SOL-USD", "XRP-USD",
+    "ADA-USD", "DOGE-USD", "AVAX-USD", "DOT-USD", "MATIC-USD",
+    "LINK-USD", "UNI-USD", "ATOM-USD", "LTC-USD", "FIL-USD",
+    "NEAR-USD", "APT-USD", "ARB-USD", "OP-USD", "AAVE-USD",
+]  # 20 crypto
+
+# Combined list for scripts that handle both
+ALL_TICKERS = SP100_TICKERS + CRYPTO_TICKERS
 
 # Official company names for news ticker mapping
 COMPANY_NAMES = {
@@ -42,4 +53,12 @@ COMPANY_NAMES = {
     "NSC": "Norfolk Southern", "ICE": "ICE", "AON": "Aon", "MCO": "Moody's",
     "HUM": "Humana", "REGN": "Regeneron", "VRTX": "Vertex", "PANW": "Palo Alto Networks",
     "SNPS": "Synopsys", "CDNS": "Cadence",
+    # Crypto
+    "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "BNB-USD": "BNB",
+    "SOL-USD": "Solana", "XRP-USD": "XRP", "ADA-USD": "Cardano",
+    "DOGE-USD": "Dogecoin", "AVAX-USD": "Avalanche", "DOT-USD": "Polkadot",
+    "MATIC-USD": "Polygon", "LINK-USD": "Chainlink", "UNI-USD": "Uniswap",
+    "ATOM-USD": "Cosmos", "LTC-USD": "Litecoin", "FIL-USD": "Filecoin",
+    "NEAR-USD": "NEAR Protocol", "APT-USD": "Aptos", "ARB-USD": "Arbitrum",
+    "OP-USD": "Optimism", "AAVE-USD": "Aave",
 }

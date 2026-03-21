@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import type { StockPriceHistory } from "@/lib/types";
 
 interface Props {
@@ -8,26 +8,57 @@ interface Props {
   history: StockPriceHistory[];
 }
 
-type Range = "1D" | "1W" | "1M" | "3M";
+type Range = "1D" | "1W" | "1M" | "3M" | "6M" | "1Y";
+
+const RANGE_MS: Record<Range, number> = {
+  "1D": 1 * 24 * 60 * 60 * 1000,
+  "1W": 7 * 24 * 60 * 60 * 1000,
+  "1M": 30 * 24 * 60 * 60 * 1000,
+  "3M": 90 * 24 * 60 * 60 * 1000,
+  "6M": 180 * 24 * 60 * 60 * 1000,
+  "1Y": 365 * 24 * 60 * 60 * 1000,
+};
 
 function filterByRange(data: StockPriceHistory[], range: Range): StockPriceHistory[] {
   const now = Date.now();
-  const ms: Record<Range, number> = {
-    "1D": 24 * 60 * 60 * 1000,
-    "1W": 7 * 24 * 60 * 60 * 1000,
-    "1M": 30 * 24 * 60 * 60 * 1000,
-    "3M": 90 * 24 * 60 * 60 * 1000,
-  };
-  return data.filter((d) => new Date(d.recorded_at).getTime() >= now - ms[range]);
+  return data.filter((d) => new Date(d.recorded_at).getTime() >= now - RANGE_MS[range]);
+}
+
+/**
+ * Aggregate data points to reduce noise on longer timeframes.
+ * - 1D: raw points (intraday 15-min)
+ * - 1W: one point per hour
+ * - 1M+: one point per day (last price of that day)
+ */
+function aggregateData(
+  data: { time: number; value: number }[],
+  range: Range
+): { time: number; value: number }[] {
+  if (data.length === 0) return [];
+  if (range === "1D") return data; // raw intraday
+
+  const bucketSize =
+    range === "1W"
+      ? 60 * 60 // 1 hour
+      : 24 * 60 * 60; // 1 day for 1M/3M/6M/1Y
+
+  const buckets = new Map<number, { time: number; value: number }>();
+  for (const point of data) {
+    const key = Math.floor(point.time / bucketSize) * bucketSize;
+    // Keep last value per bucket (most recent price)
+    buckets.set(key, { time: key, value: point.value });
+  }
+
+  return Array.from(buckets.values()).sort((a, b) => a.time - b.time);
 }
 
 function getRangeStats(data: StockPriceHistory[]) {
   if (data.length === 0) return null;
   const prices = data.map((d) => d.price);
-  const low    = Math.min(...prices);
-  const high   = Math.max(...prices);
-  const first  = data[0].price;
-  const last   = data[data.length - 1].price;
+  const low = Math.min(...prices);
+  const high = Math.max(...prices);
+  const first = data[0].price;
+  const last = data[data.length - 1].price;
   const change = last - first;
   const changePct = (change / first) * 100;
   return { low, high, first, last, change, changePct };
@@ -35,13 +66,13 @@ function getRangeStats(data: StockPriceHistory[]) {
 
 export function StockChart({ ticker, history }: Props) {
   const chartRef = useRef<HTMLDivElement>(null);
-  const [range, setRange]       = useState<Range>("1W");
+  const [range, setRange] = useState<Range>("1M");
   const [chartError, setChartError] = useState(false);
-  const ranges: Range[]         = ["1D", "1W", "1M", "3M"];
+  const ranges: Range[] = ["1D", "1W", "1M", "3M", "6M", "1Y"];
 
-  const filtered = filterByRange(history, range);
-  const stats    = getRangeStats(filtered);
-  const isUp     = (stats?.changePct ?? 0) >= 0;
+  const filtered = useMemo(() => filterByRange(history, range), [history, range]);
+  const stats = useMemo(() => getRangeStats(filtered), [filtered]);
+  const isUp = (stats?.changePct ?? 0) >= 0;
 
   useEffect(() => {
     if (!chartRef.current || history.length === 0) return;
@@ -59,12 +90,15 @@ export function StockChart({ ticker, history }: Props) {
 
       const accentColor = isUp ? "#4ade80" : "#f87171";
 
+      // Show time (HH:MM) only for intraday views
+      const showTime = range === "1D" || range === "1W";
+
       chart = createChart(chartRef.current, {
-        width:  chartRef.current.clientWidth,
+        width: chartRef.current.clientWidth,
         height: 280,
         layout: {
           background: { type: ColorType.Solid, color: "#0f0f0f" },
-          textColor:  "#555",
+          textColor: "#555",
         },
         grid: {
           vertLines: { color: "rgba(255,255,255,0.02)" },
@@ -77,37 +111,48 @@ export function StockChart({ ticker, history }: Props) {
         },
         rightPriceScale: {
           borderColor: "rgba(255,255,255,0.06)",
-          textColor:   "#555",
+          textColor: "#555",
         },
         timeScale: {
           borderColor: "rgba(255,255,255,0.06)",
-          timeVisible: true,
+          timeVisible: showTime,
+          secondsVisible: false,
+          tickMarkFormatter: showTime
+            ? undefined
+            : (time: number) => {
+                const d = new Date(time * 1000);
+                // For monthly+ views: show "Mar 5" style
+                return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+              },
         },
         handleScroll: { mouseWheel: true, pressedMouseMove: true },
       });
 
       const areaSeries = chart.addSeries(AreaSeries, {
-        lineColor:        accentColor,
-        topColor:         `${accentColor}28`,
-        bottomColor:      `${accentColor}00`,
-        lineWidth:        2,
+        lineColor: accentColor,
+        topColor: `${accentColor}28`,
+        bottomColor: `${accentColor}00`,
+        lineWidth: 2,
         priceLineVisible: false,
         lastValueVisible: true,
         crosshairMarkerVisible: true,
-        crosshairMarkerRadius:  4,
+        crosshairMarkerRadius: 4,
         crosshairMarkerBackgroundColor: accentColor,
       });
 
       const filteredData = filterByRange(history, range);
-      const points = filteredData
+      const rawPoints = filteredData
         .map((d) => ({
-          time:  Math.floor(new Date(d.recorded_at).getTime() / 1000) as number,
+          time: Math.floor(new Date(d.recorded_at).getTime() / 1000) as number,
           value: d.price,
         }))
         .sort((a, b) => (a.time as number) - (b.time as number));
 
+      // Aggregate based on range to reduce noise
+      const aggregated = aggregateData(rawPoints, range);
+
       // Remove duplicate timestamps
-      const deduped = points.filter((p, i) => i === 0 || p.time !== points[i - 1].time);
+      const deduped = aggregated.filter((p, i) => i === 0 || p.time !== aggregated[i - 1].time);
 
       areaSeries.setData(deduped as Parameters<typeof areaSeries.setData>[0]);
       chart.timeScale().fitContent();
@@ -121,7 +166,9 @@ export function StockChart({ ticker, history }: Props) {
     }
 
     init();
-    return () => { chart?.remove(); };
+    return () => {
+      chart?.remove();
+    };
   }, [history, range, isUp]);
 
   return (
@@ -130,8 +177,10 @@ export function StockChart({ ticker, history }: Props) {
       style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
     >
       {/* Range tabs + stats */}
-      <div className="flex items-center justify-between px-4 py-3"
-        style={{ borderBottom: "1px solid var(--border)" }}>
+      <div
+        className="flex items-center justify-between px-4 py-3"
+        style={{ borderBottom: "1px solid var(--border)" }}
+      >
         <div className="flex items-center gap-1">
           {ranges.map((r) => (
             <button
@@ -139,8 +188,8 @@ export function StockChart({ ticker, history }: Props) {
               onClick={() => setRange(r)}
               className="px-2.5 py-1 text-[11px] font-medium rounded-md transition-all"
               style={{
-                background: range === r ? "var(--accent)"      : "transparent",
-                color:      range === r ? "#fff"               : "var(--text-2)",
+                background: range === r ? "var(--accent)" : "transparent",
+                color: range === r ? "#fff" : "var(--text-2)",
               }}
             >
               {r}
@@ -161,7 +210,8 @@ export function StockChart({ ticker, history }: Props) {
               className="font-semibold"
               style={{ color: isUp ? "var(--up)" : "var(--down)" }}
             >
-              {isUp ? "+" : ""}{stats.changePct.toFixed(2)}%
+              {isUp ? "+" : ""}
+              {stats.changePct.toFixed(2)}%
             </span>
           </div>
         )}
@@ -179,9 +229,20 @@ export function StockChart({ ticker, history }: Props) {
           className="h-64 flex flex-col items-center justify-center gap-2 text-xs"
           style={{ color: "var(--text-3)" }}
         >
-          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" opacity="0.3">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-              d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4v16" />
+          <svg
+            width="24"
+            height="24"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            opacity="0.3"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4v16"
+            />
           </svg>
           Chart data unavailable
         </div>
@@ -196,21 +257,15 @@ export function StockChart({ ticker, history }: Props) {
               Intraday data is collected during market hours (9:30 AM – 4:00 PM ET, Mon–Fri)
             </span>
           )}
-          {range !== "1D" && range !== "3M" && (
+          {range !== "1D" && (
             <span style={{ color: "var(--text-3)", fontSize: "10px" }}>
-              Try a wider range
-            </span>
-          )}
-          {range === "3M" && (
-            <span style={{ color: "var(--text-3)", fontSize: "10px" }}>
-              No data available for this period
+              Try a wider range or wait for more data to be collected
             </span>
           )}
         </div>
       ) : (
         <div ref={chartRef} className="w-full" style={{ touchAction: "pan-y" }} />
       )}
-
     </div>
   );
 }
