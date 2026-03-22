@@ -71,70 +71,62 @@ export default async function HomePage() {
       {/* ── Landing hero (guest only) ── */}
       {!user && (
         <div className="hero-gradient relative overflow-hidden">
-          <div className="max-w-7xl mx-auto px-5 py-20 text-center">
+          <div className="max-w-7xl mx-auto px-5 pt-24 pb-20 text-center">
             <div
-              className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-6 text-[11px] font-semibold uppercase tracking-wider"
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-8 text-[11px] font-semibold uppercase tracking-wider scale-in"
               style={{
                 background: "var(--accent-dim)",
                 color: "var(--accent)",
-                border: "1px solid rgba(124,108,252,0.25)",
+                border: "1px solid rgba(124,108,252,0.2)",
               }}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
               Live market data
             </div>
 
-            <h1
-              className="text-4xl sm:text-5xl font-bold leading-tight mb-4 max-w-2xl mx-auto"
-              style={{ color: "var(--text)" }}
-            >
-              US stocks, news &{" "}
-              <span style={{ color: "var(--accent)" }}>AI analysis</span>
-              <br />in one place
+            <h1 className="text-5xl sm:text-6xl font-extrabold leading-[1.1] mb-5 max-w-3xl mx-auto tracking-tight fade-up">
+              <span className="gradient-text">Track. Analyze.</span>
+              <br />
+              <span style={{ color: "var(--text)" }}>Paper Trade.</span>
             </h1>
 
             <p
-              className="text-base max-w-xl mx-auto mb-8"
+              className="text-base sm:text-lg max-w-xl mx-auto mb-10 leading-relaxed"
               style={{ color: "var(--text-2)" }}
             >
-              Real-time prices, curated market news with AI summaries,
-              and a personal watchlist — completely free.
+              Real-time S&amp;P 100 prices, AI-powered news analysis,
+              and a full paper trading simulator — completely free.
             </p>
 
-            <div className="flex items-center justify-center gap-3 flex-wrap">
-              <Link
-                href="/auth/login"
-                className="px-6 py-2.5 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90"
-                style={{ background: "var(--accent)", color: "#fff" }}
-              >
-                Get started free →
+            <div className="flex items-center justify-center gap-3 flex-wrap stagger">
+              <Link href="/auth/login" className="btn btn-primary btn-xl">
+                Get started free
+                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
               </Link>
-              <Link
-                href="#markets"
-                className="px-6 py-2.5 rounded-lg text-sm font-medium transition-all"
-                style={{ color: "var(--text-2)", border: "1px solid var(--border-md)" }}
-              >
+              <Link href="#markets" className="btn btn-secondary btn-xl">
                 View markets
               </Link>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-2 mt-10">
+            <div className="flex flex-wrap justify-center gap-2.5 mt-14 stagger">
               {[
-                { icon: "📈", label: "99+ stocks tracked" },
-                { icon: "🤖", label: "AI news summaries" },
-                { icon: "⭐", label: "Personal watchlist" },
-                { icon: "🔔", label: "Updated hourly" },
-              ].map(({ icon, label }) => (
+                { label: "S&P 100 + 19 Crypto" },
+                { label: "AI News Analysis" },
+                { label: "Paper Trading" },
+                { label: "What If Calculator" },
+              ].map(({ label }) => (
                 <div
                   key={label}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs"
+                  className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium"
                   style={{
                     background: "var(--surface)",
                     border: "1px solid var(--border)",
                     color: "var(--text-2)",
                   }}
                 >
-                  <span>{icon}</span>
+                  <span className="w-1 h-1 rounded-full" style={{ background: "var(--accent)" }} />
                   {label}
                 </div>
               ))}
@@ -147,13 +139,13 @@ export default async function HomePage() {
       <div className="max-w-7xl mx-auto px-5 py-8" id="markets">
 
         {/* Page title — always visible */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>
-            Buy High Sell Low{" "}
-            <span className="text-sm font-normal" style={{ color: "var(--text-3)" }}>
-              (wait... wasn&apos;t it the other way around?)
-            </span>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text)" }}>
+            Markets
           </h1>
+          <p className="text-xs mt-1" style={{ color: "var(--text-3)" }}>
+            Real-time prices &amp; AI-powered news
+          </p>
         </div>
 
         <div className="flex gap-5 items-start">
@@ -250,24 +242,19 @@ export default async function HomePage() {
 
               {!user && news.length > 0 && (
                 <div
-                  className="mt-6 rounded-xl p-6 text-center"
-                  style={{
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
-                  }}
+                  className="mt-6 card-accent rounded-xl p-6 text-center"
                 >
-                  <p className="text-sm font-medium mb-1" style={{ color: "var(--text)" }}>
-                    See all news + AI analysis
+                  <p className="text-sm font-semibold mb-1" style={{ color: "var(--text)" }}>
+                    Unlock full access
                   </p>
                   <p className="text-xs mb-4" style={{ color: "var(--text-2)" }}>
-                    Sign up free to unlock unlimited news, AI summaries, and your personal watchlist.
+                    AI summaries, paper trading, watchlist &amp; more — completely free.
                   </p>
-                  <Link
-                    href="/auth/login"
-                    className="inline-block px-5 py-2 rounded-lg text-xs font-semibold"
-                    style={{ background: "var(--accent)", color: "#fff" }}
-                  >
-                    Create free account →
+                  <Link href="/auth/login" className="btn btn-primary btn-sm">
+                    Create free account
+                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
                   </Link>
                 </div>
               )}
@@ -294,6 +281,8 @@ export default async function HomePage() {
               {[
                 { href: "/stocks", label: "📊 Stock Screener" },
                 { href: "/news",   label: "📰 News Feed"      },
+                { href: "/whatif", label: "🔮 What If?" },
+                { href: "/paper",  label: "💰 Paper Trading" },
                 { href: "/auth/login", label: "⭐ My Watchlist" },
               ].map(({ href, label }) => (
                 <Link

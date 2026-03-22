@@ -58,3 +58,82 @@ export interface AffiliateLink {
 export interface StockWithPrice extends Stock {
   price?: StockPrice;
 }
+
+// 20-year daily OHLCV for What If feature
+export interface PriceHistoryLong {
+  id: number;
+  ticker: string;
+  date: string;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number;
+  volume: number | null;
+}
+
+// What If scenarios
+export interface WhatIfScenario {
+  id: number;
+  user_id: string;
+  ticker: string;
+  buy_date: string;
+  sell_date: string | null;
+  amount_usd: number;
+  created_at: string;
+}
+
+// Paper Trading
+export interface PaperAccount {
+  user_id: string;
+  cash_balance: number;
+  status: "active" | "margin_call" | "liquidated" | "suspended";
+  margin_call_at: string | null;
+  liquidation_count: number;
+  last_liquidation_at: string | null;
+  suspended_until: string | null;
+  last_checkin: string | null;
+  streak: number;
+  created_at: string;
+}
+
+export interface PaperChallenge {
+  id: number;
+  user_id: string;
+  ticker: string;
+  challenge_type: "gain_pct" | "hold_value";
+  target_pct: number;
+  week_start: string;
+  week_end: string;
+  entry_price: number | null;
+  status: "active" | "completed" | "failed" | "expired";
+  reward_usd: number;
+  created_at: string;
+}
+
+export interface PaperPosition {
+  id: number;
+  user_id: string;
+  ticker: string;
+  shares: number;
+  avg_cost: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaperTransaction {
+  id: number;
+  user_id: string;
+  ticker: string;
+  side: "buy" | "sell";
+  shares: number;
+  price: number;
+  total: number;
+  executed_at: string;
+}
+
+export interface PaperAchievement {
+  id: number;
+  user_id: string;
+  badge_key: string;
+  earned_at: string;
+}

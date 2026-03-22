@@ -11,62 +11,73 @@ export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const navLinks = [
-    { href: "/",        label: "Home"    },
-    { href: "/stocks",  label: "Stocks"  },
-    { href: "/news",    label: "News"    },
+    { href: "/",        label: "Home" },
+    { href: "/stocks",  label: "Stocks" },
+    { href: "/news",    label: "News" },
+    { href: "/whatif",  label: "What If" },
+    { href: "/paper",   label: "Paper Trade" },
   ];
 
   return (
     <header
+      className="sticky top-0 z-50"
       style={{
-        background: "rgba(8,8,8,0.88)",
-        backdropFilter: "blur(12px)",
+        background: "rgba(6,6,8,0.82)",
+        backdropFilter: "blur(20px) saturate(180%)",
+        WebkitBackdropFilter: "blur(20px) saturate(180%)",
         borderBottom: "1px solid var(--border)",
       }}
-      className="sticky top-0 z-50"
     >
-      <div className="max-w-7xl mx-auto px-5 h-12 flex items-center gap-4">
+      <div className="max-w-7xl mx-auto px-5 h-14 flex items-center gap-5">
         {/* Logo */}
-        <Link href="/" className="text-sm font-semibold tracking-tight shrink-0">
-          Buy High<span style={{ color: "var(--accent)" }}> Sell Low</span>
+        <Link href="/" className="text-sm font-bold tracking-tight shrink-0 flex items-center gap-1.5">
+          <span className="w-5 h-5 rounded-md gradient-accent flex items-center justify-center text-[9px] font-black text-white">
+            B
+          </span>
+          <span>
+            Buy High<span style={{ color: "var(--accent)" }}> Sell Low</span>
+          </span>
         </Link>
 
         {/* Desktop nav */}
-        <div className="hidden md:flex items-center gap-1">
-          <div className="h-4 w-px mx-1" style={{ background: "var(--border-md)" }} />
+        <nav className="hidden md:flex items-center gap-0.5">
+          <div className="h-5 w-px mx-2" style={{ background: "var(--border-md)" }} />
           {navLinks.map(({ href, label }) => {
-            const active = pathname === href;
+            const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
             return (
               <Link
                 key={href}
                 href={href}
-                className="px-2.5 py-1 rounded-md text-xs font-medium transition-colors"
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all relative ${active ? "nav-link-active" : "nav-link"}`}
                 style={{
                   color:      active ? "var(--text)"      : "var(--text-2)",
-                  background: active ? "var(--surface-3)" : "transparent",
+                  background: active ? "var(--surface-2)" : "transparent",
                 }}
               >
                 {label}
               </Link>
             );
           })}
-        </div>
+        </nav>
+
+        {/* Spacer */}
+        <div className="flex-1" />
 
         {/* Search */}
-        <div className="flex-1 max-w-xs hidden sm:block ml-1">
+        <div className="max-w-xs w-full hidden sm:block">
           <SearchBar />
         </div>
 
         {/* User menu */}
-        <div className="ml-auto hidden sm:block">
+        <div className="hidden sm:block">
           <UserMenu />
         </div>
 
         {/* Mobile hamburger */}
         <button
           onClick={() => setMenuOpen((o) => !o)}
-          className="ml-auto sm:hidden p-1.5 rounded-md"
-          style={{ color: "var(--text-2)" }}
+          className="ml-auto sm:hidden p-2 rounded-lg transition-colors"
+          style={{ color: "var(--text-2)", background: menuOpen ? "var(--surface-2)" : "transparent" }}
           aria-label="Toggle menu"
         >
           {menuOpen ? (
@@ -83,17 +94,20 @@ export function Navbar() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="sm:hidden px-5 pb-4 pt-2 space-y-3" style={{ borderTop: "1px solid var(--border)" }}>
+        <div
+          className="sm:hidden px-5 pb-5 pt-3 space-y-3 slide-down"
+          style={{ borderTop: "1px solid var(--border)" }}
+        >
           <SearchBar />
-          <nav className="flex flex-col gap-1">
+          <nav className="flex flex-col gap-0.5">
             {navLinks.map(({ href, label }) => {
-              const active = pathname === href;
+              const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
               return (
                 <Link
                   key={href}
                   href={href}
                   onClick={() => setMenuOpen(false)}
-                  className="px-3 py-2 rounded-lg text-sm font-medium"
+                  className="px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
                   style={{
                     color:      active ? "var(--text)"      : "var(--text-2)",
                     background: active ? "var(--surface-2)" : "transparent",
@@ -104,7 +118,7 @@ export function Navbar() {
               );
             })}
           </nav>
-          <div className="pt-1">
+          <div className="pt-2" style={{ borderTop: "1px solid var(--border)" }}>
             <UserMenu />
           </div>
         </div>
