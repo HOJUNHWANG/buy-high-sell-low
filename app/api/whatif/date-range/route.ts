@@ -1,12 +1,13 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const ticker = request.nextUrl.searchParams.get("ticker");
+  const { searchParams } = new URL(request.url);
+  const ticker = searchParams.get("ticker");
   if (!ticker) return NextResponse.json({ error: "ticker is required" }, { status: 400 });
 
   const [{ data: minRow }, { data: maxRow }] = await Promise.all([

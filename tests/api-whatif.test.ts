@@ -150,3 +150,52 @@ describe("What If: Saved Scenarios", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("What If: Date Range API", () => {
+  beforeEach(() => {
+    clearMockData();
+    setMockUser(USER);
+  });
+
+  it("returns min and max dates for a ticker", async () => {
+    // Mock single() returns first matching item; both queries hit same data.
+    // With a single-item dataset, min and max are the same — tests the happy path.
+    setMockData("price_history_long", [
+      { ticker: "AAPL", date: "2006-01-03" },
+    ]);
+
+    const mod = await import("@/app/api/whatif/date-range/route");
+    const req = new Request("http://localhost:3000/api/whatif/date-range?ticker=AAPL");
+    const res = await mod.GET(req as Request);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.minDate).toBeDefined();
+    expect(data.maxDate).toBeDefined();
+    expect(typeof data.minDate).toBe("string");
+    expect(typeof data.maxDate).toBe("string");
+  });
+
+  it("returns 404 for ticker with no data", async () => {
+    setMockData("price_history_long", []);
+
+    const mod = await import("@/app/api/whatif/date-range/route");
+    const req = new Request("http://localhost:3000/api/whatif/date-range?ticker=FAKE");
+    const res = await mod.GET(req as Request);
+    expect(res.status).toBe(404);
+  });
+
+  it("rejects missing ticker param", async () => {
+    const mod = await import("@/app/api/whatif/date-range/route");
+    const req = new Request("http://localhost:3000/api/whatif/date-range");
+    const res = await mod.GET(req as Request);
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects unauthenticated request", async () => {
+    setMockUser(null);
+    const mod = await import("@/app/api/whatif/date-range/route");
+    const req = new Request("http://localhost:3000/api/whatif/date-range?ticker=AAPL");
+    const res = await mod.GET(req as Request);
+    expect(res.status).toBe(401);
+  });
+});

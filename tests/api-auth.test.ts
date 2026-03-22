@@ -35,6 +35,7 @@ describe("Auth: All protected routes reject unauthenticated requests", () => {
     { path: "paper/revive", method: "POST" },
     { path: "paper/roast", method: "POST" },
     { path: "paper/challenge", method: "GET" },
+    { path: "whatif/date-range", method: "GET" },
     { path: "whatif", method: "GET" },
     { path: "whatif", method: "POST", body: { ticker: "AAPL", buyDate: "2020-01-01", amount: 1000 } },
     { path: "ai-summary", method: "POST", body: { articleId: 1 } },
