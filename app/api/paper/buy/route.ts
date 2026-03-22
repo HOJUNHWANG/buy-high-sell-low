@@ -14,9 +14,9 @@ export async function POST(request: Request) {
   }
 
   const ticker = body.ticker as string | undefined;
-  const shares = body.shares as number | undefined;
+  const shares = body.shares;
 
-  if (!ticker || !shares || shares <= 0) {
+  if (!ticker || typeof shares !== "number" || !isFinite(shares) || shares <= 0) {
     return NextResponse.json({ error: "ticker and shares (> 0) are required" }, { status: 400 });
   }
 

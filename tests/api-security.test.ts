@@ -107,15 +107,8 @@ describe("Security: Paper trading input abuse", () => {
     expect(res.status).toBe(400);
   });
 
-  it("string shares passes validation but fails downstream (no type coercion guard)", async () => {
-    // NOTE: The buy route uses `as number` cast without runtime validation.
-    // String "not_a_number" passes `!shares` (truthy) and `shares <= 0` (false for NaN comparison).
-    // This is a known gap — the route should add `typeof shares !== 'number'` check.
-    // For now, it proceeds past validation and fails at price lookup or balance check.
+  it("rejects string shares with 400", async () => {
     setMockData("paper_accounts", [{ user_id: USER.id, status: "active", cash_balance: 1000 }]);
-    setMockData("stock_prices", [{ ticker: "AAPL", price: 100 }]);
-    setMockData("paper_positions", []);
-    setMockData("paper_transactions", []);
     const mod = await import("@/app/api/paper/buy/route");
     const req = new Request("http://localhost:3000/api/paper/buy", {
       method: "POST",
@@ -123,9 +116,19 @@ describe("Security: Paper trading input abuse", () => {
       body: JSON.stringify({ ticker: "AAPL", shares: "not_a_number" }),
     });
     const res = await mod.POST(req);
-    // The NaN propagates through arithmetic, resulting in NaN total which passes balance check
-    // This test documents the vulnerability — should be fixed with runtime type validation
-    expect([200, 400, 500]).toContain(res.status);
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects Infinity shares with 400", async () => {
+    setMockData("paper_accounts", [{ user_id: USER.id, status: "active", cash_balance: 1000 }]);
+    const mod = await import("@/app/api/paper/buy/route");
+    const req = new Request("http://localhost:3000/api/paper/buy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker: "AAPL", shares: Infinity }),
+    });
+    const res = await mod.POST(req);
+    expect(res.status).toBe(400);
   });
 
   it("rejects empty ticker string", async () => {
