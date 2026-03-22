@@ -20,7 +20,7 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  // unsafe-eval needed by lightweight-charts
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https://financialmodelingprep.com https://raw.githubusercontent.com https://assets.coingecko.com https://*.gstatic.com",
+      "img-src 'self' data: blob: https://financialmodelingprep.com https://raw.githubusercontent.com https://assets.coingecko.com https://*.gstatic.com https://icons.duckduckgo.com",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
       "frame-ancestors 'none'",
     ].join("; "),
@@ -45,6 +45,10 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "t3.gstatic.com",
+      },
+      {
+        protocol: "https",
+        hostname: "icons.duckduckgo.com",
       },
     ],
   },

@@ -90,9 +90,9 @@ def seed_affiliate_links():
 
 CRYPTO_ICON_BASE = "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color"
 CRYPTO_LOGO_MAP = {
-    "BTC-USD": "btc", "ETH-USD": "eth", "BNB-USD": "bnb", "SOL-USD": "sol",
-    "XRP-USD": "xrp", "ADA-USD": "ada", "DOGE-USD": "doge", "AVAX-USD": "avax",
-    "DOT-USD": "dot", "LINK-USD": "link", "UNI-USD": "uni",
+    "BTC-USD": "btc", "ETH-USD": "eth", "USDT-USD": "usdt", "BNB-USD": "bnb",
+    "SOL-USD": "sol", "XRP-USD": "xrp", "ADA-USD": "ada", "DOGE-USD": "doge",
+    "AVAX-USD": "avax", "DOT-USD": "dot", "LINK-USD": "link", "UNI-USD": "uni",
     "ATOM-USD": "atom", "LTC-USD": "ltc", "FIL-USD": "fil", "NEAR-USD": "near",
     "APT-USD": "apt", "ARB-USD": "arb", "OP-USD": "op", "AAVE-USD": "aave",
 }

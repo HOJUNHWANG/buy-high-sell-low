@@ -1,6 +1,9 @@
 """
-update_logos.py — One-time script to populate logo_url for stocks + crypto.
+update_logos.py — Populate logo_url for stocks + crypto.
 Usage: python scripts/update_logos.py
+
+Stock icons:  DuckDuckGo favicon service (free, high quality)
+Crypto icons: spothq CDN (16/20) + CoinGecko fallback (4/20)
 """
 import os
 import sys
@@ -26,6 +29,7 @@ CRYPTO_ICON_BASE = "https://raw.githubusercontent.com/spothq/cryptocurrency-icon
 CRYPTO_LOGO_MAP = {
     "BTC-USD": f"{CRYPTO_ICON_BASE}/btc.png",
     "ETH-USD": f"{CRYPTO_ICON_BASE}/eth.png",
+    "USDT-USD": f"{CRYPTO_ICON_BASE}/usdt.png",
     "BNB-USD": f"{CRYPTO_ICON_BASE}/bnb.png",
     "SOL-USD": f"{CRYPTO_ICON_BASE}/sol.png",
     "XRP-USD": f"{CRYPTO_ICON_BASE}/xrp.png",
@@ -46,7 +50,7 @@ CRYPTO_LOGO_MAP = {
     "OP-USD": "https://assets.coingecko.com/coins/images/25244/small/Optimism.png",
 }
 
-# ── Stock logos via Clearbit (free, domain-based) ──
+# ── Stock logos via DuckDuckGo favicon service ──
 STOCK_DOMAINS = {
     "AAPL": "apple.com", "MSFT": "microsoft.com", "NVDA": "nvidia.com",
     "AMZN": "amazon.com", "GOOGL": "google.com", "META": "meta.com",
@@ -95,12 +99,11 @@ def update_crypto_logos():
 
 
 def update_stock_logos():
-    """Use Google gstatic favicon service with size validation."""
-    # Update ALL stock logos (not just missing) to catch broken ones
+    """Use DuckDuckGo favicon service — higher quality than gstatic."""
     result = supabase.table("stocks").select("ticker").neq("sector", "Cryptocurrency").execute()
     all_stocks = [r["ticker"] for r in result.data]
 
-    print(f"\nUpdating logos for {len(all_stocks)} stocks via Google Favicon...")
+    print(f"\nUpdating logos for {len(all_stocks)} stocks via DuckDuckGo Favicon...")
     updated, too_small, no_domain = 0, 0, 0
 
     for ticker in all_stocks:
@@ -110,19 +113,15 @@ def update_stock_logos():
             no_domain += 1
             continue
 
-        # Use gstatic directly (no redirect)
-        logo_url = f"https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://{domain}&size=128"
+        logo_url = f"https://icons.duckduckgo.com/ip3/{domain}.ico"
 
-        # Check actual image size — reject 16x16 (looks broken when scaled)
         try:
             r = requests.get(logo_url, timeout=5)
-            if r.status_code == 200 and len(r.content) > 1000:
-                # Files > 1KB are almost always 32x32+ (16x16 PNGs are ~300-800 bytes)
+            if r.status_code == 200 and len(r.content) > 200:
                 supabase.table("stocks").update({"logo_url": logo_url}).eq("ticker", ticker).execute()
                 print(f"  {ticker}: OK ({domain}, {len(r.content)}B)")
                 updated += 1
             else:
-                # Too small — clear logo so UI uses letter fallback
                 supabase.table("stocks").update({"logo_url": None}).eq("ticker", ticker).execute()
                 print(f"  {ticker}: too small ({len(r.content)}B), using letter fallback")
                 too_small += 1
