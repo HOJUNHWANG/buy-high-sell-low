@@ -58,11 +58,15 @@ function getRangeStats(data: StockPriceHistory[]) {
   const prices = data.map((d) => d.price);
   const low = Math.min(...prices);
   const high = Math.max(...prices);
-  const first = data[0].price;
-  const last = data[data.length - 1].price;
-  const change = last - first;
-  const changePct = (change / first) * 100;
-  return { low, high, first, last, change, changePct };
+  // Data comes in DESC order (newest first), so sort by time to get chronological
+  const sorted = [...data].sort(
+    (a, b) => new Date(a.recorded_at).getTime() - new Date(b.recorded_at).getTime()
+  );
+  const oldest = sorted[0].price;
+  const newest = sorted[sorted.length - 1].price;
+  const change = newest - oldest;
+  const changePct = oldest > 0 ? (change / oldest) * 100 : 0;
+  return { low, high, first: oldest, last: newest, change, changePct };
 }
 
 export function StockChart({ ticker, history, isCrypto }: Props) {
