@@ -61,22 +61,24 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
   useEffect(() => {
     if (!authed) return;
 
-    // Fetch stock info and portfolio in parallel
+    // Fetch stock info, current price, and portfolio in parallel
     Promise.all([
       fetch(`/api/search?q=${ticker}`).then((r) => r.json()),
       fetch("/api/paper/portfolio").then((r) => r.json()),
-    ]).then(([searchResults, portfolio]) => {
+      supabase.from("stock_prices").select("price, change_pct").eq("ticker", ticker).single(),
+    ]).then(([searchResults, portfolio, { data: priceData }]) => {
       const matched = searchResults.find((s: { ticker: string }) => s.ticker === ticker);
       if (!matched) return;
 
-      // Get price from portfolio data or stock_prices
       const pos = portfolio.positions?.find((p: { ticker: string }) => p.ticker === ticker);
+      const currentPrice = priceData?.price ?? pos?.currentPrice ?? 0;
+
       setStock({
         ticker: matched.ticker,
         name: matched.name,
         logo_url: matched.logo_url,
-        price: pos?.currentPrice ?? 0,
-        change_pct: null,
+        price: currentPrice,
+        change_pct: priceData?.change_pct ?? null,
       });
 
       if (pos) {
@@ -89,16 +91,6 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
         });
       }
       setCashBalance(portfolio.cashBalance);
-
-      // Also fetch current price directly
-      supabase
-        .from("stock_prices")
-        .select("price, change_pct")
-        .eq("ticker", ticker)
-        .single()
-        .then(({ data }) => {
-          if (data) setStock((prev) => prev ? { ...prev, price: data.price, change_pct: data.change_pct } : prev);
-        });
     });
   }, [authed, ticker, supabase]);
 

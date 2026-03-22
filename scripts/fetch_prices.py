@@ -84,8 +84,23 @@ def upsert_prices(results: dict) -> tuple[int, list[str]]:
             "price":       price,
             "recorded_at": now,
         }
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        row_long = {
+            "ticker": ticker,
+            "date":   today,
+            "close":  price,
+        }
+        # Add open/high/low from quote if available
+        for field in ("open", "high", "low"):
+            val = data.get(field)
+            if val not in (None, ""):
+                row_long[field] = float(val)
+        if volume is not None:
+            row_long["volume"] = volume
+
         supabase.table("stock_prices").upsert(row_price).execute()
         supabase.table("stock_price_history").insert(row_history).execute()
+        supabase.table("price_history_long").upsert(row_long, on_conflict="ticker,date").execute()
         fetched += 1
 
     return fetched, failed
@@ -148,6 +163,11 @@ def fetch_crypto_yfinance():
             supabase.table("stock_price_history").insert({
                 "ticker": ticker, "price": price, "recorded_at": now
             }).execute()
+            today = datetime.utcnow().strftime("%Y-%m-%d")
+            supabase.table("price_history_long").upsert({
+                "ticker": ticker, "date": today, "close": price,
+                "volume": volume,
+            }, on_conflict="ticker,date").execute()
             fetched += 1
         except Exception as e:
             print(f"  {ticker} failed: {e}")

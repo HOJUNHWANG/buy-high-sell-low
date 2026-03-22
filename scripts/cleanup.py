@@ -17,22 +17,21 @@ supabase = create_client(SUPABASE_URL, os.environ["SUPABASE_SERVICE_ROLE_KEY"])
 def main():
     print("Running cleanup...")
 
-    # Delete price history older than 400 days (was 90 — extended for 1Y charts)
-    # NOTE: Also update the cleanup_old_prices() SQL function in Supabase:
-    #   CREATE OR REPLACE FUNCTION cleanup_old_prices() RETURNS void AS $$
-    #     DELETE FROM stock_price_history WHERE recorded_at < NOW() - INTERVAL '400 days';
-    #   $$ LANGUAGE sql;
-    supabase.rpc("cleanup_old_prices").execute()
-    print("  Price history cleanup done")
+    # Delete price history older than 400 days (1Y charts + buffer)
+    cutoff_400d = (datetime.utcnow() - timedelta(days=400)).isoformat()
+    result = supabase.table("stock_price_history").delete().lt("recorded_at", cutoff_400d).execute()
+    deleted = len(result.data) if result.data else 0
+    print(f"  Price history cleanup done ({deleted} rows deleted)")
 
     # Delete fetch logs older than 30 days
-    supabase.rpc("cleanup_old_logs").execute()
-    print("  Fetch logs cleanup done")
+    cutoff_30d = (datetime.utcnow() - timedelta(days=30)).isoformat()
+    result = supabase.table("fetch_logs").delete().lt("executed_at", cutoff_30d).execute()
+    deleted = len(result.data) if result.data else 0
+    print(f"  Fetch logs cleanup done ({deleted} rows deleted)")
 
-    # Delete news articles older than 90 days (no Supabase RPC needed — direct delete)
-    # Service role key bypasses RLS, so this works even with public-read-only policy.
-    ninety_days_ago = (datetime.utcnow() - timedelta(days=90)).isoformat()
-    result = supabase.table("news_articles").delete().lt("fetched_at", ninety_days_ago).execute()
+    # Delete news articles older than 90 days
+    cutoff_90d = (datetime.utcnow() - timedelta(days=90)).isoformat()
+    result = supabase.table("news_articles").delete().lt("fetched_at", cutoff_90d).execute()
     deleted = len(result.data) if result.data else 0
     print(f"  News articles cleanup done ({deleted} rows deleted)")
 

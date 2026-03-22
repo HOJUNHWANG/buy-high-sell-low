@@ -67,6 +67,8 @@ export default function WhatIfPage() {
   const [savedScenarios, setSavedScenarios] = useState<WhatIfScenario[]>([]);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [minDate, setMinDate] = useState("");
+  const [maxDate, setMaxDate] = useState("");
 
   // Auth check
   useEffect(() => {
@@ -85,6 +87,19 @@ export default function WhatIfPage() {
   useEffect(() => {
     if (authed) loadScenarios();
   }, [authed, loadScenarios]);
+
+  // Fetch date range when ticker changes
+  useEffect(() => {
+    if (!ticker) { setMinDate(""); setMaxDate(""); return; }
+    fetch(`/api/whatif/date-range?ticker=${encodeURIComponent(ticker)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) {
+          setMinDate(data.minDate);
+          setMaxDate(data.maxDate);
+        }
+      });
+  }, [ticker]);
 
   // Search stocks
   useEffect(() => {
@@ -272,6 +287,13 @@ export default function WhatIfPage() {
           )}
         </div>
 
+        {/* Date range hint */}
+        {minDate && maxDate && (
+          <p className="text-[11px]" style={{ color: "var(--text-3)" }}>
+            Data available: {minDate} ~ {maxDate}
+          </p>
+        )}
+
         {/* Date + Amount row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -282,6 +304,8 @@ export default function WhatIfPage() {
             <input
               type="date"
               value={buyDate}
+              min={minDate}
+              max={maxDate}
               onChange={(e) => setBuyDate(e.target.value)}
               className="input"
             />
@@ -324,6 +348,8 @@ export default function WhatIfPage() {
             <input
               type="date"
               value={sellDate}
+              min={minDate}
+              max={maxDate}
               onChange={(e) => setSellDate(e.target.value)}
               className="input"
             />
