@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import type { Stock, StockPrice } from "@/lib/types";
@@ -42,7 +43,9 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
     key: "market_cap",
     dir: "desc",
   });
-  const [assetType, setAssetType] = useState<"stocks" | "crypto">("stocks");
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab") === "crypto" ? "crypto" : "stocks";
+  const [assetType, setAssetType] = useState<"stocks" | "crypto">(initialTab);
   const [sector, setSector] = useState("All");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"table" | "grid">("table");

@@ -35,11 +35,11 @@ SP100_TICKERS = [
 
 # Top 20 crypto by market cap (yfinance format: SYMBOL-USD)
 CRYPTO_TICKERS = [
-    "BTC-USD", "ETH-USD", "BNB-USD", "SOL-USD", "XRP-USD",
+    "BTC-USD", "ETH-USD", "USDT-USD", "BNB-USD", "SOL-USD", "XRP-USD",
     "ADA-USD", "DOGE-USD", "AVAX-USD", "DOT-USD",
     "LINK-USD", "UNI-USD", "ATOM-USD", "LTC-USD", "FIL-USD",
     "NEAR-USD", "APT-USD", "ARB-USD", "OP-USD", "AAVE-USD",
-]  # 19 crypto
+]  # 20 crypto
 
 # Combined list for scripts that handle both
 ALL_TICKERS = SP100_TICKERS + CRYPTO_TICKERS
@@ -73,7 +73,8 @@ COMPANY_NAMES = {
     "HUM": "Humana", "REGN": "Regeneron", "VRTX": "Vertex", "PANW": "Palo Alto Networks",
     "SNPS": "Synopsys", "CDNS": "Cadence",
     # Crypto
-    "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "BNB-USD": "BNB",
+    "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "USDT-USD": "Tether",
+    "BNB-USD": "BNB",
     "SOL-USD": "Solana", "XRP-USD": "XRP", "ADA-USD": "Cardano",
     "DOGE-USD": "Dogecoin", "AVAX-USD": "Avalanche", "DOT-USD": "Polkadot",
     "LINK-USD": "Chainlink", "UNI-USD": "Uniswap",

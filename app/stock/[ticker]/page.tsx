@@ -342,14 +342,14 @@ export default async function StockDetailPage({ params }: Props) {
 
           {/* Back to screener */}
           <Link
-            href="/stocks"
+            href={stock.sector === "Cryptocurrency" ? "/stocks?tab=crypto" : "/stocks"}
             className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg transition-colors"
             style={{ color: "var(--text-3)", border: "1px solid var(--border)" }}
           >
             <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
-            All stocks
+            {stock.sector === "Cryptocurrency" ? "All crypto" : "All stocks"}
           </Link>
         </aside>
       </div>
