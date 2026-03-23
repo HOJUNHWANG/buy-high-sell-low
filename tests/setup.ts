@@ -79,6 +79,7 @@ function createQueryBuilder(table: string, initialData?: unknown[]) {
     not: vi.fn(() => builder),
     or: vi.fn(() => builder),
     ilike: vi.fn(() => builder),
+    like: vi.fn(() => builder),
     order: vi.fn((_col: string, opts?: { ascending?: boolean }) => {
       _orderField = _col;
       _ascending = opts?.ascending ?? false;

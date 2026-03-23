@@ -6,8 +6,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PaperTradeBanner } from "@/components/PaperTradeBanner";
-import { AchievementBadge } from "@/components/AchievementBadge";
-import { ALL_BADGE_KEYS } from "@/lib/achievements";
+import { AchievementBadge, TierHeader } from "@/components/AchievementBadge";
+import { ALL_BADGE_KEYS, TIERS_ORDERED, getBadgesByTier } from "@/lib/achievements";
 import { RoastCard } from "@/components/RoastCard";
 
 interface Position {
@@ -45,6 +45,16 @@ interface LiquidationStatus {
   suspendedUntil?: string;
 }
 
+interface ChallengePick {
+  ticker: string;
+  direction: "up" | "down" | null;
+  base_price: number;
+  final_price: number | null;
+  correct: boolean | null;
+  currentPrice?: number;
+  currentPct?: number;
+}
+
 interface Challenge {
   id: number;
   ticker: string;
@@ -54,6 +64,9 @@ interface Challenge {
   entry_price: number | null;
   status: string;
   reward_usd: number;
+  picks?: ChallengePick[];
+  challenge_type?: string;
+  correctCount?: number;
   currentPrice?: number;
   currentPct?: number;
 }
@@ -75,6 +88,8 @@ export default function PaperTradingPage() {
   const [checkinDone, setCheckinDone] = useState(false);
   const [reviving, setReviving] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
+  const [predictions, setPredictions] = useState<Record<string, "up" | "down">>({});
+  const [submittingChallenge, setSubmittingChallenge] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -122,6 +137,25 @@ export default function PaperTradingPage() {
     const res = await fetch("/api/paper/revive", { method: "POST" });
     if (res.ok) loadAll();
     setReviving(false);
+  }
+
+  async function submitChallenge() {
+    if (!challenge?.picks) return;
+    const allPicked = challenge.picks.every((p) => predictions[p.ticker]);
+    if (!allPicked) return;
+
+    setSubmittingChallenge(true);
+    const picks = challenge.picks.map((p) => ({
+      ticker: p.ticker,
+      direction: predictions[p.ticker],
+    }));
+    const res = await fetch("/api/paper/challenge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ picks }),
+    });
+    if (res.ok) loadAll();
+    setSubmittingChallenge(false);
   }
 
   function handleShare() {
@@ -286,49 +320,149 @@ export default function PaperTradingPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Holdings */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Weekly Challenge */}
-          {challenge && challenge.status === "active" && (
-            <div className="card-accent rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
+          {/* Weekly Challenge — Prediction */}
+          {challenge && challenge.picks && challenge.status === "active" && (
+            <div className="card-accent rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
                 <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--accent)" }}>
-                  &#x1F3AF; Weekly Challenge
+                  &#x1F3B0; Weekly Prediction
                 </p>
                 <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
-                  Ends {challenge.week_end}
+                  Submit by {challenge.week_end} (Fri close)
                 </span>
               </div>
-              <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
-                {challenge.ticker} hits +{challenge.target_pct}% this week
+              <p className="text-xs" style={{ color: "var(--text-2)" }}>
+                Predict UP or DOWN for each. $100 per correct pick. 4+ correct = 1.5x, 5/5 = 2x!
               </p>
-              <div className="flex items-center justify-between mt-2">
-                <div className="text-xs" style={{ color: "var(--text-2)" }}>
-                  Entry: ${challenge.entry_price?.toFixed(2) ?? "N/A"}
-                  {challenge.currentPct != null && (
-                    <span style={{ color: challenge.currentPct >= 0 ? "var(--up)" : "var(--down)", marginLeft: 8 }}>
-                      Current: {challenge.currentPct >= 0 ? "+" : ""}{challenge.currentPct.toFixed(2)}%
-                    </span>
-                  )}
-                </div>
-                <span className="badge" style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
-                  Reward: ${challenge.reward_usd}
-                </span>
+              <div className="space-y-2">
+                {challenge.picks.map((pick) => (
+                  <div key={pick.ticker} className="flex items-center justify-between rounded-lg p-2.5"
+                    style={{ background: "var(--surface-2)" }}>
+                    <div>
+                      <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{pick.ticker}</span>
+                      <span className="text-[10px] ml-2 tabular-nums" style={{ color: "var(--text-3)" }}>
+                        ${pick.base_price.toFixed(2)}
+                      </span>
+                      {pick.currentPct != null && (
+                        <span className="text-[10px] ml-1 tabular-nums"
+                          style={{ color: pick.currentPct >= 0 ? "var(--up)" : "var(--down)" }}>
+                          ({pick.currentPct >= 0 ? "+" : ""}{pick.currentPct.toFixed(2)}%)
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => setPredictions((prev) => ({ ...prev, [pick.ticker]: "up" }))}
+                        className="px-3 py-1 rounded text-[11px] font-semibold transition-all"
+                        style={{
+                          background: predictions[pick.ticker] === "up" ? "rgba(74,222,128,0.2)" : "var(--surface-3)",
+                          color: predictions[pick.ticker] === "up" ? "var(--up)" : "var(--text-3)",
+                          border: predictions[pick.ticker] === "up" ? "1px solid var(--up)" : "1px solid transparent",
+                        }}
+                      >
+                        &#x2B06; UP
+                      </button>
+                      <button
+                        onClick={() => setPredictions((prev) => ({ ...prev, [pick.ticker]: "down" }))}
+                        className="px-3 py-1 rounded text-[11px] font-semibold transition-all"
+                        style={{
+                          background: predictions[pick.ticker] === "down" ? "rgba(248,113,113,0.2)" : "var(--surface-3)",
+                          color: predictions[pick.ticker] === "down" ? "var(--down)" : "var(--text-3)",
+                          border: predictions[pick.ticker] === "down" ? "1px solid var(--down)" : "1px solid transparent",
+                        }}
+                      >
+                        &#x2B07; DOWN
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-              {/* Progress bar */}
-              {challenge.currentPct != null && (
-                <div className="mt-2 h-1.5 rounded-full" style={{ background: "var(--surface-3)" }}>
-                  <div className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${Math.min(100, Math.max(0, (challenge.currentPct / challenge.target_pct) * 100))}%`,
-                      background: challenge.currentPct >= challenge.target_pct ? "var(--up)" : "var(--accent)",
-                    }} />
-                </div>
-              )}
+              <button
+                onClick={submitChallenge}
+                disabled={submittingChallenge || challenge.picks.some((p) => !predictions[p.ticker])}
+                className="btn btn-primary btn-sm btn-block"
+                style={{
+                  opacity: challenge.picks.every((p) => predictions[p.ticker]) ? 1 : 0.5,
+                }}
+              >
+                {submittingChallenge ? "Submitting..." : "Lock In Predictions"}
+              </button>
             </div>
           )}
-          {challenge && challenge.status === "completed" && (
-            <div className="rounded-xl p-4" style={{ background: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.2)" }}>
-              <p className="text-xs font-semibold" style={{ color: "var(--up)" }}>
-                &#x2705; Weekly Challenge Complete! +${challenge.reward_usd} earned
+          {challenge && challenge.picks && challenge.status === "pending" && (
+            <div className="card-accent rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--accent)" }}>
+                  &#x1F3B0; Predictions Locked
+                </p>
+                <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
+                  Results on {challenge.week_end} (Fri close)
+                </span>
+              </div>
+              <div className="space-y-2">
+                {challenge.picks.map((pick) => (
+                  <div key={pick.ticker} className="flex items-center justify-between rounded-lg p-2.5"
+                    style={{ background: "var(--surface-2)" }}>
+                    <div>
+                      <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{pick.ticker}</span>
+                      <span className="text-[10px] ml-2 tabular-nums" style={{ color: "var(--text-3)" }}>
+                        ${pick.base_price.toFixed(2)}
+                      </span>
+                      {pick.currentPct != null && (
+                        <span className="text-[10px] ml-1 tabular-nums"
+                          style={{ color: pick.currentPct >= 0 ? "var(--up)" : "var(--down)" }}>
+                          ({pick.currentPct >= 0 ? "+" : ""}{pick.currentPct.toFixed(2)}%)
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded"
+                      style={{
+                        background: pick.direction === "up" ? "rgba(74,222,128,0.15)" : "rgba(248,113,113,0.15)",
+                        color: pick.direction === "up" ? "var(--up)" : "var(--down)",
+                      }}>
+                      {pick.direction === "up" ? "⬆ UP" : "⬇ DOWN"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {challenge && challenge.picks && challenge.status === "completed" && (
+            <div className="rounded-xl p-4 space-y-3"
+              style={{ background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.2)" }}>
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--up)" }}>
+                  &#x2705; Weekly Results
+                </p>
+                <span className="text-xs font-bold" style={{ color: "var(--up)" }}>
+                  +${challenge.reward_usd}
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {challenge.picks.map((pick) => (
+                  <div key={pick.ticker} className="flex items-center justify-between rounded-lg p-2"
+                    style={{ background: "var(--surface-2)" }}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{pick.correct ? "✅" : "❌"}</span>
+                      <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{pick.ticker}</span>
+                      <span className="text-[10px] tabular-nums" style={{ color: "var(--text-3)" }}>
+                        ${pick.base_price.toFixed(2)} → ${pick.final_price?.toFixed(2) ?? "?"}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-semibold"
+                      style={{ color: pick.direction === "up" ? "var(--up)" : "var(--down)" }}>
+                      {pick.direction === "up" ? "⬆" : "⬇"} {pick.correct ? "$100" : "$0"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {challenge && challenge.status === "expired" && (
+            <div className="rounded-xl p-3 text-center"
+              style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+              <p className="text-xs" style={{ color: "var(--text-3)" }}>
+                Weekly challenge expired. A new one will appear next Monday!
               </p>
             </div>
           )}
@@ -454,20 +588,28 @@ export default function PaperTradingPage() {
       </div>
 
       {/* Achievements */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         <h2 className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>
           Achievements ({portfolio.achievements.length}/{ALL_BADGE_KEYS.length})
         </h2>
-        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-          {ALL_BADGE_KEYS.map((key) => (
-            <AchievementBadge
-              key={key}
-              badgeKey={key}
-              earned={earnedKeys.has(key)}
-              earnedAt={earnedMap[key]}
-            />
-          ))}
-        </div>
+        {TIERS_ORDERED.map((tier) => {
+          const tierBadges = getBadgesByTier(tier);
+          return (
+            <div key={tier}>
+              <TierHeader tier={tier} />
+              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+                {tierBadges.map((badge) => (
+                  <AchievementBadge
+                    key={badge.key}
+                    badgeKey={badge.key}
+                    earned={earnedKeys.has(badge.key)}
+                    earnedAt={earnedMap[badge.key]}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

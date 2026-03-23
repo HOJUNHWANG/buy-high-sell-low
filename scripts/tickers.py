@@ -37,9 +37,9 @@ SP100_TICKERS = [
 CRYPTO_TICKERS = [
     "BTC-USD", "ETH-USD", "USDT-USD", "BNB-USD", "SOL-USD", "XRP-USD",
     "ADA-USD", "DOGE-USD", "AVAX-USD", "DOT-USD",
-    "LINK-USD", "UNI-USD", "ATOM-USD", "LTC-USD", "FIL-USD",
+    "LINK-USD", "ATOM-USD", "LTC-USD", "FIL-USD",
     "NEAR-USD", "APT-USD", "ARB-USD", "OP-USD", "AAVE-USD",
-]  # 20 crypto
+]  # 19 crypto
 
 # Combined list for scripts that handle both
 ALL_TICKERS = SP100_TICKERS + CRYPTO_TICKERS
@@ -77,7 +77,7 @@ COMPANY_NAMES = {
     "BNB-USD": "BNB",
     "SOL-USD": "Solana", "XRP-USD": "XRP", "ADA-USD": "Cardano",
     "DOGE-USD": "Dogecoin", "AVAX-USD": "Avalanche", "DOT-USD": "Polkadot",
-    "LINK-USD": "Chainlink", "UNI-USD": "Uniswap",
+    "LINK-USD": "Chainlink",
     "ATOM-USD": "Cosmos", "LTC-USD": "Litecoin", "FIL-USD": "Filecoin",
     "NEAR-USD": "NEAR Protocol", "APT-USD": "Aptos", "ARB-USD": "Arbitrum",
     "OP-USD": "Optimism", "AAVE-USD": "Aave",

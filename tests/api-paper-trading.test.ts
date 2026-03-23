@@ -11,8 +11,20 @@ import {
   getUpdateCalls,
   getUpsertCalls,
 } from "./setup";
+import { ALL_BADGE_KEYS } from "@/lib/achievements";
 
 const USER = { id: "user-123", email: "test@example.com" };
+
+/** Pre-populate all achievements so no new rewards are granted during trade tests */
+function setAllAchievementsEarned(except: string[] = []) {
+  const exceptSet = new Set(except);
+  setMockData(
+    "paper_achievements",
+    ALL_BADGE_KEYS
+      .filter((key) => !exceptSet.has(key))
+      .map((key) => ({ user_id: USER.id, badge_key: key }))
+  );
+}
 
 async function callRoute(path: string, method = "GET", body?: unknown) {
   const mod = await import(`@/app/api/${path}/route`);
@@ -100,6 +112,7 @@ describe("Paper Trading: Buy", () => {
     setMockData("stock_prices", [{ ticker: "AAPL", price: 100 }]);
     setMockData("paper_positions", []);
     setMockData("paper_transactions", []);
+    setAllAchievementsEarned();
 
     const res = await callRoute("paper/buy", "POST", { ticker: "AAPL", shares: 2 });
     expect(res.status).toBe(200);
@@ -119,6 +132,7 @@ describe("Paper Trading: Buy", () => {
     setMockData("stock_prices", [{ ticker: "AAPL", price: 50 }]);
     setMockData("paper_positions", []);
     setMockData("paper_transactions", [{ id: 1 }]); // one existing for count
+    setAllAchievementsEarned();
 
     await callRoute("paper/buy", "POST", { ticker: "AAPL", shares: 3 });
 
@@ -168,6 +182,7 @@ describe("Paper Trading: Sell", () => {
       { user_id: USER.id, ticker: "AAPL", shares: 10, avg_cost: 100, created_at: "2024-01-01T00:00:00Z" },
     ]);
     setMockData("stock_prices", [{ ticker: "AAPL", price: 150 }]);
+    setAllAchievementsEarned();
 
     const res = await callRoute("paper/sell", "POST", { ticker: "AAPL", shares: 5 });
     expect(res.status).toBe(200);
@@ -186,6 +201,7 @@ describe("Paper Trading: Sell", () => {
       { user_id: USER.id, ticker: "TSLA", shares: 5, avg_cost: 200, created_at: "2024-01-01T00:00:00Z" },
     ]);
     setMockData("stock_prices", [{ ticker: "TSLA", price: 100 }]);
+    setAllAchievementsEarned(["buy_high_sell_low"]);
 
     const res = await callRoute("paper/sell", "POST", { ticker: "TSLA", shares: 5 });
     const data = await res.json();
@@ -202,6 +218,7 @@ describe("Paper Trading: Sell", () => {
       { user_id: USER.id, ticker: "META", shares: 2, avg_cost: 300, created_at: recentBuy },
     ]);
     setMockData("stock_prices", [{ ticker: "META", price: 310 }]);
+    setAllAchievementsEarned(["paper_hands"]);
 
     const res = await callRoute("paper/sell", "POST", { ticker: "META", shares: 2 });
     const data = await res.json();
@@ -434,6 +451,7 @@ describe("Paper Trading: Buy Edge Cases", () => {
       { user_id: USER.id, ticker: "AAPL", shares: 10, avg_cost: 100 },
     ]);
     setMockData("paper_transactions", [{ id: 1 }]);
+    setAllAchievementsEarned();
 
     const res = await callRoute("paper/buy", "POST", { ticker: "AAPL", shares: 10 });
     expect(res.status).toBe(200);
@@ -457,6 +475,7 @@ describe("Paper Trading: Buy Edge Cases", () => {
     setMockData("stock_prices", [{ ticker: "MSFT", price: 400 }]);
     setMockData("paper_positions", []); // no existing position
     setMockData("paper_transactions", []);
+    setAllAchievementsEarned();
 
     const res = await callRoute("paper/buy", "POST", { ticker: "MSFT", shares: 1 });
     expect(res.status).toBe(200);
@@ -489,6 +508,7 @@ describe("Paper Trading: Buy Edge Cases", () => {
     setMockData("stock_prices", [{ ticker: "AAPL", price: 100 }]);
     setMockData("paper_positions", []);
     setMockData("paper_transactions", []);
+    setAllAchievementsEarned();
 
     const res = await callRoute("paper/buy", "POST", { ticker: "AAPL", shares: 1 });
     expect(res.status).toBe(200);
@@ -503,6 +523,7 @@ describe("Paper Trading: Buy Edge Cases", () => {
     setMockData("stock_prices", [{ ticker: "AAPL", price: 950 }]);
     setMockData("paper_positions", []);
     setMockData("paper_transactions", [{ id: 1 }]);
+    setAllAchievementsEarned(["full_send"]);
 
     const res = await callRoute("paper/buy", "POST", { ticker: "AAPL", shares: 1 });
     const data = await res.json();
@@ -516,6 +537,7 @@ describe("Paper Trading: Buy Edge Cases", () => {
     setMockData("stock_prices", [{ ticker: "AAPL", price: 5 }]);
     setMockData("paper_positions", []);
     setMockData("paper_transactions", [{ id: 1 }]);
+    setAllAchievementsEarned(["penny_pincher"]);
 
     const res = await callRoute("paper/buy", "POST", { ticker: "AAPL", shares: 1 });
     const data = await res.json();
@@ -529,6 +551,7 @@ describe("Paper Trading: Buy Edge Cases", () => {
     setMockData("stock_prices", [{ ticker: "BTC-USD", price: 40000 }]);
     setMockData("paper_positions", []);
     setMockData("paper_transactions", [{ id: 1 }]);
+    setAllAchievementsEarned(["crypto_degen"]);
 
     const res = await callRoute("paper/buy", "POST", { ticker: "BTC-USD", shares: 1 });
     const data = await res.json();
@@ -550,6 +573,7 @@ describe("Paper Trading: Sell Edge Cases", () => {
       { user_id: USER.id, ticker: "AAPL", shares: 5, avg_cost: 100, created_at: "2024-01-01T00:00:00Z" },
     ]);
     setMockData("stock_prices", [{ ticker: "AAPL", price: 120 }]);
+    setAllAchievementsEarned();
 
     const res = await callRoute("paper/sell", "POST", { ticker: "AAPL", shares: 5 });
     expect(res.status).toBe(200);
@@ -572,12 +596,14 @@ describe("Paper Trading: Sell Edge Cases", () => {
       { user_id: USER.id, ticker: "AAPL", shares: 1, avg_cost: 200, created_at: "2024-01-01T00:00:00Z" },
     ]);
     setMockData("stock_prices", [{ ticker: "AAPL", price: 50 }]);
+    setAllAchievementsEarned(["buy_high_sell_low"]);
 
     const res = await callRoute("paper/sell", "POST", { ticker: "AAPL", shares: 1 });
     const data = await res.json();
     expect(data.newAchievements).toContain("buy_high_sell_low");
     expect(data.realizedPnl).toBe(-150); // (50-200)*1
-    expect(data.cashBalance).toBe(50);
+    // cashBalance = 0 + 50 (sell proceeds) + 100 (buy_high_sell_low silver badge reward)
+    expect(data.cashBalance).toBe(150);
   });
 
   it("triggers diamond_hands badge for 30+ day hold", async () => {
@@ -589,6 +615,7 @@ describe("Paper Trading: Sell Edge Cases", () => {
       { user_id: USER.id, ticker: "AAPL", shares: 5, avg_cost: 100, created_at: thirtyOneDaysAgo },
     ]);
     setMockData("stock_prices", [{ ticker: "AAPL", price: 200 }]);
+    setAllAchievementsEarned(["diamond_hands"]);
 
     const res = await callRoute("paper/sell", "POST", { ticker: "AAPL", shares: 5 });
     const data = await res.json();

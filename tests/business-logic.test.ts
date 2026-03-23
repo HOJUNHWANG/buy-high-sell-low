@@ -3,7 +3,7 @@
  * Pure logic tests for achievements, streak calculations, and data integrity.
  */
 import { describe, it, expect } from "vitest";
-import { BADGES, ALL_BADGE_KEYS } from "@/lib/achievements";
+import { BADGES, ALL_BADGE_KEYS, TIERS_ORDERED, getBadgesByTier, type AchievementTier } from "@/lib/achievements";
 
 describe("Achievements: Badge metadata integrity", () => {
   it("all badge keys have corresponding metadata", () => {
@@ -16,8 +16,29 @@ describe("Achievements: Badge metadata integrity", () => {
     }
   });
 
-  it("has exactly 16 badges", () => {
-    expect(ALL_BADGE_KEYS.length).toBe(16);
+  it("has exactly 33 badges across 5 tiers", () => {
+    expect(ALL_BADGE_KEYS.length).toBe(33);
+    expect(TIERS_ORDERED).toEqual(["bronze", "silver", "gold", "platinum", "diamond"]);
+  });
+
+  it("all badges have valid tier and reward", () => {
+    const validTiers: AchievementTier[] = ["bronze", "silver", "gold", "platinum", "diamond"];
+    const rewardMap: Record<AchievementTier, number> = {
+      bronze: 50, silver: 100, gold: 200, platinum: 300, diamond: 1000,
+    };
+    for (const key of ALL_BADGE_KEYS) {
+      const badge = BADGES[key];
+      expect(validTiers).toContain(badge.tier);
+      expect(badge.reward).toBe(rewardMap[badge.tier]);
+    }
+  });
+
+  it("getBadgesByTier returns correct counts", () => {
+    expect(getBadgesByTier("bronze").length).toBe(8);
+    expect(getBadgesByTier("silver").length).toBe(8);
+    expect(getBadgesByTier("gold").length).toBe(7);
+    expect(getBadgesByTier("platinum").length).toBe(5);
+    expect(getBadgesByTier("diamond").length).toBe(5);
   });
 
   it("all badge keys are unique", () => {
@@ -25,26 +46,26 @@ describe("Achievements: Badge metadata integrity", () => {
     expect(unique.size).toBe(ALL_BADGE_KEYS.length);
   });
 
-  it("expected badge keys exist", () => {
-    const expected = [
-      "first_trade",
-      "diamond_hands",
-      "paper_hands",
-      "buy_high_sell_low",
-      "diversified",
-      "whale",
-      "broke",
-      "crypto_degen",
-      "full_send",
-      "penny_pincher",
-      "liquidated",
-      "phoenix",
-      "cockroach",
-      "streak_7",
-      "streak_30",
-      "challenge_done",
+  it("all original 16 badge keys still exist", () => {
+    const original = [
+      "first_trade", "diamond_hands", "paper_hands", "buy_high_sell_low",
+      "diversified", "whale", "broke", "crypto_degen", "full_send",
+      "penny_pincher", "liquidated", "phoenix", "cockroach",
+      "streak_7", "streak_30", "challenge_done",
     ];
-    for (const key of expected) {
+    for (const key of original) {
+      expect(ALL_BADGE_KEYS).toContain(key);
+    }
+  });
+
+  it("new badge keys exist", () => {
+    const newBadges = [
+      "ten_trades", "fifty_trades", "profit_master", "crypto_collector",
+      "double_up", "day_trader", "bargain_hunter", "fomo_buyer",
+      "triple_up", "flash_profit", "hundred_trades", "hodl_master",
+      "ten_x", "perfect_month", "market_wizard", "zero_to_hero", "ultimate_hodl",
+    ];
+    for (const key of newBadges) {
       expect(ALL_BADGE_KEYS).toContain(key);
     }
   });

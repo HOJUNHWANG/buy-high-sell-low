@@ -266,6 +266,99 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
             Available: ${cashBalance.toFixed(2)}
             {side === "sell" && position ? ` | ${position.shares.toFixed(4)} shares` : ""}
           </p>
+
+          {/* Quick amount buttons */}
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {inputMode === "dollars" ? (
+              <>
+                {[1, 10, 100, 1000].map((amt) => {
+                  const maxAmt = side === "buy" ? cashBalance : (position ? position.shares * (stock?.price ?? 0) : 0);
+                  return (
+                    <button
+                      key={amt}
+                      disabled={amt > maxAmt}
+                      onClick={() => setInputValue((prev) => {
+                        const cur = parseFloat(prev) || 0;
+                        const next = Math.min(cur + amt, maxAmt);
+                        return next.toFixed(2);
+                      })}
+                      className="px-2.5 py-1 rounded text-[11px] font-medium transition-colors"
+                      style={{
+                        background: "var(--surface-3)",
+                        color: amt > maxAmt ? "var(--text-4)" : "var(--text-2)",
+                        cursor: amt > maxAmt ? "not-allowed" : "pointer",
+                        opacity: amt > maxAmt ? 0.5 : 1,
+                      }}
+                    >
+                      +${amt}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => {
+                    if (side === "buy") {
+                      setInputValue(cashBalance.toFixed(2));
+                    } else if (position && stock) {
+                      setInputValue((position.shares * stock.price).toFixed(2));
+                    }
+                  }}
+                  disabled={side === "sell" && !position}
+                  className="px-2.5 py-1 rounded text-[11px] font-semibold transition-colors"
+                  style={{
+                    background: side === "buy" ? "rgba(74,222,128,0.15)" : "rgba(248,113,113,0.15)",
+                    color: side === "buy" ? "var(--up)" : "var(--down)",
+                  }}
+                >
+                  {side === "buy" ? "Buy All" : "Sell All"}
+                </button>
+              </>
+            ) : (
+              <>
+                {[1, 10, 100].map((amt) => {
+                  const maxShares = side === "buy"
+                    ? (stock?.price ? cashBalance / stock.price : 0)
+                    : (position?.shares ?? 0);
+                  return (
+                    <button
+                      key={amt}
+                      disabled={amt > maxShares}
+                      onClick={() => setInputValue((prev) => {
+                        const cur = parseFloat(prev) || 0;
+                        const next = Math.min(cur + amt, maxShares);
+                        return next.toFixed(4);
+                      })}
+                      className="px-2.5 py-1 rounded text-[11px] font-medium transition-colors"
+                      style={{
+                        background: "var(--surface-3)",
+                        color: amt > maxShares ? "var(--text-4)" : "var(--text-2)",
+                        cursor: amt > maxShares ? "not-allowed" : "pointer",
+                        opacity: amt > maxShares ? 0.5 : 1,
+                      }}
+                    >
+                      +{amt} {amt === 1 ? "Share" : "Shares"}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => {
+                    if (side === "buy" && stock?.price) {
+                      setInputValue((cashBalance / stock.price).toFixed(4));
+                    } else if (position) {
+                      setInputValue(position.shares.toFixed(4));
+                    }
+                  }}
+                  disabled={side === "sell" && !position}
+                  className="px-2.5 py-1 rounded text-[11px] font-semibold transition-colors"
+                  style={{
+                    background: side === "buy" ? "rgba(74,222,128,0.15)" : "rgba(248,113,113,0.15)",
+                    color: side === "buy" ? "var(--up)" : "var(--down)",
+                  }}
+                >
+                  {side === "buy" ? "Buy All" : "Sell All"}
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Order summary */}

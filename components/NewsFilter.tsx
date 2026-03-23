@@ -204,8 +204,8 @@ export function NewsFilter({
                           color: "var(--text-3)",
                         }}
                       >
-                        <span>&#x23F3;</span>
-                        <span>AI summary pending</span>
+                        <span className="animate-spin" style={{ display: "inline-block" }}>&#x23F3;</span>
+                        <span>Generating AI summary...</span>
                       </div>
                     )}
                   </div>

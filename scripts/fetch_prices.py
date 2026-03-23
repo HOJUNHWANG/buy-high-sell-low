@@ -38,6 +38,18 @@ def is_market_open() -> bool:
     return market_open <= now_et <= market_close
 
 
+def is_post_market_close_window() -> bool:
+    """True if within 30 minutes after market close (4:00-4:30 PM ET).
+    Used to do one final fetch for closing prices."""
+    et = pytz.timezone("America/New_York")
+    now_et = datetime.now(et)
+    if now_et.weekday() >= 5:
+        return False
+    close_time = now_et.replace(hour=16, minute=0,  second=0, microsecond=0)
+    final_time = now_et.replace(hour=16, minute=30, second=0, microsecond=0)
+    return close_time < now_et <= final_time
+
+
 def fetch_batch(tickers: list[str]) -> dict:
     symbols = ",".join(tickers)
     # /quote returns price + change_pct + volume (same free tier allowance as /price)
@@ -57,9 +69,12 @@ def fetch_batch(tickers: list[str]) -> dict:
     return data
 
 
-def upsert_prices(results: dict) -> tuple[int, list[str]]:
+def upsert_prices(results: dict, force_history: bool = False) -> tuple[int, list[str]]:
     fetched, failed = 0, []
     now = datetime.utcnow().isoformat()
+    # Cutoff: skip history insert if last entry for this ticker is within 10 min
+    from datetime import timedelta
+    cutoff = (datetime.utcnow() - timedelta(minutes=10)).isoformat()
 
     for ticker, data in results.items():
         if not isinstance(data, dict) or "close" not in data:
@@ -79,11 +94,6 @@ def upsert_prices(results: dict) -> tuple[int, list[str]]:
             "volume":     volume,
             "fetched_at": now,
         }
-        row_history = {
-            "ticker":      ticker,
-            "price":       price,
-            "recorded_at": now,
-        }
         today = datetime.utcnow().strftime("%Y-%m-%d")
         row_long = {
             "ticker": ticker,
@@ -98,8 +108,25 @@ def upsert_prices(results: dict) -> tuple[int, list[str]]:
         if volume is not None:
             row_long["volume"] = volume
 
+        # Always update current price
         supabase.table("stock_prices").upsert(row_price).execute()
-        supabase.table("stock_price_history").insert(row_history).execute()
+
+        # Only insert history if no recent entry (prevents duplicate rows at same timestamp)
+        should_insert_history = force_history
+        if not should_insert_history:
+            recent = supabase.table("stock_price_history") \
+                .select("id") \
+                .eq("ticker", ticker) \
+                .gte("recorded_at", cutoff) \
+                .limit(1) \
+                .execute()
+            should_insert_history = len(recent.data) == 0
+
+        if should_insert_history:
+            supabase.table("stock_price_history").insert({
+                "ticker": ticker, "price": price, "recorded_at": now,
+            }).execute()
+
         supabase.table("price_history_long").upsert(row_long, on_conflict="ticker,date").execute()
         fetched += 1
 
@@ -123,11 +150,13 @@ def fetch_crypto_yfinance():
         return
     print(f"\nFetching crypto prices for {len(CRYPTO_TICKERS)} tickers via yfinance...")
     import yfinance as yf
+    from datetime import timedelta
     yf_tickers = [to_yf(t) for t in CRYPTO_TICKERS]
     tickers_str = " ".join(yf_tickers)
     data = yf.download(tickers_str, period="2d", interval="1h", group_by="ticker", progress=False)
 
     now = datetime.utcnow().isoformat()
+    cutoff = (datetime.utcnow() - timedelta(minutes=50)).isoformat()  # crypto is hourly
     fetched, failed = 0, []
 
     for ticker in CRYPTO_TICKERS:
@@ -147,22 +176,27 @@ def fetch_crypto_yfinance():
             # Calculate 24h change %
             change_pct = None
             if len(closes) >= 2:
-                # Find the price ~24h ago (hourly data, so ~24 rows back)
                 idx_24h = max(0, len(closes) - 24)
                 prev_price = float(closes.iloc[idx_24h])
                 if prev_price > 0:
                     change_pct = round(((price - prev_price) / prev_price) * 100, 4)
 
-            # Sum last 24h volume
             volume = int(volumes.iloc[-24:].sum()) if not volumes.empty else None
 
             supabase.table("stock_prices").upsert({
                 "ticker": ticker, "price": price, "change_pct": change_pct,
                 "volume": volume, "fetched_at": now,
             }).execute()
-            supabase.table("stock_price_history").insert({
-                "ticker": ticker, "price": price, "recorded_at": now
-            }).execute()
+
+            # Only insert history if no recent entry (prevent duplicates)
+            recent = supabase.table("stock_price_history") \
+                .select("id").eq("ticker", ticker) \
+                .gte("recorded_at", cutoff).limit(1).execute()
+            if len(recent.data) == 0:
+                supabase.table("stock_price_history").insert({
+                    "ticker": ticker, "price": price, "recorded_at": now
+                }).execute()
+
             today = datetime.utcnow().strftime("%Y-%m-%d")
             supabase.table("price_history_long").upsert({
                 "ticker": ticker, "date": today, "close": price,
@@ -184,10 +218,14 @@ def main():
     except Exception as e:
         print(f"Crypto fetch error: {e}")
 
-    # Stocks only during market hours
-    if not is_market_open():
+    # Stocks: during market hours OR post-market-close final fetch
+    post_market = is_post_market_close_window()
+    if not is_market_open() and not post_market:
         print("Stock market closed — skipping stocks.")
         return
+
+    if post_market:
+        print("Post-market close window — fetching final closing prices...")
 
     print(f"Fetching prices for {len(SP100_TICKERS)} tickers...")
     total_fetched, all_failed = 0, []
@@ -199,7 +237,7 @@ def main():
     for batch in batches:
         try:
             results = fetch_batch(batch)
-            fetched, failed = upsert_prices(results)
+            fetched, failed = upsert_prices(results, force_history=post_market)
             total_fetched += fetched
             all_failed.extend(failed)
             time.sleep(1)

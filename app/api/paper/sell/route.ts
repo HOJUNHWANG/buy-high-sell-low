@@ -1,5 +1,12 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import {
+  grantAchievements,
+  checkTradeCountAchievements,
+  checkPortfolioValueAchievements,
+  checkDayTrader,
+  checkHoldAchievements,
+} from "@/lib/achievement-checker";
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
@@ -106,37 +113,59 @@ export async function POST(request: Request) {
   });
 
   // Check achievements
-  const newAchievements: string[] = [];
+  const candidates: string[] = [];
 
   // Buy High Sell Low (realized a loss)
-  if (realizedPnl < 0) newAchievements.push("buy_high_sell_low");
+  if (realizedPnl < 0) candidates.push("buy_high_sell_low");
 
-  // Paper Hands (sold within 24h of buy)
+  // Hold-based achievements
+  candidates.push(...await checkHoldAchievements(supabase, user.id, position.created_at));
+
+  // Paper Hands (sold within 24h)
   const holdTime = Date.now() - new Date(position.created_at).getTime();
-  if (holdTime < 24 * 60 * 60 * 1000) newAchievements.push("paper_hands");
+  if (holdTime < 24 * 60 * 60 * 1000) candidates.push("paper_hands");
 
-  // Diamond Hands (held 30+ days)
-  if (holdTime >= 30 * 24 * 60 * 60 * 1000) newAchievements.push("diamond_hands");
+  // Flash profit ($500+ realized on single sell)
+  if (realizedPnl >= 500) candidates.push("flash_profit");
 
-  // Broke (total portfolio under $100)
-  const { data: positions } = await supabase
-    .from("paper_positions")
-    .select("shares, avg_cost")
-    .eq("user_id", user.id);
-  const posValue = (positions ?? []).reduce(
-    (sum: number, p: { shares: number; avg_cost: number }) => sum + p.shares * p.avg_cost, 0
-  );
-  if (newBalance + posValue < 100) newAchievements.push("broke");
+  // Trade count achievements
+  candidates.push(...await checkTradeCountAchievements(supabase, user.id));
 
-  // Whale check
-  if (newBalance + posValue > 5000) newAchievements.push("whale");
+  // Day trader
+  candidates.push(...await checkDayTrader(supabase, user.id));
 
-  if (newAchievements.length > 0) {
-    await supabase.from("paper_achievements").upsert(
-      newAchievements.map((key) => ({ user_id: user.id, badge_key: key })),
-      { onConflict: "user_id,badge_key" }
-    );
+  // Portfolio value achievements
+  candidates.push(...await checkPortfolioValueAchievements(supabase, user.id, newBalance));
+
+  // Zero to hero: check if user was ever broke and now over $5k
+  // We check if they have the "broke" badge and current value > $5k
+  const { data: hasBroke } = await supabase
+    .from("paper_achievements")
+    .select("badge_key")
+    .eq("user_id", user.id)
+    .eq("badge_key", "broke")
+    .single();
+
+  if (hasBroke) {
+    const { data: allPos } = await supabase
+      .from("paper_positions")
+      .select("ticker, shares")
+      .eq("user_id", user.id);
+    let totalVal = newBalance;
+    if (allPos && allPos.length > 0) {
+      const tickers = allPos.map((p: { ticker: string }) => p.ticker);
+      const { data: prices } = await supabase
+        .from("stock_prices")
+        .select("ticker, price")
+        .in("ticker", tickers);
+      const pm = new Map((prices ?? []).map((p: { ticker: string; price: number }) => [p.ticker, p.price]));
+      for (const pos of allPos) totalVal += pos.shares * (pm.get(pos.ticker) ?? 0);
+    }
+    if (totalVal > 5000) candidates.push("zero_to_hero");
   }
+
+  // Grant new achievements with rewards
+  const { newKeys: newAchievements, totalReward } = await grantAchievements(supabase, user.id, candidates);
 
   return NextResponse.json({
     ok: true,
@@ -146,7 +175,7 @@ export async function POST(request: Request) {
     price,
     total,
     realizedPnl,
-    cashBalance: newBalance,
+    cashBalance: newBalance + totalReward,
     newAchievements,
   });
 }

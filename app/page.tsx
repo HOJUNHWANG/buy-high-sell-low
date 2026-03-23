@@ -16,8 +16,10 @@ import { gateSummaries } from "@/lib/summary-gate";
 import type { UserTier } from "@/lib/summary-gate";
 
 async function getMovers(): Promise<{
-  gainers: (StockPrice & { stocks: Stock })[];
-  losers:  (StockPrice & { stocks: Stock })[];
+  stockGainers: (StockPrice & { stocks: Stock })[];
+  stockLosers:  (StockPrice & { stocks: Stock })[];
+  cryptoGainers: (StockPrice & { stocks: Stock })[];
+  cryptoLosers:  (StockPrice & { stocks: Stock })[];
 }> {
   try {
     const supabase = await createSupabaseServerClient();
@@ -26,13 +28,21 @@ async function getMovers(): Promise<{
       .select("*, stocks(*)")
       .not("change_pct", "is", null);
     const all = (data as (StockPrice & { stocks: Stock })[]) ?? [];
-    const sorted = [...all].sort((a, b) => (b.change_pct ?? 0) - (a.change_pct ?? 0));
+
+    const stocks = all.filter((s) => !s.ticker.includes("-USD"));
+    const crypto = all.filter((s) => s.ticker.includes("-USD"));
+
+    const sortedStocks = [...stocks].sort((a, b) => (b.change_pct ?? 0) - (a.change_pct ?? 0));
+    const sortedCrypto = [...crypto].sort((a, b) => (b.change_pct ?? 0) - (a.change_pct ?? 0));
+
     return {
-      gainers: sorted.slice(0, 5),
-      losers:  sorted.slice(-5).reverse(),
+      stockGainers: sortedStocks.slice(0, 5),
+      stockLosers:  sortedStocks.slice(-5).reverse(),
+      cryptoGainers: sortedCrypto.slice(0, 5),
+      cryptoLosers:  sortedCrypto.slice(-5).reverse(),
     };
   } catch {
-    return { gainers: [], losers: [] };
+    return { stockGainers: [], stockLosers: [], cryptoGainers: [], cryptoLosers: [] };
   }
 }
 
@@ -83,7 +93,7 @@ export default async function HomePage() {
     unlockedIds = new Set((unlocks ?? []).map((u: { article_id: number }) => u.article_id));
   }
 
-  const [{ gainers, losers }, rawNews] = await Promise.all([
+  const [{ stockGainers, stockLosers, cryptoGainers, cryptoLosers }, rawNews] = await Promise.all([
     getMovers(),
     getLatestNews(user ? 20 : 6),
   ]);
@@ -150,7 +160,7 @@ export default async function HomePage() {
 
             <div className="flex flex-wrap justify-center gap-2.5 mt-14 stagger">
               {[
-                { label: "S&P 100 + 19 Crypto" },
+                { label: "S&P 100 + Crypto" },
                 { label: "AI News Analysis" },
                 { label: "Paper Trading" },
                 { label: "What If Calculator" },
@@ -216,7 +226,7 @@ export default async function HomePage() {
                 </Link>
               </div>
 
-              {gainers.length === 0 ? (
+              {stockGainers.length === 0 && cryptoGainers.length === 0 ? (
                 <div
                   className="card rounded-xl px-5 py-8 text-sm text-center"
                   style={{ color: "var(--text-2)" }}
@@ -224,27 +234,66 @@ export default async function HomePage() {
                   Market data unavailable — updates during trading hours (9:30 AM – 4:00 PM ET)
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {/* Gainers */}
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1"
-                      style={{ color: "var(--up)" }}>
-                      <span>▲</span> Top Gainers
-                    </p>
-                    <div className="space-y-1.5">
-                      {gainers.map((m) => <MoverRow key={m.ticker} m={m} />)}
-                    </div>
-                  </div>
-                  {/* Losers */}
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1"
-                      style={{ color: "var(--down)" }}>
-                      <span>▼</span> Top Losers
-                    </p>
-                    <div className="space-y-1.5">
-                      {losers.map((m) => <MoverRow key={m.ticker} m={m} />)}
-                    </div>
-                  </div>
+                <div className="space-y-5">
+                  {/* Stocks */}
+                  {stockGainers.length > 0 && (
+                    <>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest"
+                        style={{ color: "var(--text-3)" }}>
+                        Stocks
+                      </p>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1"
+                            style={{ color: "var(--up)" }}>
+                            <span>▲</span> Top Gainers
+                          </p>
+                          <div className="space-y-1.5">
+                            {stockGainers.map((m) => <MoverRow key={m.ticker} m={m} />)}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1"
+                            style={{ color: "var(--down)" }}>
+                            <span>▼</span> Top Losers
+                          </p>
+                          <div className="space-y-1.5">
+                            {stockLosers.map((m) => <MoverRow key={m.ticker} m={m} />)}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Crypto */}
+                  {cryptoGainers.length > 0 && (
+                    <>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest mt-2"
+                        style={{ color: "var(--text-3)" }}>
+                        Crypto
+                      </p>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1"
+                            style={{ color: "var(--up)" }}>
+                            <span>▲</span> Top Gainers
+                          </p>
+                          <div className="space-y-1.5">
+                            {cryptoGainers.map((m) => <MoverRow key={m.ticker} m={m} />)}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1"
+                            style={{ color: "var(--down)" }}>
+                            <span>▼</span> Top Losers
+                          </p>
+                          <div className="space-y-1.5">
+                            {cryptoLosers.map((m) => <MoverRow key={m.ticker} m={m} />)}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </section>
@@ -506,7 +555,7 @@ function NewsCard({
             >
               <span>&#x23F3;</span>
               {isLoggedIn ? (
-                <span>AI summary not yet available</span>
+                <span>Generating AI summary...</span>
               ) : (
                 <>
                   <Link href="/auth/login" className="link-accent">

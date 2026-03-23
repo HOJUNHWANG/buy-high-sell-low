@@ -1,5 +1,13 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import {
+  grantAchievements,
+  checkTradeCountAchievements,
+  checkPortfolioValueAchievements,
+  checkCryptoAchievements,
+  checkDayTrader,
+  checkMarketTimingAchievements,
+} from "@/lib/achievement-checker";
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
@@ -68,7 +76,7 @@ export async function POST(request: Request) {
     }, { status: 400 });
   }
 
-  // Deduct cash — use conditional update to prevent race conditions
+  // Deduct cash
   const newBalance = cashBalance - total;
   const { error: updateErr } = await supabase
     .from("paper_accounts")
@@ -79,7 +87,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to update balance" }, { status: 500 });
   }
 
-  // Upsert position (update avg cost with weighted average)
+  // Upsert position (weighted average cost)
   const { data: existingPos } = await supabase
     .from("paper_positions")
     .select("shares, avg_cost")
@@ -115,38 +123,38 @@ export async function POST(request: Request) {
   });
 
   // Check achievements
-  const newAchievements: string[] = [];
+  const candidates: string[] = [];
 
-  // First trade
-  const { count: txCount } = await supabase
-    .from("paper_transactions")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id);
-  if (txCount === 1) newAchievements.push("first_trade");
+  // Trade count achievements
+  candidates.push(...await checkTradeCountAchievements(supabase, user.id));
 
-  // Crypto degen
-  if (ticker.includes("-USD")) newAchievements.push("crypto_degen");
+  // Crypto achievements
+  candidates.push(...await checkCryptoAchievements(supabase, user.id, ticker));
 
   // Full send (90%+ of balance)
-  if (total >= cashBalance * 0.9) newAchievements.push("full_send");
+  if (total >= cashBalance * 0.9) candidates.push("full_send");
 
   // Penny pincher
-  if (total < 10) newAchievements.push("penny_pincher");
+  if (total < 10) candidates.push("penny_pincher");
 
   // Diversified (5+ positions)
   const { count: posCount } = await supabase
     .from("paper_positions")
     .select("id", { count: "exact", head: true })
     .eq("user_id", user.id);
-  if ((posCount ?? 0) >= 5) newAchievements.push("diversified");
+  if ((posCount ?? 0) >= 5) candidates.push("diversified");
 
-  // Insert achievements (ON CONFLICT DO NOTHING via unique constraint)
-  if (newAchievements.length > 0) {
-    await supabase.from("paper_achievements").upsert(
-      newAchievements.map((key) => ({ user_id: user.id, badge_key: key })),
-      { onConflict: "user_id,badge_key" }
-    );
-  }
+  // Day trader
+  candidates.push(...await checkDayTrader(supabase, user.id));
+
+  // Market timing (bargain_hunter, fomo_buyer)
+  candidates.push(...await checkMarketTimingAchievements(supabase, ticker, "buy"));
+
+  // Portfolio value achievements
+  candidates.push(...await checkPortfolioValueAchievements(supabase, user.id, newBalance));
+
+  // Grant new achievements with rewards
+  const { newKeys: newAchievements, totalReward } = await grantAchievements(supabase, user.id, candidates);
 
   return NextResponse.json({
     ok: true,
@@ -155,7 +163,7 @@ export async function POST(request: Request) {
     shares,
     price,
     total,
-    cashBalance: newBalance,
+    cashBalance: newBalance + totalReward,
     newAchievements,
   });
 }
