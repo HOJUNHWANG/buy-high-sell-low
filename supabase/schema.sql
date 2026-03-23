@@ -90,6 +90,24 @@ CREATE TABLE IF NOT EXISTS ai_usage (
   PRIMARY KEY (user_id, date)
 );
 
+-- Individual article unlock records (permanent per user+article)
+-- Daily limit is derived by counting today's rows
+CREATE TABLE IF NOT EXISTS summary_unlocks (
+  id          BIGSERIAL PRIMARY KEY,
+  user_id     UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  article_id  BIGINT REFERENCES news_articles(id) ON DELETE CASCADE,
+  unlocked_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, article_id)
+);
+CREATE INDEX IF NOT EXISTS idx_summary_unlocks_user ON summary_unlocks (user_id, unlocked_at DESC);
+
+-- User profiles for tier tracking (free / premium)
+CREATE TABLE IF NOT EXISTS user_profiles (
+  user_id  UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  tier     TEXT NOT NULL DEFAULT 'free' CHECK (tier IN ('free', 'premium')),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Search indexes (pg_trgm)
 CREATE INDEX IF NOT EXISTS idx_stocks_name_trgm   ON stocks USING gin (name gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_stocks_ticker_trgm ON stocks USING gin (ticker gin_trgm_ops);
@@ -148,6 +166,16 @@ DROP POLICY IF EXISTS "users can read own ai_usage" ON ai_usage;
 ALTER TABLE ai_usage ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "users can read own ai_usage" ON ai_usage FOR SELECT USING (auth.uid() = user_id);
 -- No INSERT/UPDATE policy for client — writes go through service role in API route.
+
+-- summary_unlocks: users can only read their own unlocks
+DROP POLICY IF EXISTS "users can read own summary_unlocks" ON summary_unlocks;
+ALTER TABLE summary_unlocks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "users can read own summary_unlocks" ON summary_unlocks FOR SELECT USING (auth.uid() = user_id);
+
+-- user_profiles: users can only read their own profile
+DROP POLICY IF EXISTS "users can read own user_profiles" ON user_profiles;
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "users can read own user_profiles" ON user_profiles FOR SELECT USING (auth.uid() = user_id);
 
 -- =========================================
 -- Long-term price history (20Y daily OHLCV for What If feature)

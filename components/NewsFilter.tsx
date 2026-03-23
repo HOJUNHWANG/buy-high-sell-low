@@ -7,17 +7,28 @@ import Link from "next/link";
 import { timeAgo } from "@/lib/utils";
 import { SentimentBadge } from "@/components/SentimentBadge";
 import { AdSlot } from "@/components/AdSlot";
+import { LockedSummary } from "@/components/LockedSummary";
+import { useAdBlocked } from "@/components/AdBlockDetector";
 
 type Tab = "all" | "positive" | "neutral" | "negative";
 
 export function NewsFilter({
   articles,
   initialTab = "all",
+  isLoggedIn = false,
+  initialRemainingUnlocks = 0,
 }: {
   articles: NewsArticle[];
   initialTab?: Tab;
+  isLoggedIn?: boolean;
+  initialRemainingUnlocks?: number;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
+  const adBlocked = useAdBlocked();
+  const [remaining, setRemaining] = useState(initialRemainingUnlocks);
+  const [unlockedMap, setUnlockedMap] = useState<
+    Record<number, { summary: string; insight: string | null; sentiment: string | null; caution: string | null }>
+  >({});
   const router = useRouter();
   const pathname = usePathname();
 
@@ -37,13 +48,17 @@ export function NewsFilter({
 
   const filtered = tab === "all"
     ? articles
-    : articles.filter((a) => a.ai_sentiment === tab);
+    : articles.filter((a) => {
+        const unlocked = unlockedMap[a.id];
+        const sentiment = unlocked?.sentiment ?? a.ai_sentiment;
+        return sentiment === tab;
+      });
 
   const counts: Record<Tab, number> = {
     all:      articles.length,
-    positive: articles.filter((a) => a.ai_sentiment === "positive").length,
-    neutral:  articles.filter((a) => a.ai_sentiment === "neutral").length,
-    negative: articles.filter((a) => a.ai_sentiment === "negative").length,
+    positive: articles.filter((a) => (unlockedMap[a.id]?.sentiment ?? a.ai_sentiment) === "positive").length,
+    neutral:  articles.filter((a) => (unlockedMap[a.id]?.sentiment ?? a.ai_sentiment) === "neutral").length,
+    negative: articles.filter((a) => (unlockedMap[a.id]?.sentiment ?? a.ai_sentiment) === "negative").length,
   };
 
   return (
@@ -83,7 +98,13 @@ export function NewsFilter({
       ) : (
         <div className="space-y-2">
           {filtered.map((article, idx) => {
-            const sc = article.ai_sentiment;
+            const unlocked = unlockedMap[article.id];
+            const displaySummary = unlocked?.summary ?? article.ai_summary;
+            const displayInsight = unlocked?.insight ?? article.ai_insight;
+            const displaySentiment = unlocked?.sentiment ?? article.ai_sentiment;
+            const isLocked = article.summaryLocked && !unlocked;
+
+            const sc = displaySentiment;
             const barColor =
               sc === "positive" ? "var(--up)" : sc === "negative" ? "var(--down)" : "var(--border-md)";
 
@@ -92,9 +113,7 @@ export function NewsFilter({
               {idx > 0 && idx % 5 === 0 && (
                 <AdSlot slot="news-feed" format="horizontal" className="my-2" />
               )}
-              <article
-                className="card rounded-xl p-4"
-              >
+              <article className="card rounded-xl p-4">
                 <div className="flex items-start gap-3">
                   <div
                     className="w-0.5 self-stretch rounded-full shrink-0"
@@ -133,8 +152,19 @@ export function NewsFilter({
                       {article.title}
                     </a>
 
-                    {/* AI Summary */}
-                    {article.ai_summary ? (
+                    {/* AI Summary — locked / unlocked / pending */}
+                    {isLocked ? (
+                      <LockedSummary
+                        articleId={article.id}
+                        isLoggedIn={isLoggedIn}
+                        remainingUnlocks={remaining}
+                        adBlocked={adBlocked}
+                        onUnlock={(data) => {
+                          setUnlockedMap((prev) => ({ ...prev, [article.id]: data }));
+                          setRemaining((r) => Math.max(0, r - 1));
+                        }}
+                      />
+                    ) : displaySummary ? (
                       <div
                         className="rounded-lg p-3 space-y-1.5"
                         style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
@@ -149,11 +179,11 @@ export function NewsFilter({
                           <SentimentBadge sentiment={sc} />
                         </div>
                         <p className="text-xs leading-relaxed" style={{ color: "var(--text-2)" }}>
-                          {article.ai_summary}
+                          {displaySummary}
                         </p>
-                        {article.ai_insight && (
+                        {displayInsight && (
                           <p className="text-[11px]" style={{ color: "var(--text-3)" }}>
-                            Impact: {article.ai_insight}
+                            Impact: {displayInsight}
                           </p>
                         )}
                         <p className="text-[10px]" style={{ color: "var(--text-3)" }}>
@@ -169,7 +199,7 @@ export function NewsFilter({
                           color: "var(--text-3)",
                         }}
                       >
-                        <span>⏳</span>
+                        <span>&#x23F3;</span>
                         <span>AI summary pending</span>
                       </div>
                     )}

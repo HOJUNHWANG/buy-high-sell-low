@@ -11,6 +11,8 @@ import { SentimentWidget } from "@/components/SentimentWidget";
 import { SentimentBadge } from "@/components/SentimentBadge";
 import { timeAgo } from "@/lib/utils";
 import { AdSlot } from "@/components/AdSlot";
+import { gateSummaries } from "@/lib/summary-gate";
+import type { UserTier } from "@/lib/summary-gate";
 
 async function getMovers(): Promise<{
   gainers: (StockPrice & { stocks: Stock })[];
@@ -61,10 +63,30 @@ export default async function HomePage() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [{ gainers, losers }, news] = await Promise.all([
+  // Determine user tier
+  let tier: UserTier = "guest";
+  let unlockedIds = new Set<number>();
+  if (user) {
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("tier")
+      .eq("user_id", user.id)
+      .single();
+    tier = (profile?.tier as UserTier) ?? "free";
+
+    // Fetch user's permanently unlocked articles
+    const { data: unlocks } = await supabase
+      .from("summary_unlocks")
+      .select("article_id")
+      .eq("user_id", user.id);
+    unlockedIds = new Set((unlocks ?? []).map((u: { article_id: number }) => u.article_id));
+  }
+
+  const [{ gainers, losers }, rawNews] = await Promise.all([
     getMovers(),
     getLatestNews(user ? 20 : 6),
   ]);
+  const news = gateSummaries(rawNews, tier, unlockedIds);
 
   return (
     <div>
@@ -400,7 +422,36 @@ function NewsCard({
             {article.title}
           </a>
 
-          {article.ai_summary ? (
+          {article.summaryLocked ? (
+            /* Gated: blurred placeholder */
+            <div
+              className="rounded-lg p-3 relative overflow-hidden"
+              style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+            >
+              <div className="select-none pointer-events-none" style={{ filter: "blur(6px)" }}>
+                <p className="text-xs leading-relaxed" style={{ color: "var(--text-2)" }}>
+                  This article discusses significant market movements and their potential
+                  impact on investor sentiment across multiple sectors.
+                </p>
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center gap-2 bg-[var(--surface-2)]/70">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-3)" }}>
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                {isLoggedIn ? (
+                  <Link href="/news" className="text-[11px] font-medium link-accent">
+                    Unlock in News Feed
+                  </Link>
+                ) : (
+                  <Link href="/auth/login" className="text-[11px] font-medium link-accent">
+                    Sign up free to unlock
+                  </Link>
+                )}
+              </div>
+            </div>
+          ) : article.ai_summary ? (
             <div
               className="rounded-lg p-3 space-y-1.5"
               style={{
@@ -438,7 +489,7 @@ function NewsCard({
                 color: "var(--text-3)",
               }}
             >
-              <span>🔒</span>
+              <span>&#x23F3;</span>
               {isLoggedIn ? (
                 <span>AI summary not yet available</span>
               ) : (

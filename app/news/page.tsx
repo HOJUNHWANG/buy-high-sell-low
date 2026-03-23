@@ -5,6 +5,8 @@ import { Suspense } from "react";
 import { NewsFilter } from "@/components/NewsFilter";
 import { TrendingTickersWidget } from "@/components/TrendingTickersWidget";
 import { SentimentWidget } from "@/components/SentimentWidget";
+import { gateSummaries, FREE_USER_DAILY_UNLOCKS } from "@/lib/summary-gate";
+import type { UserTier } from "@/lib/summary-gate";
 
 export const metadata: Metadata = {
   title: "News Feed",
@@ -50,7 +52,41 @@ export default async function NewsPage({
       ? (sentiment as Sentiment)
       : "all";
 
-  const news = await getNews();
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  let tier: UserTier = "guest";
+  let unlockedIds = new Set<number>();
+  let remainingUnlocks = 0;
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("tier")
+      .eq("user_id", user.id)
+      .single();
+    tier = (profile?.tier as UserTier) ?? "free";
+
+    // Fetch user's permanently unlocked articles
+    const { data: unlocks } = await supabase
+      .from("summary_unlocks")
+      .select("article_id, unlocked_at")
+      .eq("user_id", user.id);
+    unlockedIds = new Set((unlocks ?? []).map((u: { article_id: number }) => u.article_id));
+
+    // Calculate today's remaining unlocks (only for free tier)
+    if (tier === "free") {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayCount = (unlocks ?? []).filter(
+        (u: { unlocked_at: string }) => new Date(u.unlocked_at) >= todayStart,
+      ).length;
+      remainingUnlocks = Math.max(0, FREE_USER_DAILY_UNLOCKS - todayCount);
+    }
+  }
+
+  const rawNews = await getNews();
+  const news = gateSummaries(rawNews, tier, unlockedIds);
 
   return (
     <div className="max-w-7xl mx-auto px-5 py-8">
@@ -79,7 +115,12 @@ export default async function NewsPage({
             </div>
           </div>
 
-          <NewsFilter articles={news} initialTab={initialTab} />
+          <NewsFilter
+            articles={news}
+            initialTab={initialTab}
+            isLoggedIn={!!user}
+            initialRemainingUnlocks={remainingUnlocks}
+          />
         </div>
 
       </div>

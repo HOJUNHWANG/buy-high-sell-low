@@ -6,6 +6,7 @@ import { Providers } from "@/components/Providers";
 import { Navbar } from "@/components/Navbar";
 import { Disclaimer } from "@/components/Disclaimer";
 import { CookieBanner } from "@/components/CookieBanner";
+import { AdBlockBanner } from "@/components/AdBlockBanner";
 
 const ADSENSE_ID = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
 
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen flex flex-col" style={{ background: "var(--bg)", color: "var(--text)" }}>
         <Providers>
           <Navbar />
+          <AdBlockBanner />
           <main className="flex-1">{children}</main>
           <Disclaimer />
           <CookieBanner />

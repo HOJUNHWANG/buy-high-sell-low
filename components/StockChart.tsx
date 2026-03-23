@@ -7,6 +7,8 @@ interface Props {
   ticker: string;
   history: StockPriceHistory[];
   isCrypto?: boolean;
+  /** Latest current price + timestamp to ensure chart always shows most recent data */
+  currentPrice?: { price: number; fetched_at: string } | null;
 }
 
 type Range = "1D" | "1W" | "1M" | "3M" | "6M" | "1Y";
@@ -69,18 +71,38 @@ function getRangeStats(data: StockPriceHistory[]) {
   return { low, high, first: oldest, last: newest, change, changePct };
 }
 
-export function StockChart({ ticker, history, isCrypto }: Props) {
+export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [range, setRange] = useState<Range>("1M");
   const [chartError, setChartError] = useState(false);
   const ranges: Range[] = ["1D", "1W", "1M", "3M", "6M", "1Y"];
 
-  const filtered = useMemo(() => filterByRange(history, range), [history, range]);
+  // Merge current price into history to ensure chart always shows latest data
+  const historyWithCurrent = useMemo(() => {
+    if (!currentPrice) return history;
+    const currentTs = new Date(currentPrice.fetched_at).getTime();
+    // Only add if it's newer than the newest history point
+    const newest = history.length > 0
+      ? Math.max(...history.map((h) => new Date(h.recorded_at).getTime()))
+      : 0;
+    if (currentTs <= newest) return history;
+    return [
+      ...history,
+      {
+        id: -1,
+        ticker,
+        price: currentPrice.price,
+        recorded_at: currentPrice.fetched_at,
+      } satisfies StockPriceHistory,
+    ];
+  }, [history, currentPrice, ticker]);
+
+  const filtered = useMemo(() => filterByRange(historyWithCurrent, range), [historyWithCurrent, range]);
   const stats = useMemo(() => getRangeStats(filtered), [filtered]);
   const isUp = (stats?.changePct ?? 0) >= 0;
 
   useEffect(() => {
-    if (!chartRef.current || history.length === 0) return;
+    if (!chartRef.current || historyWithCurrent.length === 0) return;
     let chart: ReturnType<typeof import("lightweight-charts")["createChart"]> | null = null;
 
     async function init() {
@@ -147,7 +169,7 @@ export function StockChart({ ticker, history, isCrypto }: Props) {
         crosshairMarkerBackgroundColor: accentColor,
       });
 
-      const filteredData = filterByRange(history, range);
+      const filteredData = filterByRange(historyWithCurrent, range);
       const rawPoints = filteredData
         .map((d) => ({
           time: Math.floor(new Date(d.recorded_at).getTime() / 1000) as number,
@@ -176,7 +198,7 @@ export function StockChart({ ticker, history, isCrypto }: Props) {
     return () => {
       chart?.remove();
     };
-  }, [history, range, isUp]);
+  }, [historyWithCurrent, range, isUp]);
 
   return (
     <div
@@ -231,7 +253,7 @@ export function StockChart({ ticker, history, isCrypto }: Props) {
         >
           Chart failed to load
         </div>
-      ) : history.length === 0 ? (
+      ) : historyWithCurrent.length === 0 ? (
         <div
           className="h-64 flex flex-col items-center justify-center gap-2 text-xs"
           style={{ color: "var(--text-3)" }}

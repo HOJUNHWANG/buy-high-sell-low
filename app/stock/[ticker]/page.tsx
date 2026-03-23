@@ -6,9 +6,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { StockChart } from "@/components/StockChart";
 import { WatchlistButton } from "@/components/WatchlistButton";
-import { timeAgo } from "@/lib/utils";
-import { SentimentBadge } from "@/components/SentimentBadge";
 import { AdSlot } from "@/components/AdSlot";
+import { StockNewsSection } from "@/components/StockNewsSection";
+import { gateSummaries, FREE_USER_DAILY_UNLOCKS } from "@/lib/summary-gate";
+import type { UserTier } from "@/lib/summary-gate";
 
 interface Props {
   params: Promise<{ ticker: string }>;
@@ -66,8 +67,42 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function StockDetailPage({ params }: Props) {
   const { ticker } = await params;
-  const { stock, price, history, news, affiliate } = await getStockData(ticker.toUpperCase());
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { stock, price, history, news: rawNews, affiliate } = await getStockData(ticker.toUpperCase());
   if (!stock) notFound();
+
+  // Summary gating
+  let tier: UserTier = "guest";
+  let unlockedIds = new Set<number>();
+  let remainingUnlocks = 0;
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from("user_profiles")
+      .select("tier")
+      .eq("user_id", user.id)
+      .single();
+    tier = (profile?.tier as UserTier) ?? "free";
+
+    const { data: unlocks } = await supabase
+      .from("summary_unlocks")
+      .select("article_id, unlocked_at")
+      .eq("user_id", user.id);
+    unlockedIds = new Set((unlocks ?? []).map((u: { article_id: number }) => u.article_id));
+
+    if (tier === "free") {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayCount = (unlocks ?? []).filter(
+        (u: { unlocked_at: string }) => new Date(u.unlocked_at) >= todayStart,
+      ).length;
+      remainingUnlocks = Math.max(0, FREE_USER_DAILY_UNLOCKS - todayCount);
+    }
+  }
+
+  const news = gateSummaries(rawNews, tier, unlockedIds);
 
   const isUp   = (price?.change_pct ?? 0) >= 0;
   const pctStr = price?.change_pct != null
@@ -133,7 +168,12 @@ export default async function StockDetailPage({ params }: Props) {
           )}
 
           {/* Chart */}
-          <StockChart ticker={ticker} history={history} isCrypto={stock.sector === "Cryptocurrency"} />
+          <StockChart
+            ticker={ticker}
+            history={history}
+            isCrypto={stock.sector === "Cryptocurrency"}
+            currentPrice={price ? { price: price.price, fetched_at: price.fetched_at } : null}
+          />
 
           {/* Ad: below chart */}
           <AdSlot slot="stock-below-chart" format="horizontal" />
@@ -164,61 +204,12 @@ export default async function StockDetailPage({ params }: Props) {
           )}
 
           {/* Related News */}
-          <section>
-            <p className="text-[11px] font-semibold uppercase tracking-widest mb-3"
-              style={{ color: "var(--text-3)" }}>
-              Related News
-            </p>
-
-            {news.length === 0 ? (
-              <p className="text-sm" style={{ color: "var(--text-2)" }}>No news for {ticker}.</p>
-            ) : (
-              <div className="space-y-2">
-                {news.map((article) => {
-                  const sc     = article.ai_sentiment;
-                  const barClr = sc === "positive" ? "var(--up)" : sc === "negative" ? "var(--down)" : "var(--border-md)";
-                  return (
-                    <article key={article.id} className="card rounded-xl p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-0.5 self-stretch rounded-full shrink-0"
-                          style={{ background: barClr }} />
-                        <div className="flex-1 min-w-0 space-y-2">
-                          <div className="flex items-center gap-2 text-[10px]" style={{ color: "var(--text-3)" }}>
-                            {article.source && <span>{article.source}</span>}
-                            <span>{timeAgo(article.published_at)}</span>
-                          </div>
-                          <a href={article.url} target="_blank" rel="noopener noreferrer"
-                            className="block text-sm font-medium leading-snug external-link"
-                            style={{ color: "var(--text)" }}>
-                            {article.title}
-                          </a>
-                          {article.ai_summary && (
-                            <div className="rounded-lg p-3 space-y-1.5"
-                              style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
-                              <div className="flex gap-1.5">
-                                <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
-                                  style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>AI</span>
-                                <SentimentBadge sentiment={sc} />
-                              </div>
-                              <p className="text-xs leading-relaxed" style={{ color: "var(--text-2)" }}>
-                                {article.ai_summary}
-                              </p>
-                              {article.ai_insight && (
-                                <p className="text-[11px]" style={{ color: "var(--text-3)" }}>
-                                  Impact: {article.ai_insight}
-                                </p>
-                              )}
-                              <p className="text-[10px]" style={{ color: "var(--text-3)" }}>Not investment advice</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+          <StockNewsSection
+            news={news}
+            ticker={ticker}
+            isLoggedIn={!!user}
+            initialRemainingUnlocks={remainingUnlocks}
+          />
         </div>
 
         {/* ── Sidebar ── */}
