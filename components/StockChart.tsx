@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import type { StockPriceHistory } from "@/lib/types";
+import { useAdBlocked } from "@/components/AdBlockDetector";
 
 interface Props {
   ticker: string;
@@ -71,11 +72,22 @@ function getRangeStats(data: StockPriceHistory[]) {
   return { low, high, first: oldest, last: newest, change, changePct };
 }
 
+const FREE_RANGES: Range[] = ["1D", "1W"];
+const LOCKED_RANGES: Range[] = ["1M", "3M", "6M", "1Y"];
+
 export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
   const chartRef = useRef<HTMLDivElement>(null);
-  const [range, setRange] = useState<Range>("1M");
+  const adBlocked = useAdBlocked();
+  const [range, setRange] = useState<Range>(adBlocked ? "1W" : "1M");
   const [chartError, setChartError] = useState(false);
-  const ranges: Range[] = ["1D", "1W", "1M", "3M", "6M", "1Y"];
+  const allRanges: Range[] = ["1D", "1W", "1M", "3M", "6M", "1Y"];
+
+  // Reset to allowed range if ad blocker kicks in while on a locked range
+  useEffect(() => {
+    if (adBlocked && LOCKED_RANGES.includes(range)) {
+      setRange("1W");
+    }
+  }, [adBlocked, range]);
 
   // Merge current price into history to ensure chart always shows latest data
   const historyWithCurrent = useMemo(() => {
@@ -211,19 +223,33 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
         style={{ borderBottom: "1px solid var(--border)" }}
       >
         <div className="flex items-center gap-1">
-          {ranges.map((r) => (
-            <button
-              key={r}
-              onClick={() => setRange(r)}
-              className="px-2.5 py-1 text-[11px] font-medium rounded-md transition-all"
-              style={{
-                background: range === r ? "var(--accent)" : "transparent",
-                color: range === r ? "#fff" : "var(--text-2)",
-              }}
-            >
-              {r}
-            </button>
-          ))}
+          {allRanges.map((r) => {
+            const locked = adBlocked && LOCKED_RANGES.includes(r);
+            return (
+              <button
+                key={r}
+                onClick={() => !locked && setRange(r)}
+                disabled={locked}
+                className="px-2.5 py-1 text-[11px] font-medium rounded-md transition-all"
+                style={{
+                  background: range === r ? "var(--accent)" : "transparent",
+                  color: locked ? "var(--text-3)" : range === r ? "#fff" : "var(--text-2)",
+                  opacity: locked ? 0.5 : 1,
+                  cursor: locked ? "not-allowed" : "pointer",
+                }}
+                title={locked ? "Disable ad blocker to unlock" : undefined}
+              >
+                {r}
+                {locked && (
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    strokeWidth="3" className="inline ml-0.5 -mt-0.5">
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Range summary */}

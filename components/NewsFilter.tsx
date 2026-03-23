@@ -46,13 +46,18 @@ export function NewsFilter({
     { id: "negative", label: "Negative", color: "var(--down)" },
   ];
 
-  const filtered = tab === "all"
+  const AD_BLOCK_NEWS_LIMIT = 10;
+
+  const filteredAll = tab === "all"
     ? articles
     : articles.filter((a) => {
         const unlocked = unlockedMap[a.id];
         const sentiment = unlocked?.sentiment ?? a.ai_sentiment;
         return sentiment === tab;
       });
+
+  const filtered = adBlocked ? filteredAll.slice(0, AD_BLOCK_NEWS_LIMIT) : filteredAll;
+  const hiddenByAdBlock = adBlocked ? Math.max(0, filteredAll.length - AD_BLOCK_NEWS_LIMIT) : 0;
 
   const counts: Record<Tab, number> = {
     all:      articles.length,
@@ -209,6 +214,36 @@ export function NewsFilter({
               </div>
             );
           })}
+
+          {/* Ad blocker limit notice */}
+          {hiddenByAdBlock > 0 && (
+            <div
+              className="rounded-xl px-5 py-6 text-center mt-3"
+              style={{ border: "1px dashed var(--border-md)" }}
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mx-auto mb-2"
+                style={{ color: "var(--text-3)" }}
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              <p className="text-xs font-medium mb-1" style={{ color: "var(--text-2)" }}>
+                {hiddenByAdBlock} more article{hiddenByAdBlock > 1 ? "s" : ""} hidden
+              </p>
+              <p className="text-[11px]" style={{ color: "var(--text-3)" }}>
+                Disable your ad blocker to see the full news feed
+              </p>
+            </div>
+          )}
         </div>
       )}
     </>

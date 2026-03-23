@@ -5,10 +5,14 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { SearchBar } from "@/components/SearchBar";
 import { UserMenu } from "@/components/UserMenu";
+import { useAdBlocked } from "@/components/AdBlockDetector";
+
+const AD_BLOCKED_TABS = new Set(["/whatif", "/paper"]);
 
 export function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const adBlocked = useAdBlocked();
 
   const navLinks = [
     { href: "/",        label: "Home" },
@@ -44,17 +48,27 @@ export function Navbar() {
           <div className="h-5 w-px mx-2" style={{ background: "var(--border-md)" }} />
           {navLinks.map(({ href, label }) => {
             const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+            const locked = adBlocked && AD_BLOCKED_TABS.has(href);
             return (
               <Link
                 key={href}
                 href={href}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all relative ${active ? "nav-link-active" : "nav-link"}`}
                 style={{
-                  color:      active ? "var(--text)"      : "var(--text-2)",
+                  color:      locked ? "var(--text-3)" : active ? "var(--text)" : "var(--text-2)",
                   background: active ? "var(--surface-2)" : "transparent",
+                  opacity:    locked ? 0.6 : 1,
                 }}
+                title={locked ? "Disable ad blocker to access" : undefined}
               >
                 {label}
+                {locked && (
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    strokeWidth="3" className="inline ml-1 -mt-0.5">
+                    <rect x="3" y="11" width="18" height="11" rx="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                )}
               </Link>
             );
           })}
@@ -102,6 +116,7 @@ export function Navbar() {
           <nav className="flex flex-col gap-0.5">
             {navLinks.map(({ href, label }) => {
               const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+              const locked = adBlocked && AD_BLOCKED_TABS.has(href);
               return (
                 <Link
                   key={href}
@@ -109,11 +124,19 @@ export function Navbar() {
                   onClick={() => setMenuOpen(false)}
                   className="px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
                   style={{
-                    color:      active ? "var(--text)"      : "var(--text-2)",
+                    color:      locked ? "var(--text-3)" : active ? "var(--text)" : "var(--text-2)",
                     background: active ? "var(--surface-2)" : "transparent",
+                    opacity:    locked ? 0.6 : 1,
                   }}
                 >
                   {label}
+                  {locked && (
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      strokeWidth="3" className="inline ml-1 -mt-0.5">
+                      <rect x="3" y="11" width="18" height="11" rx="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                  ) }
                 </Link>
               );
             })}
