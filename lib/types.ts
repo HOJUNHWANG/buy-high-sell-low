@@ -35,6 +35,7 @@ export interface NewsArticle {
   ai_sentiment: "positive" | "neutral" | "negative" | null;
   ai_caution: string | null;
   ai_generated_at: string | null;
+  related_tickers: string[] | null;
   fetched_at: string;
   /** Client-side flag: true when AI summary is gated for this user's tier */
   summaryLocked?: boolean;

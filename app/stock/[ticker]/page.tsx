@@ -17,7 +17,7 @@ interface Props {
 
 async function getStockData(ticker: string) {
   const supabase = await createSupabaseServerClient();
-  const [stockRes, priceRes, historyRes, newsRes, affiliateRes] = await Promise.all([
+  const [stockRes, priceRes, historyRes, primaryNewsRes, relatedNewsRes, affiliateRes] = await Promise.all([
     supabase.from("stocks").select("*").eq("ticker", ticker).single(),
     supabase.from("stock_prices").select("*").eq("ticker", ticker).single(),
     supabase
@@ -26,10 +26,18 @@ async function getStockData(ticker: string) {
       .eq("ticker", ticker)
       .gte("recorded_at", new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString())
       .order("recorded_at", { ascending: false }),  // newest first, no row cap
+    // News where this ticker is the primary ticker
     supabase
       .from("news_articles")
       .select("*")
       .eq("ticker", ticker)
+      .order("published_at", { ascending: false })
+      .limit(10),
+    // News where this ticker is in related_tickers
+    supabase
+      .from("news_articles")
+      .select("*")
+      .contains("related_tickers", [ticker])
       .order("published_at", { ascending: false })
       .limit(10),
     supabase
@@ -40,12 +48,42 @@ async function getStockData(ticker: string) {
       .limit(1)
       .maybeSingle(),
   ]);
+
+  // Merge & deduplicate primary + related news, sort by published_at desc, limit 10
+  const allNews = [...(primaryNewsRes.data ?? []), ...(relatedNewsRes.data ?? [])] as NewsArticle[];
+  const seen = new Set<number>();
+  const news = allNews
+    .filter((a) => { if (seen.has(a.id)) return false; seen.add(a.id); return true; })
+    .sort((a, b) => new Date(b.published_at ?? 0).getTime() - new Date(a.published_at ?? 0).getTime())
+    .slice(0, 10);
+
+  // Collect all related tickers from the news to fetch their logos
+  const relatedTickerSet = new Set<string>();
+  for (const a of news) {
+    if (a.ticker && a.ticker !== ticker) relatedTickerSet.add(a.ticker);
+    for (const t of a.related_tickers ?? []) {
+      if (t !== ticker) relatedTickerSet.add(t);
+    }
+  }
+
+  let logoMap: Record<string, string | null> = {};
+  if (relatedTickerSet.size > 0) {
+    const { data: logos } = await supabase
+      .from("stocks")
+      .select("ticker, logo_url")
+      .in("ticker", [...relatedTickerSet]);
+    for (const s of logos ?? []) {
+      logoMap[s.ticker] = s.logo_url;
+    }
+  }
+
   return {
     stock:     stockRes.data as Stock | null,
     price:     priceRes.data as StockPrice | null,
     history:   (historyRes.data ?? []) as StockPriceHistory[],
-    news:      (newsRes.data ?? []) as NewsArticle[],
+    news,
     affiliate: affiliateRes.data as AffiliateLink | null,
+    logoMap,
   };
 }
 
@@ -70,7 +108,7 @@ export default async function StockDetailPage({ params }: Props) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { stock, price, history, news: rawNews, affiliate } = await getStockData(ticker.toUpperCase());
+  const { stock, price, history, news: rawNews, affiliate, logoMap } = await getStockData(ticker.toUpperCase());
   if (!stock) notFound();
 
   // Summary gating
@@ -209,6 +247,7 @@ export default async function StockDetailPage({ params }: Props) {
             ticker={ticker}
             isLoggedIn={!!user}
             initialRemainingUnlocks={remainingUnlocks}
+            logoMap={logoMap}
           />
         </div>
 

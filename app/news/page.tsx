@@ -88,6 +88,23 @@ export default async function NewsPage({
   const rawNews = await getNews();
   const news = gateSummaries(rawNews, tier, unlockedIds);
 
+  // Collect all tickers from news (primary + related) and fetch their logos
+  const tickerSet = new Set<string>();
+  for (const a of news) {
+    if (a.ticker) tickerSet.add(a.ticker);
+    for (const t of a.related_tickers ?? []) tickerSet.add(t);
+  }
+  let logoMap: Record<string, string | null> = {};
+  if (tickerSet.size > 0) {
+    const { data: logos } = await supabase
+      .from("stocks")
+      .select("ticker, logo_url")
+      .in("ticker", [...tickerSet]);
+    for (const s of logos ?? []) {
+      logoMap[s.ticker] = s.logo_url;
+    }
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-5 py-8">
       <div className="flex gap-5 items-start">
@@ -120,6 +137,7 @@ export default async function NewsPage({
             initialTab={initialTab}
             isLoggedIn={!!user}
             initialRemainingUnlocks={remainingUnlocks}
+            logoMap={logoMap}
           />
         </div>
 

@@ -51,6 +51,16 @@ def map_ticker(title: str) -> str | None:
     return None
 
 
+def map_all_tickers(title: str) -> list[str]:
+    """Extract ALL matching tickers from a title (not just the first)."""
+    title_upper = title.upper()
+    found = []
+    for ticker, name in COMPANY_NAMES.items():
+        if ticker in title_upper or name.upper() in title_upper:
+            found.append(ticker)
+    return found
+
+
 def fetch_from_newsapi() -> list[dict]:
     url = "https://newsapi.org/v2/everything"
     params = {
@@ -81,6 +91,7 @@ def fetch_from_rss() -> list[dict]:
 
 
 def generate_ai_summary(title: str, content: str) -> dict | None:
+    ticker_list = ", ".join(sorted(COMPANY_NAMES.keys()))
     prompt = f"""Analyze the following financial news for a general investor audience.
 
 [STRICT RULES]
@@ -89,13 +100,19 @@ def generate_ai_summary(title: str, content: str) -> dict | None:
 - Facts and analysis only
 - Output JSON only, no other text
 
+[KNOWN TICKERS]
+{ticker_list}
+
 [Output Format]
 {{
   "summary": "2-3 sentence plain English summary",
   "impact": "one sentence: likely effect on stock price and why",
   "sentiment": "positive | neutral | negative",
-  "caution": "one thing investors might overlook (null if none)"
+  "caution": "one thing investors might overlook (null if none)",
+  "related_tickers": ["TICKER1", "TICKER2"]
 }}
+
+For related_tickers: list ALL tickers from the KNOWN TICKERS list that are directly mentioned, affected by, or closely related to this news. Include competitors and sector peers when the news clearly impacts them. Only use tickers from the known list. Return an empty array if none apply.
 
 Title: {title}
 Content: {content[:1000]}"""
@@ -159,17 +176,28 @@ def main():
         else:
             ai = None
 
+        # Merge AI-detected related tickers with title-extracted ones
+        ai_tickers = ai.get("related_tickers", []) if ai else []
+        title_tickers = map_all_tickers(title)
+        # Deduplicate, filter to known tickers, exclude primary ticker
+        all_known = set(COMPANY_NAMES.keys())
+        related = sorted(set(
+            t for t in (ai_tickers + title_tickers)
+            if t in all_known and t != ticker
+        ))
+
         row = {
-            "ticker":          ticker,
-            "title":           title[:500],
-            "url":             url,
-            "source":          source_name,
-            "published_at":    published,
-            "ai_summary":      ai.get("summary")   if ai else None,
-            "ai_insight":      ai.get("impact")    if ai else None,
-            "ai_sentiment":    ai.get("sentiment") if ai else None,
-            "ai_caution":      ai.get("caution")   if ai else None,
-            "ai_generated_at": datetime.utcnow().isoformat() if ai else None,
+            "ticker":           ticker,
+            "title":            title[:500],
+            "url":              url,
+            "source":           source_name,
+            "published_at":     published,
+            "ai_summary":       ai.get("summary")   if ai else None,
+            "ai_insight":       ai.get("impact")    if ai else None,
+            "ai_sentiment":     ai.get("sentiment") if ai else None,
+            "ai_caution":       ai.get("caution")   if ai else None,
+            "ai_generated_at":  datetime.utcnow().isoformat() if ai else None,
+            "related_tickers":  related if related else None,
         }
 
         try:

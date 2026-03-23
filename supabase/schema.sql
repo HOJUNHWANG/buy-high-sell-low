@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS news_articles (
   ai_sentiment     TEXT CHECK (ai_sentiment IN ('positive', 'neutral', 'negative')),
   ai_caution       TEXT,
   ai_generated_at  TIMESTAMPTZ,
+  related_tickers  TEXT[],
   fetched_at       TIMESTAMPTZ DEFAULT NOW()
 );
 

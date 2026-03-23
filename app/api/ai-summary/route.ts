@@ -26,11 +26,11 @@ export async function POST(request: Request) {
   }
 
   // Fetch article
-  let article: { title: string; ai_summary: string | null; ai_insight: string | null; ai_sentiment: string | null; ai_caution: string | null } | null = null;
+  let article: { title: string; ai_summary: string | null; ai_insight: string | null; ai_sentiment: string | null; ai_caution: string | null; related_tickers: string[] | null } | null = null;
   try {
     const { data } = await supabase
       .from("news_articles")
-      .select("title, ai_summary, ai_insight, ai_sentiment, ai_caution")
+      .select("title, ai_summary, ai_insight, ai_sentiment, ai_caution, related_tickers")
       .eq("id", articleId)
       .single();
     article = data;
@@ -45,10 +45,11 @@ export async function POST(request: Request) {
   // Return cached summary if available
   if (article.ai_summary) {
     return NextResponse.json({
-      summary:   article.ai_summary,
-      insight:   article.ai_insight,
-      sentiment: article.ai_sentiment,
-      caution:   article.ai_caution,
+      summary:         article.ai_summary,
+      insight:         article.ai_insight,
+      sentiment:       article.ai_sentiment,
+      caution:         article.ai_caution,
+      related_tickers: article.related_tickers,
     });
   }
 
@@ -77,6 +78,10 @@ export async function POST(request: Request) {
   );
 
   // Generate new summary
+  // Fetch known tickers from stocks table for related_tickers detection
+  const { data: stockRows } = await supabase.from("stocks").select("ticker");
+  const knownTickers = (stockRows ?? []).map((s: { ticker: string }) => s.ticker);
+
   const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
   const prompt = `Analyze the following financial news for a general investor audience.
 
@@ -86,13 +91,19 @@ export async function POST(request: Request) {
 - Facts and analysis only
 - Output JSON only, no other text
 
+[KNOWN TICKERS]
+${knownTickers.join(", ")}
+
 [Output Format]
 {
   "summary": "2-3 sentence plain English summary",
   "impact": "one sentence: likely effect on stock price and why",
   "sentiment": "positive | neutral | negative",
-  "caution": "one thing investors might overlook (null if none)"
+  "caution": "one thing investors might overlook (null if none)",
+  "related_tickers": ["TICKER1", "TICKER2"]
 }
+
+For related_tickers: list ALL tickers from the KNOWN TICKERS list that are directly mentioned, affected by, or closely related to this news. Include competitors and sector peers when the news clearly impacts them. Only use tickers from the known list. Return an empty array if none apply.
 
 Title: ${article.title}`;
 
@@ -114,6 +125,12 @@ Title: ${article.title}`;
     return NextResponse.json({ error: "AI generation failed" }, { status: 500 });
   }
 
+  // Filter related_tickers to known tickers only
+  const validTickers = new Set(knownTickers);
+  const relatedTickers: string[] = Array.isArray(result.related_tickers)
+    ? result.related_tickers.filter((t: string) => validTickers.has(t))
+    : [];
+
   // Cache result
   await supabase
     .from("news_articles")
@@ -123,13 +140,15 @@ Title: ${article.title}`;
       ai_sentiment:    result.sentiment ?? null,
       ai_caution:      result.caution   ?? null,
       ai_generated_at: new Date().toISOString(),
+      related_tickers: relatedTickers.length > 0 ? relatedTickers : null,
     })
     .eq("id", articleId);
 
   return NextResponse.json({
-    summary:   result.summary   ?? null,
-    insight:   result.impact    ?? null,
-    sentiment: result.sentiment ?? null,
-    caution:   result.caution   ?? null,
+    summary:         result.summary   ?? null,
+    insight:         result.impact    ?? null,
+    sentiment:       result.sentiment ?? null,
+    caution:         result.caution   ?? null,
+    related_tickers: relatedTickers.length > 0 ? relatedTickers : null,
   });
 }

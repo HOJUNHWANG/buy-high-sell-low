@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import type { NewsArticle } from "@/lib/types";
-import Link from "next/link";
 import { timeAgo } from "@/lib/utils";
 import { SentimentBadge } from "@/components/SentimentBadge";
 import { AdSlot } from "@/components/AdSlot";
 import { LockedSummary } from "@/components/LockedSummary";
 import { useAdBlocked } from "@/components/AdBlockDetector";
+import { TickerBadge } from "@/components/TickerBadge";
 
 type Tab = "all" | "positive" | "neutral" | "negative";
 
@@ -17,11 +17,14 @@ export function NewsFilter({
   initialTab = "all",
   isLoggedIn = false,
   initialRemainingUnlocks = 0,
+  logoMap = {},
 }: {
   articles: NewsArticle[];
   initialTab?: Tab;
   isLoggedIn?: boolean;
   initialRemainingUnlocks?: number;
+  /** ticker → logo_url mapping for TickerBadge icons */
+  logoMap?: Record<string, string | null>;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const adBlocked = useAdBlocked();
@@ -126,16 +129,13 @@ export function NewsFilter({
                   />
                   <div className="flex-1 min-w-0 space-y-2">
                     {/* Meta */}
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       {article.ticker && (
-                        <Link
-                          href={`/stock/${article.ticker}`}
-                          className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                          style={{ background: "var(--accent-dim)", color: "var(--accent)" }}
-                        >
-                          {article.ticker}
-                        </Link>
+                        <TickerBadge ticker={article.ticker} logoUrl={logoMap[article.ticker]} />
                       )}
+                      {article.related_tickers?.filter((t) => t !== article.ticker).map((t) => (
+                        <TickerBadge key={t} ticker={t} logoUrl={logoMap[t]} />
+                      ))}
                       {article.source && (
                         <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
                           {article.source}

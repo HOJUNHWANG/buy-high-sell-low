@@ -9,6 +9,7 @@ import { SectorWidget } from "@/components/SectorWidget";
 import { MarketStatsWidget } from "@/components/MarketStatsWidget";
 import { SentimentWidget } from "@/components/SentimentWidget";
 import { SentimentBadge } from "@/components/SentimentBadge";
+import { TickerBadge } from "@/components/TickerBadge";
 import { timeAgo } from "@/lib/utils";
 import { AdSlot } from "@/components/AdSlot";
 import { gateSummaries } from "@/lib/summary-gate";
@@ -87,6 +88,21 @@ export default async function HomePage() {
     getLatestNews(user ? 20 : 6),
   ]);
   const news = gateSummaries(rawNews, tier, unlockedIds);
+
+  // Fetch logos for all tickers appearing in news
+  const tickerSet = new Set<string>();
+  for (const a of news) {
+    if (a.ticker) tickerSet.add(a.ticker);
+    for (const t of a.related_tickers ?? []) tickerSet.add(t);
+  }
+  let logoMap: Record<string, string | null> = {};
+  if (tickerSet.size > 0) {
+    const { data: logos } = await supabase
+      .from("stocks")
+      .select("ticker, logo_url")
+      .in("ticker", [...tickerSet]);
+    for (const s of logos ?? []) logoMap[s.ticker] = s.logo_url;
+  }
 
   return (
     <div>
@@ -257,7 +273,7 @@ export default async function HomePage() {
               ) : (
                 <div className="space-y-2">
                   {news.map((article) => (
-                    <NewsCard key={article.id} article={article} isLoggedIn={!!user} />
+                    <NewsCard key={article.id} article={article} isLoggedIn={!!user} logoMap={logoMap} />
                   ))}
                 </div>
               )}
@@ -373,9 +389,11 @@ function MoverRow({ m }: { m: StockPrice & { stocks: Stock } }) {
 function NewsCard({
   article,
   isLoggedIn,
+  logoMap = {},
 }: {
   article: NewsArticle;
   isLoggedIn: boolean;
+  logoMap?: Record<string, string | null>;
 }) {
   const sc = article.ai_sentiment;
   const barColor =
@@ -392,16 +410,13 @@ function NewsCard({
         />
 
         <div className="flex-1 min-w-0 space-y-2">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {article.ticker && (
-              <Link
-                href={`/stock/${article.ticker}`}
-                className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                style={{ background: "var(--accent-dim)", color: "var(--accent)" }}
-              >
-                {article.ticker}
-              </Link>
+              <TickerBadge ticker={article.ticker} logoUrl={logoMap[article.ticker]} />
             )}
+            {article.related_tickers?.filter((t) => t !== article.ticker).map((t) => (
+              <TickerBadge key={t} ticker={t} logoUrl={logoMap[t]} />
+            ))}
             {article.source && (
               <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
                 {article.source}

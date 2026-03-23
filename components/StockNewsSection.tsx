@@ -2,17 +2,19 @@
 
 import { useState } from "react";
 import type { NewsArticle } from "@/lib/types";
-import Link from "next/link";
 import { timeAgo } from "@/lib/utils";
 import { SentimentBadge } from "@/components/SentimentBadge";
 import { LockedSummary } from "@/components/LockedSummary";
 import { useAdBlocked } from "@/components/AdBlockDetector";
+import { TickerBadge } from "@/components/TickerBadge";
 
 interface StockNewsSectionProps {
   news: NewsArticle[];
   ticker: string;
   isLoggedIn: boolean;
   initialRemainingUnlocks: number;
+  /** ticker → logo_url mapping for related ticker icons */
+  logoMap?: Record<string, string | null>;
 }
 
 export function StockNewsSection({
@@ -20,6 +22,7 @@ export function StockNewsSection({
   ticker,
   isLoggedIn,
   initialRemainingUnlocks,
+  logoMap = {},
 }: StockNewsSectionProps) {
   const adBlocked = useAdBlocked();
   const [remaining, setRemaining] = useState(initialRemainingUnlocks);
@@ -59,7 +62,17 @@ export function StockNewsSection({
                     style={{ background: barClr }}
                   />
                   <div className="flex-1 min-w-0 space-y-2">
-                    <div className="flex items-center gap-2 text-[10px]" style={{ color: "var(--text-3)" }}>
+                    <div className="flex items-center gap-1.5 flex-wrap text-[10px]" style={{ color: "var(--text-3)" }}>
+                      {/* Show primary ticker if different from current page */}
+                      {article.ticker && article.ticker !== ticker && (
+                        <TickerBadge ticker={article.ticker} logoUrl={logoMap[article.ticker]} />
+                      )}
+                      {/* Show related tickers excluding current page's ticker */}
+                      {article.related_tickers
+                        ?.filter((t) => t !== ticker && t !== article.ticker)
+                        .map((t) => (
+                          <TickerBadge key={t} ticker={t} logoUrl={logoMap[t]} />
+                        ))}
                       {article.source && <span>{article.source}</span>}
                       <span>{timeAgo(article.published_at)}</span>
                     </div>
