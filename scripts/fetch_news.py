@@ -27,7 +27,7 @@ groq     = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 sys.path.insert(0, os.path.dirname(__file__))
 from tickers import SP500_TICKERS, CRYPTO_TICKERS, COMPANY_NAMES
 
-MAX_AI_PER_RUN = 30  # Claude calls per cron run — prevents surprise billing
+MAX_AI_PER_RUN = 200  # Groq free tier: 14,400/day, 30/min — 200/hr is safe
 
 RSS_FEEDS = [
     # Stock feeds
@@ -168,11 +168,10 @@ def main():
         content     = article.get("content") or article.get("description") or ""
         ticker      = map_ticker(title)
 
-        # Cap Claude calls per run to avoid unexpected cost spikes
+        # Cap Groq calls per run to stay within rate limits
         if ai_calls_this_run < MAX_AI_PER_RUN:
             ai = generate_ai_summary(title, content)
-            if ai:
-                ai_calls_this_run += 1
+            ai_calls_this_run += 1  # count every attempt (success or fail)
         else:
             ai = None
 
@@ -207,14 +206,14 @@ def main():
             print(f"  Insert error ({url[:60]}): {e}")
             failed.append(url)
 
-        time.sleep(0.5)
+        time.sleep(2.1)  # ~28 req/min — stay under Groq's 30 req/min limit
 
     # ── Backfill: retry AI summaries for articles that have none ──
     backfilled = 0
     if ai_calls_this_run < MAX_AI_PER_RUN:
         remaining = MAX_AI_PER_RUN - ai_calls_this_run
         result = supabase.table("news_articles") \
-            .select("id, title, url") \
+            .select("id, title, url, source") \
             .is_("ai_summary", "null") \
             .order("published_at", desc=True) \
             .limit(remaining) \
@@ -223,7 +222,9 @@ def main():
         if backfill_articles:
             print(f"  Backfilling {len(backfill_articles)} articles without AI summary...")
         for article in backfill_articles:
-            ai = generate_ai_summary(article["title"], "")
+            content = article.get("title", "")  # title as fallback content
+            ai = generate_ai_summary(article["title"], content)
+            ai_calls_this_run += 1
             if ai:
                 ai_tickers = ai.get("related_tickers", [])
                 title_tickers = map_all_tickers(article["title"])
@@ -241,7 +242,8 @@ def main():
                     "related_tickers":  related if related else None,
                 }).eq("id", article["id"]).execute()
                 backfilled += 1
-                ai_calls_this_run += 1
+            if ai_calls_this_run >= MAX_AI_PER_RUN:
+                break
             time.sleep(2)
 
     supabase.table("fetch_logs").insert({
