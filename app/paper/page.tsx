@@ -90,6 +90,8 @@ export default function PaperTradingPage() {
   const [shareMsg, setShareMsg] = useState("");
   const [predictions, setPredictions] = useState<Record<string, "up" | "down">>({});
   const [submittingChallenge, setSubmittingChallenge] = useState(false);
+  const [challengeError, setChallengeError] = useState<string | null>(null);
+  const [challengeRetrying, setChallengeRetrying] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -113,7 +115,13 @@ export default function PaperTradingPage() {
       setCheckinDone(data.lastCheckin === today);
     }
     if (liqRes.ok) setLiqStatus(await liqRes.json());
-    if (challengeRes.ok) setChallenge(await challengeRes.json());
+    if (challengeRes.ok) {
+      setChallengeError(null);
+      setChallenge(await challengeRes.json());
+    } else {
+      const err = await challengeRes.json().catch(() => null);
+      setChallengeError(err?.error ?? `Challenge unavailable (${challengeRes.status})`);
+    }
     setLoading(false);
   }, []);
 
@@ -137,6 +145,25 @@ export default function PaperTradingPage() {
     const res = await fetch("/api/paper/revive", { method: "POST" });
     if (res.ok) loadAll();
     setReviving(false);
+  }
+
+  async function retryChallenge() {
+    setChallengeRetrying(true);
+    setChallengeError(null);
+    try {
+      const res = await fetch("/api/paper/challenge");
+      if (res.ok) {
+        setChallenge(await res.json());
+        setChallengeError(null);
+      } else {
+        const err = await res.json().catch(() => null);
+        setChallengeError(err?.error ?? `Challenge unavailable (${res.status})`);
+      }
+    } catch {
+      setChallengeError("Network error — please try again");
+    } finally {
+      setChallengeRetrying(false);
+    }
   }
 
   async function submitChallenge() {
@@ -320,6 +347,23 @@ export default function PaperTradingPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Holdings */}
         <div className="lg:col-span-2 space-y-4">
+          {/* Weekly Challenge — Error / Retry */}
+          {!challenge && challengeError && (
+            <div className="rounded-xl p-4 text-center space-y-2"
+              style={{ background: "var(--surface-2)", border: "1px dashed var(--border-md)" }}>
+              <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>
+                Weekly Prediction
+              </p>
+              <p className="text-xs" style={{ color: "var(--text-2)" }}>{challengeError}</p>
+              <button
+                onClick={retryChallenge}
+                disabled={challengeRetrying}
+                className="btn btn-primary btn-sm"
+              >
+                {challengeRetrying ? "Retrying..." : "Retry"}
+              </button>
+            </div>
+          )}
           {/* Weekly Challenge — Prediction */}
           {challenge && challenge.picks && challenge.status === "active" && (
             <div className="card-accent rounded-xl p-4 space-y-3">

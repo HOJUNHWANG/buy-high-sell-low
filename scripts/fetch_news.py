@@ -171,7 +171,8 @@ def main():
         # Cap Groq calls per run to stay within rate limits
         if ai_calls_this_run < MAX_AI_PER_RUN:
             ai = generate_ai_summary(title, content)
-            ai_calls_this_run += 1  # count every attempt (success or fail)
+            if ai is not None:
+                ai_calls_this_run += 1  # only count successful calls
         else:
             ai = None
 
@@ -224,8 +225,8 @@ def main():
         for article in backfill_articles:
             content = article.get("title", "")  # title as fallback content
             ai = generate_ai_summary(article["title"], content)
-            ai_calls_this_run += 1
             if ai:
+                ai_calls_this_run += 1
                 ai_tickers = ai.get("related_tickers", [])
                 title_tickers = map_all_tickers(article["title"])
                 all_known = set(COMPANY_NAMES.keys())
