@@ -189,41 +189,54 @@ export async function GET() {
     } // end else (non-empty picks)
   }
 
-  // Generate new challenge: 5 random tickers with base prices
-  const tickers = pickRandomTickers(5);
-
-  // Fetch base prices
-  const { data: prices } = await supabase
+  // Generate new challenge: pick 5 tickers that have price data
+  const candidates = pickRandomTickers(CHALLENGE_POOL.length); // shuffle all
+  const { data: availablePrices } = await supabase
     .from("stock_prices")
     .select("ticker, price")
-    .in("ticker", tickers);
+    .in("ticker", candidates);
 
-  const priceMap = new Map((prices ?? []).map((p: { ticker: string; price: number }) => [p.ticker, p.price]));
+  const priceMap = new Map((availablePrices ?? []).map((p: { ticker: string; price: number }) => [p.ticker, p.price]));
 
-  const picks: Pick[] = tickers.map((t) => ({
+  // Only use tickers that have price data
+  const tickersWithPrices = candidates.filter((t) => priceMap.has(t)).slice(0, 5);
+
+  if (tickersWithPrices.length < 5) {
+    return NextResponse.json(
+      { error: "Not enough price data to generate challenge. Please try again later." },
+      { status: 503 },
+    );
+  }
+
+  const picks: Pick[] = tickersWithPrices.map((t) => ({
     ticker: t,
     direction: null,
-    base_price: priceMap.get(t) ?? 0,
+    base_price: priceMap.get(t)!,
     final_price: null,
     correct: null,
   }));
 
-  const { data: newChallenge } = await supabase
+  const { data: newChallenge, error: insertError } = await supabase
     .from("paper_challenges")
     .insert({
       user_id: user.id,
-      ticker: tickers[0], // Keep first ticker for backward compat
+      ticker: tickersWithPrices[0],
       challenge_type: "prediction",
       target_pct: 0,
       week_start: start,
       week_end: end,
-      entry_price: priceMap.get(tickers[0]) ?? null,
+      entry_price: priceMap.get(tickersWithPrices[0]) ?? null,
       picks,
       status: "active",
       reward_usd: 0,
     })
     .select()
     .single();
+
+  if (insertError) {
+    console.error("Challenge insert error:", insertError.message);
+    return NextResponse.json({ error: "Failed to create challenge" }, { status: 500 });
+  }
 
   return NextResponse.json(newChallenge);
 }
