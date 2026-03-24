@@ -133,9 +133,6 @@ export function NewsFilter({
                       {article.ticker && (
                         <TickerBadge ticker={article.ticker} logoUrl={logoMap[article.ticker]} />
                       )}
-                      {article.related_tickers?.filter((t) => t !== article.ticker).map((t) => (
-                        <TickerBadge key={t} ticker={t} logoUrl={logoMap[t]} />
-                      ))}
                       {article.source && (
                         <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
                           {article.source}

@@ -20,7 +20,6 @@ function makeArticle(id: number, hasSummary: boolean): NewsArticle {
     ai_sentiment: hasSummary ? "positive" : null,
     ai_caution: null,
     ai_generated_at: hasSummary ? new Date().toISOString() : null,
-    related_tickers: null,
   } as NewsArticle;
 }
 

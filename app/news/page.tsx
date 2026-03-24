@@ -88,11 +88,10 @@ export default async function NewsPage({
   const rawNews = await getNews();
   const news = gateSummaries(rawNews, tier, unlockedIds);
 
-  // Collect all tickers from news (primary + related) and fetch their logos
+  // Collect all tickers from news and fetch their logos
   const tickerSet = new Set<string>();
   for (const a of news) {
     if (a.ticker) tickerSet.add(a.ticker);
-    for (const t of a.related_tickers ?? []) tickerSet.add(t);
   }
   let logoMap: Record<string, string | null> = {};
   if (tickerSet.size > 0) {

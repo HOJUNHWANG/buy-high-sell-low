@@ -67,12 +67,6 @@ export function StockNewsSection({
                       {article.ticker && article.ticker !== ticker && (
                         <TickerBadge ticker={article.ticker} logoUrl={logoMap[article.ticker]} />
                       )}
-                      {/* Show related tickers excluding current page's ticker */}
-                      {article.related_tickers
-                        ?.filter((t) => t !== ticker && t !== article.ticker)
-                        .map((t) => (
-                          <TickerBadge key={t} ticker={t} logoUrl={logoMap[t]} />
-                        ))}
                       {article.source && <span>{article.source}</span>}
                       <span>{timeAgo(article.published_at)}</span>
                     </div>

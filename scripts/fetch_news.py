@@ -31,7 +31,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 groq     = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import SP500_TICKERS, CRYPTO_TICKERS, COMPANY_NAMES
+from tickers import COMPANY_NAMES
 
 MAX_AI_PER_RUN = 200  # Groq free tier: 14,400/day, 30/min — 200/hr is safe
 
@@ -56,15 +56,6 @@ def map_ticker(title: str) -> str | None:
             return ticker
     return None
 
-
-def map_all_tickers(title: str) -> list[str]:
-    """Extract ALL matching tickers from a title (not just the first)."""
-    title_upper = title.upper()
-    found = []
-    for ticker, name in COMPANY_NAMES.items():
-        if ticker in title_upper or name.upper() in title_upper:
-            found.append(ticker)
-    return found
 
 
 def fetch_from_newsapi() -> list[dict]:
@@ -219,7 +210,6 @@ def main():
     ai_calls_this_run = 0
     summarized = 0
     rate_limited = False
-    all_known = set(COMPANY_NAMES.keys())
 
     for article in inserted:
         if ai_calls_this_run >= MAX_AI_PER_RUN or rate_limited:
@@ -235,20 +225,12 @@ def main():
         ai_calls_this_run += 1
         summarized += 1
 
-        # related_tickers from title matching (no longer in AI prompt to save tokens)
-        title_tickers = map_all_tickers(article["title"])
-        related = sorted(set(
-            t for t in title_tickers
-            if t in all_known and t != article["ticker"]
-        ))
-
         supabase.table("news_articles").update({
             "ai_summary":       ai.get("summary"),
             "ai_insight":       ai.get("impact"),
             "ai_sentiment":     ai.get("sentiment"),
             "ai_caution":       ai.get("caution"),
             "ai_generated_at":  datetime.utcnow().isoformat(),
-            "related_tickers":  related if related else None,
         }).eq("id", article["id"]).execute()
 
         time.sleep(2.1)  # ~28 req/min — stay under Groq's 30 req/min limit
@@ -276,18 +258,12 @@ def main():
                 break
             if ai:
                 ai_calls_this_run += 1
-                title_tickers = map_all_tickers(article["title"])
-                related = sorted(set(
-                    t for t in title_tickers
-                    if t in all_known
-                ))
                 supabase.table("news_articles").update({
                     "ai_summary":       ai.get("summary"),
                     "ai_insight":       ai.get("impact"),
                     "ai_sentiment":     ai.get("sentiment"),
                     "ai_caution":       ai.get("caution"),
                     "ai_generated_at":  datetime.utcnow().isoformat(),
-                    "related_tickers":  related if related else None,
                 }).eq("id", article["id"]).execute()
                 backfilled += 1
             time.sleep(2.1)

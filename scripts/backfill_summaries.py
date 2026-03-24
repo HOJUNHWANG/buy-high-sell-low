@@ -26,17 +26,6 @@ groq     = Groq(api_key=GROQ_API_KEY)
 
 SLEEP_BETWEEN = 2.2  # seconds between calls (~27 req/min)
 
-sys.path.insert(0, os.path.dirname(__file__))
-from tickers import COMPANY_NAMES
-
-
-def map_all_tickers(title: str) -> list[str]:
-    title_upper = title.upper()
-    found = []
-    for ticker, name in COMPANY_NAMES.items():
-        if ticker in title_upper or name.upper() in title_upper:
-            found.append(ticker)
-    return found
 
 
 def generate_summary(title: str) -> dict | str | None:
@@ -89,7 +78,6 @@ def main():
         print("Nothing to backfill.")
         return
 
-    all_known = set(COMPANY_NAMES.keys())
     done, failed = 0, 0
     for i, article in enumerate(all_articles, 1):
         print(f"  [{i}/{total}] {article['title'][:70]}...")
@@ -100,16 +88,12 @@ def main():
             break
 
         if ai:
-            title_tickers = map_all_tickers(article["title"])
-            related = sorted(set(t for t in title_tickers if t in all_known))
-
             supabase.table("news_articles").update({
                 "ai_summary":      ai.get("summary"),
                 "ai_insight":      ai.get("impact"),
                 "ai_sentiment":    ai.get("sentiment"),
                 "ai_caution":      ai.get("caution"),
                 "ai_generated_at": datetime.utcnow().isoformat(),
-                "related_tickers": related if related else None,
             }).eq("id", article["id"]).execute()
             done += 1
         else:

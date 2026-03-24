@@ -109,7 +109,6 @@ export default async function HomePage() {
   const tickerSet = new Set<string>();
   for (const a of news) {
     if (a.ticker) tickerSet.add(a.ticker);
-    for (const t of a.related_tickers ?? []) tickerSet.add(t);
   }
   let logoMap: Record<string, string | null> = {};
   if (tickerSet.size > 0) {
@@ -499,9 +498,6 @@ function NewsCard({
             {article.ticker && (
               <TickerBadge ticker={article.ticker} logoUrl={logoMap[article.ticker]} />
             )}
-            {article.related_tickers?.filter((t) => t !== article.ticker).map((t) => (
-              <TickerBadge key={t} ticker={t} logoUrl={logoMap[t]} />
-            ))}
             {article.source && (
               <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
                 {article.source}
