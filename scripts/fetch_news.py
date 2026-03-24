@@ -209,15 +209,50 @@ def main():
 
         time.sleep(0.5)
 
+    # ── Backfill: retry AI summaries for articles that have none ──
+    backfilled = 0
+    if ai_calls_this_run < MAX_AI_PER_RUN:
+        remaining = MAX_AI_PER_RUN - ai_calls_this_run
+        result = supabase.table("news_articles") \
+            .select("id, title, url") \
+            .is_("ai_summary", "null") \
+            .order("published_at", desc=True) \
+            .limit(remaining) \
+            .execute()
+        backfill_articles = result.data or []
+        if backfill_articles:
+            print(f"  Backfilling {len(backfill_articles)} articles without AI summary...")
+        for article in backfill_articles:
+            ai = generate_ai_summary(article["title"], "")
+            if ai:
+                ai_tickers = ai.get("related_tickers", [])
+                title_tickers = map_all_tickers(article["title"])
+                all_known = set(COMPANY_NAMES.keys())
+                related = sorted(set(
+                    t for t in (ai_tickers + title_tickers)
+                    if t in all_known
+                ))
+                supabase.table("news_articles").update({
+                    "ai_summary":       ai.get("summary"),
+                    "ai_insight":       ai.get("impact"),
+                    "ai_sentiment":     ai.get("sentiment"),
+                    "ai_caution":       ai.get("caution"),
+                    "ai_generated_at":  datetime.utcnow().isoformat(),
+                    "related_tickers":  related if related else None,
+                }).eq("id", article["id"]).execute()
+                backfilled += 1
+                ai_calls_this_run += 1
+            time.sleep(2)
+
     supabase.table("fetch_logs").insert({
         "job_name":        "news",
         "status":          "success" if not failed else "partial",
         "records_fetched": fetched,
         "records_failed":  len(failed),
-        "error_message":   None,
+        "error_message":   f"backfilled:{backfilled}" if backfilled else None,
     }).execute()
 
-    print(f"Done. Inserted: {fetched}, Failed: {len(failed)}")
+    print(f"Done. Inserted: {fetched}, Failed: {len(failed)}, Backfilled: {backfilled}")
 
 
 if __name__ == "__main__":
