@@ -68,6 +68,12 @@ export async function GET() {
     const weekEnd = new Date(existing.week_end + "T23:59:59Z");
     const picks = (existing.picks ?? []) as Pick[];
 
+    // Legacy challenge with empty picks — delete and regenerate
+    if (picks.length === 0 && existing.status === "active") {
+      await supabase.from("paper_challenges").delete().eq("id", existing.id);
+      // Fall through to generate a new challenge below
+    } else {
+
     // If submitted/pending and week ended → resolve
     if (existing.status === "pending" && now > weekEnd) {
       // Fetch final prices for all tickers
@@ -180,6 +186,7 @@ export async function GET() {
     }
 
     return NextResponse.json(existing);
+    } // end else (non-empty picks)
   }
 
   // Generate new challenge: 5 random tickers with base prices
