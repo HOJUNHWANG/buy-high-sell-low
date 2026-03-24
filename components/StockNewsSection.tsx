@@ -29,31 +29,6 @@ export function StockNewsSection({
   const [unlockedMap, setUnlockedMap] = useState<
     Record<number, { summary: string; insight: string | null; sentiment: string | null; caution: string | null }>
   >({});
-  const [generatingMap, setGeneratingMap] = useState<Record<number, boolean>>({});
-  const [generateErrors, setGenerateErrors] = useState<Record<number, string>>({});
-
-  async function handleGenerate(articleId: number) {
-    setGeneratingMap((prev) => ({ ...prev, [articleId]: true }));
-    setGenerateErrors((prev) => { const n = { ...prev }; delete n[articleId]; return n; });
-    try {
-      const res = await fetch("/api/ai-summary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ articleId }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        setGenerateErrors((prev) => ({ ...prev, [articleId]: data?.error ?? "Failed to generate" }));
-        return;
-      }
-      const data = await res.json();
-      setUnlockedMap((prev) => ({ ...prev, [articleId]: data }));
-    } catch {
-      setGenerateErrors((prev) => ({ ...prev, [articleId]: "Network error" }));
-    } finally {
-      setGeneratingMap((prev) => ({ ...prev, [articleId]: false }));
-    }
-  }
 
   return (
     <section>
@@ -147,35 +122,6 @@ export function StockNewsSection({
                         <p className="text-[10px]" style={{ color: "var(--text-3)" }}>
                           Not investment advice
                         </p>
-                      </div>
-                    ) : isLoggedIn ? (
-                      <div
-                        className="rounded-lg px-3 py-2 text-xs flex items-center gap-2"
-                        style={{
-                          background: "var(--surface-2)",
-                          border: "1px dashed var(--border-md)",
-                          color: "var(--text-3)",
-                        }}
-                      >
-                        {generatingMap[article.id] ? (
-                          <>
-                            <span className="animate-spin" style={{ display: "inline-block" }}>&#x23F3;</span>
-                            <span>Generating AI summary...</span>
-                          </>
-                        ) : (
-                          <div className="flex flex-col gap-1">
-                            {generateErrors[article.id] && (
-                              <span style={{ color: "var(--down)" }}>{generateErrors[article.id]}</span>
-                            )}
-                            <button
-                              onClick={() => handleGenerate(article.id)}
-                              className="text-xs font-medium px-2 py-1 rounded"
-                              style={{ color: "var(--accent)", background: "var(--accent-dim)" }}
-                            >
-                              Generate AI Summary
-                            </button>
-                          </div>
-                        )}
                       </div>
                     ) : null}
                   </div>

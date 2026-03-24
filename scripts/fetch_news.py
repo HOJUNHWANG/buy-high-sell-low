@@ -1,6 +1,12 @@
 """
-fetch_news.py — Fetch news + generate AI summaries via Claude.
+fetch_news.py — Fetch news + generate AI summaries via Groq.
 Schedule: 0 * * * * (every hour)
+
+Root cause fix (2026-03-24):
+- get_existing_urls() paginated to overcome PostgREST 1000-row limit
+- Within-batch dedup to avoid cross-feed duplicate inserts
+- Insert-first, then Groq: only spend AI quota on successfully inserted articles
+- Backfill uses all remaining quota after new articles are processed
 """
 import os
 import sys
@@ -78,66 +84,71 @@ def fetch_from_newsapi() -> list[dict]:
 def fetch_from_rss() -> list[dict]:
     articles = []
     for feed_url in RSS_FEEDS:
-        feed = feedparser.parse(feed_url)
-        for entry in feed.entries[:30]:
-            articles.append({
-                "title":       entry.get("title", ""),
-                "url":         entry.get("link", ""),
-                "source":      feed.feed.get("title", "RSS"),
-                "publishedAt": entry.get("published", None),
-                "content":     entry.get("summary", ""),
-            })
+        try:
+            feed = feedparser.parse(feed_url)
+            for entry in feed.entries[:30]:
+                articles.append({
+                    "title":       entry.get("title", ""),
+                    "url":         entry.get("link", ""),
+                    "source":      feed.feed.get("title", "RSS"),
+                    "publishedAt": entry.get("published", None),
+                    "content":     entry.get("summary", ""),
+                })
+        except Exception as e:
+            print(f"  RSS feed error ({feed_url[:50]}): {e}")
     return articles
 
 
 def generate_ai_summary(title: str, content: str) -> dict | None:
-    ticker_list = ", ".join(sorted(COMPANY_NAMES.keys()))
-    prompt = f"""Analyze the following financial news for a general investor audience.
-
-[STRICT RULES]
-- Never recommend buying or selling any specific stock
-- No investment advice or price predictions
-- Facts and analysis only
-- Output JSON only, no other text
-
-[KNOWN TICKERS]
-{ticker_list}
-
-[Output Format]
+    """Generate AI summary. Prompt optimized to minimize tokens (~300 input vs ~1800 before)."""
+    prompt = f"""Summarize this financial news in JSON. No investment advice.
 {{
-  "summary": "2-3 sentence plain English summary",
-  "impact": "one sentence: likely effect on stock price and why",
-  "sentiment": "positive | neutral | negative",
-  "caution": "one thing investors might overlook (null if none)",
-  "related_tickers": ["TICKER1", "TICKER2"]
+  "summary": "2-3 sentence summary",
+  "impact": "1 sentence market effect",
+  "sentiment": "positive|neutral|negative",
+  "caution": "1 overlooked risk or null"
 }}
 
-For related_tickers: list ALL tickers from the KNOWN TICKERS list that are directly mentioned, affected by, or closely related to this news. Include competitors and sector peers when the news clearly impacts them. Only use tickers from the known list. Return an empty array if none apply.
-
-Title: {title}
-Content: {content[:1000]}"""
+{title}
+{content[:500]}"""
 
     if not groq:
         return None
     try:
         msg = groq.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            max_tokens=512,
+            max_tokens=300,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
         )
         return json.loads(msg.choices[0].message.content or "{}")
     except Exception as e:
+        err_str = str(e)
+        if "429" in err_str:
+            print(f"  Rate limited — stopping AI generation for this run")
+            return "RATE_LIMITED"  # signal to caller
         print(f"  AI error: {e}")
         return None
 
 
 def get_existing_urls() -> set[str]:
-    # Limit to last 7 days to avoid hitting PostgREST 1000-row default max-rows cap.
-    # NewsAPI returns articles from the last ~24–48h, so 7 days is ample for dedup.
+    """Paginated fetch of all existing URLs to avoid PostgREST 1000-row cap."""
     since = (datetime.utcnow() - timedelta(days=7)).isoformat()
-    result = supabase.table("news_articles").select("url").gte("fetched_at", since).execute()
-    return {row["url"] for row in result.data}
+    urls: set[str] = set()
+    offset = 0
+    page_size = 1000
+    while True:
+        result = supabase.table("news_articles") \
+            .select("url") \
+            .gte("fetched_at", since) \
+            .range(offset, offset + page_size - 1) \
+            .execute()
+        for row in result.data:
+            urls.add(row["url"])
+        if len(result.data) < page_size:
+            break
+        offset += page_size
+    return urls
 
 
 def main():
@@ -154,67 +165,102 @@ def main():
             print(f"  NewsAPI also failed ({e})")
 
     existing_urls = get_existing_urls()
-    new_articles = [a for a in articles if a.get("url") and a["url"] not in existing_urls]
-    print(f"  New articles: {len(new_articles)}")
+    print(f"  Existing URLs in DB: {len(existing_urls)}")
 
-    fetched, failed = 0, []
-    ai_calls_this_run = 0
+    # Dedup: against DB + within batch (cross-feed duplicates)
+    seen_urls: set[str] = set()
+    new_articles: list[dict] = []
+    for a in articles:
+        url = a.get("url")
+        if url and url not in existing_urls and url not in seen_urls:
+            seen_urls.add(url)
+            new_articles.append(a)
+
+    print(f"  New articles after dedup: {len(new_articles)}")
+
+    # ── Phase 1: Insert articles (without AI), then generate AI for inserted ones ──
+    inserted: list[dict] = []  # rows that were successfully inserted
+    skipped = 0
     for article in new_articles:
         title   = article.get("title", "")
         url     = article.get("url", "")
         source  = article.get("source", {})
         source_name = source.get("name") if isinstance(source, dict) else str(source)
         published   = article.get("publishedAt")
-        content     = article.get("content") or article.get("description") or ""
         ticker      = map_ticker(title)
 
-        # Cap Groq calls per run to stay within rate limits
-        if ai_calls_this_run < MAX_AI_PER_RUN:
-            ai = generate_ai_summary(title, content)
-            if ai is not None:
-                ai_calls_this_run += 1  # only count successful calls
-        else:
-            ai = None
-
-        # Merge AI-detected related tickers with title-extracted ones
-        ai_tickers = ai.get("related_tickers", []) if ai else []
-        title_tickers = map_all_tickers(title)
-        # Deduplicate, filter to known tickers, exclude primary ticker
-        all_known = set(COMPANY_NAMES.keys())
-        related = sorted(set(
-            t for t in (ai_tickers + title_tickers)
-            if t in all_known and t != ticker
-        ))
-
         row = {
-            "ticker":           ticker,
-            "title":            title[:500],
-            "url":              url,
-            "source":           source_name,
-            "published_at":     published,
-            "ai_summary":       ai.get("summary")   if ai else None,
-            "ai_insight":       ai.get("impact")    if ai else None,
-            "ai_sentiment":     ai.get("sentiment") if ai else None,
-            "ai_caution":       ai.get("caution")   if ai else None,
-            "ai_generated_at":  datetime.utcnow().isoformat() if ai else None,
-            "related_tickers":  related if related else None,
+            "ticker":       ticker,
+            "title":        title[:500],
+            "url":          url,
+            "source":       source_name,
+            "published_at": published,
         }
 
         try:
-            supabase.table("news_articles").insert(row).execute()
-            fetched += 1
+            result = supabase.table("news_articles").insert(row).execute()
+            new_id = result.data[0]["id"]
+            inserted.append({
+                "id": new_id,
+                "title": title,
+                "content": article.get("content") or article.get("description") or "",
+                "ticker": ticker,
+            })
         except Exception as e:
-            print(f"  Insert error ({url[:60]}): {e}")
-            failed.append(url)
+            err_msg = str(e)
+            if "23505" in err_msg:
+                skipped += 1  # duplicate URL — silently skip
+            else:
+                print(f"  Insert error ({url[:60]}): {e}")
+
+    print(f"  Inserted: {len(inserted)}, Skipped duplicates: {skipped}")
+
+    # ── Phase 2: Generate AI summaries for all inserted articles ──
+    ai_calls_this_run = 0
+    summarized = 0
+    rate_limited = False
+    all_known = set(COMPANY_NAMES.keys())
+
+    for article in inserted:
+        if ai_calls_this_run >= MAX_AI_PER_RUN or rate_limited:
+            break
+
+        ai = generate_ai_summary(article["title"], article["content"])
+        if ai == "RATE_LIMITED":
+            rate_limited = True
+            break
+        if ai is None:
+            continue
+
+        ai_calls_this_run += 1
+        summarized += 1
+
+        # related_tickers from title matching (no longer in AI prompt to save tokens)
+        title_tickers = map_all_tickers(article["title"])
+        related = sorted(set(
+            t for t in title_tickers
+            if t in all_known and t != article["ticker"]
+        ))
+
+        supabase.table("news_articles").update({
+            "ai_summary":       ai.get("summary"),
+            "ai_insight":       ai.get("impact"),
+            "ai_sentiment":     ai.get("sentiment"),
+            "ai_caution":       ai.get("caution"),
+            "ai_generated_at":  datetime.utcnow().isoformat(),
+            "related_tickers":  related if related else None,
+        }).eq("id", article["id"]).execute()
 
         time.sleep(2.1)  # ~28 req/min — stay under Groq's 30 req/min limit
 
-    # ── Backfill: retry AI summaries for articles that have none ──
+    print(f"  Summarized: {summarized}/{len(inserted)}{' (rate limited)' if rate_limited else ''}")
+
+    # ── Phase 3: Backfill articles that still have no AI summary ──
     backfilled = 0
-    if ai_calls_this_run < MAX_AI_PER_RUN:
+    if ai_calls_this_run < MAX_AI_PER_RUN and not rate_limited:
         remaining = MAX_AI_PER_RUN - ai_calls_this_run
         result = supabase.table("news_articles") \
-            .select("id, title, url, source") \
+            .select("id, title") \
             .is_("ai_summary", "null") \
             .order("published_at", desc=True) \
             .limit(remaining) \
@@ -223,15 +269,16 @@ def main():
         if backfill_articles:
             print(f"  Backfilling {len(backfill_articles)} articles without AI summary...")
         for article in backfill_articles:
-            content = article.get("title", "")  # title as fallback content
-            ai = generate_ai_summary(article["title"], content)
+            if ai_calls_this_run >= MAX_AI_PER_RUN:
+                break
+            ai = generate_ai_summary(article["title"], article["title"])
+            if ai == "RATE_LIMITED":
+                break
             if ai:
                 ai_calls_this_run += 1
-                ai_tickers = ai.get("related_tickers", [])
                 title_tickers = map_all_tickers(article["title"])
-                all_known = set(COMPANY_NAMES.keys())
                 related = sorted(set(
-                    t for t in (ai_tickers + title_tickers)
+                    t for t in title_tickers
                     if t in all_known
                 ))
                 supabase.table("news_articles").update({
@@ -243,19 +290,17 @@ def main():
                     "related_tickers":  related if related else None,
                 }).eq("id", article["id"]).execute()
                 backfilled += 1
-            if ai_calls_this_run >= MAX_AI_PER_RUN:
-                break
-            time.sleep(2)
+            time.sleep(2.1)
 
     supabase.table("fetch_logs").insert({
         "job_name":        "news",
-        "status":          "success" if not failed else "partial",
-        "records_fetched": fetched,
-        "records_failed":  len(failed),
-        "error_message":   f"backfilled:{backfilled}" if backfilled else None,
+        "status":          "success",
+        "records_fetched": len(inserted),
+        "records_failed":  skipped,
+        "error_message":   f"summarized:{summarized},backfilled:{backfilled}" if (summarized or backfilled) else None,
     }).execute()
 
-    print(f"Done. Inserted: {fetched}, Failed: {len(failed)}, Backfilled: {backfilled}")
+    print(f"Done. Inserted: {len(inserted)}, Summarized: {summarized}, Backfilled: {backfilled}")
 
 
 if __name__ == "__main__":

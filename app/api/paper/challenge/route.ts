@@ -2,12 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import { grantAchievements } from "@/lib/achievement-checker";
 
-// Pool of tickers for weekly challenges (mix of stocks + crypto)
-const CHALLENGE_POOL = [
-  "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "JPM", "V", "MA",
-  "HD", "COST", "WMT", "BAC", "NFLX", "CRM", "ORCL", "BA", "GS", "CAT",
-  "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "DOGE-USD", "ADA-USD",
-];
+// Challenge picks are drawn from ALL tickers that have current price data in stock_prices
 
 interface Pick {
   ticker: string;
@@ -32,21 +27,10 @@ function getWeekBounds(): { start: string; end: string } {
   };
 }
 
-function pickRandomTickers(count: number): string[] {
-  const pool = [...CHALLENGE_POOL];
-  const picks: string[] = [];
-  for (let i = 0; i < count && pool.length > 0; i++) {
-    const idx = Math.floor(Math.random() * pool.length);
-    picks.push(pool[idx]);
-    pool.splice(idx, 1);
-  }
-  return picks;
-}
-
 /**
  * GET — Get current week's challenge.
  * Auto-generates 5-pick prediction challenge if none exists.
- * Auto-resolves if week has ended.
+ * Auto-resolves results when week ends (but does NOT auto-pay — user must claim).
  */
 export async function GET() {
   const supabase = await createSupabaseServerClient();
@@ -74,9 +58,8 @@ export async function GET() {
       // Fall through to generate a new challenge below
     } else {
 
-    // If submitted/pending and week ended → resolve
+    // If submitted/pending and week ended → resolve results (no auto-pay)
     if (existing.status === "pending" && now > weekEnd) {
-      // Fetch final prices for all tickers
       const tickers = picks.map((p: Pick) => p.ticker);
       const { data: prices } = await supabase
         .from("stock_prices")
@@ -94,7 +77,7 @@ export async function GET() {
         return { ...p, final_price: finalPrice, correct };
       });
 
-      // Calculate reward
+      // Calculate reward (stored but NOT paid until user claims)
       let reward = correctCount * 100;
       if (correctCount >= 5) reward = 500 * 2;        // $1,000
       else if (correctCount >= 4) reward = Math.round(correctCount * 100 * 1.5); // $600
@@ -107,53 +90,13 @@ export async function GET() {
         })
         .eq("id", existing.id);
 
-      // Grant reward
-      if (reward > 0) {
-        const { data: account } = await supabase
-          .from("paper_accounts")
-          .select("cash_balance")
-          .eq("user_id", user.id)
-          .single();
-        if (account) {
-          await supabase.from("paper_accounts")
-            .update({ cash_balance: account.cash_balance + reward })
-            .eq("user_id", user.id);
-        }
-      }
-
-      // Achievement checks
-      const achievementCandidates = ["challenge_done"];
-
-      // perfect_month: 4 consecutive completed challenges
-      const { data: recentChallenges } = await supabase
-        .from("paper_challenges")
-        .select("status, week_start")
-        .eq("user_id", user.id)
-        .eq("status", "completed")
-        .order("week_start", { ascending: false })
-        .limit(4);
-
-      if (recentChallenges && recentChallenges.length >= 4) {
-        const weeks = recentChallenges.map((c: { week_start: string }) => new Date(c.week_start).getTime());
-        const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-        let consecutive = true;
-        for (let i = 0; i < weeks.length - 1; i++) {
-          if (Math.abs(weeks[i] - weeks[i + 1] - WEEK_MS) > 2 * 24 * 60 * 60 * 1000) {
-            consecutive = false;
-            break;
-          }
-        }
-        if (consecutive) achievementCandidates.push("perfect_month");
-      }
-
-      await grantAchievements(supabase, user.id, achievementCandidates);
-
       return NextResponse.json({
         ...existing,
         picks: resolvedPicks,
         status: "completed",
         reward_usd: reward,
         correctCount,
+        claimed: false,
       });
     }
 
@@ -185,28 +128,35 @@ export async function GET() {
       return NextResponse.json({ ...existing, picks: enrichedPicks });
     }
 
+    // Completed: check if claimed (reward_claimed field)
+    if (existing.status === "completed") {
+      return NextResponse.json({
+        ...existing,
+        claimed: !!existing.reward_claimed,
+      });
+    }
+
     return NextResponse.json(existing);
     } // end else (non-empty picks)
   }
 
-  // Generate new challenge: pick 5 tickers that have price data
-  const candidates = pickRandomTickers(CHALLENGE_POOL.length); // shuffle all
-  const { data: availablePrices } = await supabase
+  // Generate new challenge: pick 5 random tickers from ALL available price data
+  const { data: allPrices } = await supabase
     .from("stock_prices")
-    .select("ticker, price")
-    .in("ticker", candidates);
+    .select("ticker, price");
 
-  const priceMap = new Map((availablePrices ?? []).map((p: { ticker: string; price: number }) => [p.ticker, p.price]));
-
-  // Only use tickers that have price data
-  const tickersWithPrices = candidates.filter((t) => priceMap.has(t)).slice(0, 5);
-
-  if (tickersWithPrices.length < 5) {
+  if (!allPrices || allPrices.length < 5) {
     return NextResponse.json(
       { error: "Not enough price data to generate challenge. Please try again later." },
       { status: 503 },
     );
   }
+
+  // Shuffle and pick 5
+  const shuffled = allPrices.sort(() => Math.random() - 0.5);
+  const selected = shuffled.slice(0, 5);
+  const priceMap = new Map(selected.map((p: { ticker: string; price: number }) => [p.ticker, p.price]));
+  const tickersWithPrices = selected.map((p: { ticker: string }) => p.ticker);
 
   const picks: Pick[] = tickersWithPrices.map((t) => ({
     ticker: t,
@@ -242,8 +192,9 @@ export async function GET() {
 }
 
 /**
- * POST — Submit predictions (up/down for each pick).
- * Body: { picks: [{ ticker: string, direction: "up"|"down" }, ...] }
+ * POST — Submit predictions OR claim reward.
+ * Body: { picks: [...] } to submit predictions
+ * Body: { action: "claim" } to claim completed challenge reward
  */
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
@@ -257,21 +208,91 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  const { start } = getWeekBounds();
+
+  // ── Claim reward ──
+  if (body.action === "claim") {
+    const { data: challenge } = await supabase
+      .from("paper_challenges")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("week_start", start)
+      .single();
+
+    if (!challenge) {
+      return NextResponse.json({ error: "No challenge found" }, { status: 404 });
+    }
+
+    if (challenge.status !== "completed") {
+      return NextResponse.json({ error: "Challenge not yet completed" }, { status: 400 });
+    }
+
+    if (challenge.reward_claimed) {
+      return NextResponse.json({ error: "Reward already claimed", claimed: true }, { status: 400 });
+    }
+
+    const reward = challenge.reward_usd ?? 0;
+
+    // Grant cash reward
+    if (reward > 0) {
+      const { data: account } = await supabase
+        .from("paper_accounts")
+        .select("cash_balance")
+        .eq("user_id", user.id)
+        .single();
+      if (account) {
+        await supabase.from("paper_accounts")
+          .update({ cash_balance: account.cash_balance + reward })
+          .eq("user_id", user.id);
+      }
+    }
+
+    // Mark as claimed
+    await supabase.from("paper_challenges")
+      .update({ reward_claimed: true })
+      .eq("id", challenge.id);
+
+    // Achievement checks
+    const achievementCandidates = ["challenge_done"];
+
+    const { data: recentChallenges } = await supabase
+      .from("paper_challenges")
+      .select("status, week_start")
+      .eq("user_id", user.id)
+      .eq("status", "completed")
+      .order("week_start", { ascending: false })
+      .limit(4);
+
+    if (recentChallenges && recentChallenges.length >= 4) {
+      const weeks = recentChallenges.map((c: { week_start: string }) => new Date(c.week_start).getTime());
+      const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+      let consecutive = true;
+      for (let i = 0; i < weeks.length - 1; i++) {
+        if (Math.abs(weeks[i] - weeks[i + 1] - WEEK_MS) > 2 * 24 * 60 * 60 * 1000) {
+          consecutive = false;
+          break;
+        }
+      }
+      if (consecutive) achievementCandidates.push("perfect_month");
+    }
+
+    await grantAchievements(supabase, user.id, achievementCandidates);
+
+    return NextResponse.json({ ok: true, claimed: true, reward });
+  }
+
+  // ── Submit predictions ──
   const predictions = body.picks as { ticker: string; direction: "up" | "down" }[] | undefined;
   if (!predictions || !Array.isArray(predictions) || predictions.length !== 5) {
     return NextResponse.json({ error: "Must submit exactly 5 predictions" }, { status: 400 });
   }
 
-  // Validate all directions
   for (const p of predictions) {
     if (!p.ticker || !["up", "down"].includes(p.direction)) {
       return NextResponse.json({ error: `Invalid prediction for ${p.ticker}` }, { status: 400 });
     }
   }
 
-  const { start } = getWeekBounds();
-
-  // Get current challenge
   const { data: challenge } = await supabase
     .from("paper_challenges")
     .select("*")
@@ -293,7 +314,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Deadline passed (Friday market close)" }, { status: 400 });
   }
 
-  // Merge predictions into picks
   const currentPicks = (challenge.picks ?? []) as Pick[];
   const predMap = new Map(predictions.map((p) => [p.ticker, p.direction]));
 
@@ -302,7 +322,6 @@ export async function POST(request: Request) {
     direction: predMap.get(p.ticker) ?? p.direction,
   }));
 
-  // Verify all picks have a direction
   if (updatedPicks.some((p: Pick) => !p.direction)) {
     return NextResponse.json({ error: "All 5 picks must have a direction" }, { status: 400 });
   }

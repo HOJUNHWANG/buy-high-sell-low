@@ -69,6 +69,7 @@ interface Challenge {
   correctCount?: number;
   currentPrice?: number;
   currentPct?: number;
+  claimed?: boolean;
 }
 
 function formatMoney(n: number): string {
@@ -90,6 +91,7 @@ export default function PaperTradingPage() {
   const [shareMsg, setShareMsg] = useState("");
   const [predictions, setPredictions] = useState<Record<string, "up" | "down">>({});
   const [submittingChallenge, setSubmittingChallenge] = useState(false);
+  const [claimingReward, setClaimingReward] = useState(false);
   const [challengeError, setChallengeError] = useState<string | null>(null);
   const [challengeRetrying, setChallengeRetrying] = useState(false);
 
@@ -183,6 +185,17 @@ export default function PaperTradingPage() {
     });
     if (res.ok) loadAll();
     setSubmittingChallenge(false);
+  }
+
+  async function claimReward() {
+    setClaimingReward(true);
+    const res = await fetch("/api/paper/challenge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "claim" }),
+    });
+    if (res.ok) loadAll();
+    setClaimingReward(false);
   }
 
   function handleShare() {
@@ -479,7 +492,7 @@ export default function PaperTradingPage() {
                   &#x2705; Weekly Results
                 </p>
                 <span className="text-xs font-bold" style={{ color: "var(--up)" }}>
-                  +${challenge.reward_usd}
+                  {challenge.reward_usd > 0 ? `+$${challenge.reward_usd}` : "$0"}
                 </span>
               </div>
               <div className="space-y-1.5">
@@ -500,6 +513,25 @@ export default function PaperTradingPage() {
                   </div>
                 ))}
               </div>
+              {/* Claim reward button — only if not yet claimed */}
+              {challenge.reward_usd > 0 && !challenge.claimed ? (
+                <button
+                  onClick={claimReward}
+                  disabled={claimingReward}
+                  className="btn btn-primary btn-sm btn-block"
+                  style={{ background: "linear-gradient(135deg, var(--up), #22c55e)" }}
+                >
+                  {claimingReward ? "Claiming..." : `Claim $${challenge.reward_usd} Reward`}
+                </button>
+              ) : challenge.claimed ? (
+                <p className="text-[10px] text-center font-medium" style={{ color: "var(--up)" }}>
+                  &#x2705; Reward claimed!
+                </p>
+              ) : (
+                <p className="text-[10px] text-center" style={{ color: "var(--text-3)" }}>
+                  Better luck next week!
+                </p>
+              )}
             </div>
           )}
           {challenge && challenge.status === "expired" && (

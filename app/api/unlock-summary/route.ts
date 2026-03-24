@@ -47,10 +47,7 @@ export async function POST(request: Request) {
   }
 
   if (!article.ai_summary) {
-    return NextResponse.json(
-      { error: "No AI summary yet — use 'Generate AI Summary' first", needsGeneration: true },
-      { status: 404 },
-    );
+    return NextResponse.json({ error: "No AI summary available for this article" }, { status: 404 });
   }
 
   if (existing) {
