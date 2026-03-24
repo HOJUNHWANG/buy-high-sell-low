@@ -16,21 +16,21 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABAS
 supabase = create_client(SUPABASE_URL, os.environ["SUPABASE_SERVICE_ROLE_KEY"])
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import SP100_TICKERS, to_yf
+from tickers import SP500_TICKERS, to_yf
 
 def main():
-    print(f"Fetching latest prices for {len(SP100_TICKERS)} tickers via yfinance...")
-    yf_tickers = [to_yf(t) for t in SP100_TICKERS]
+    print(f"Fetching latest prices for {len(SP500_TICKERS)} tickers via yfinance...")
+    yf_tickers = [to_yf(t) for t in SP500_TICKERS]
     tickers_str = " ".join(yf_tickers)
     data = yf.download(tickers_str, period="5d", interval="1d", group_by="ticker", progress=False, auto_adjust=True)
 
     now = datetime.utcnow().isoformat()
     fetched, failed = 0, []
 
-    for ticker in SP100_TICKERS:
+    for ticker in SP500_TICKERS:
         try:
             yf_sym = to_yf(ticker)
-            if len(SP100_TICKERS) == 1:
+            if len(SP500_TICKERS) == 1:
                 ticker_data = data
             else:
                 ticker_data = data[yf_sym]

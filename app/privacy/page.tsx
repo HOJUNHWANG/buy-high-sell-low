@@ -9,8 +9,9 @@ export default function PrivacyPage() {
       <p className="text-gray-500 text-sm">Last updated: March 2026</p>
       <p className="text-sm leading-relaxed">
         Buy High Sell Low (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) operates this website as an informational
-        platform for US stock market data. This Privacy Policy explains how we collect, use,
-        and protect your information when you visit Buy High Sell Low.
+        platform for S&amp;P 500 stock, ETF, and cryptocurrency market data, paper trading, and AI-powered
+        news analysis. This Privacy Policy explains how we collect, use, and protect your
+        information when you visit Buy High Sell Low.
       </p>
 
       <section className="space-y-3">
@@ -20,6 +21,7 @@ export default function PrivacyPage() {
           <li>Email address (when you create an account or sign in via Google)</li>
           <li>Usage logs (pages visited, features used, stocks viewed, AI summaries requested)</li>
           <li>Watchlist data (tickers you choose to save)</li>
+          <li>Paper trading data (simulated portfolio, transactions, achievements)</li>
           <li>Cookies and similar tracking technologies (see Section 5)</li>
           <li>
             Device and browser information collected automatically by third-party services
@@ -52,7 +54,8 @@ export default function PrivacyPage() {
         <ul className="list-disc list-inside space-y-1 text-sm">
           <li>Account data: retained while your account is active</li>
           <li>Watchlist data: deleted when you remove items or delete your account</li>
-          <li>Stock price history: 90 days rolling retention</li>
+          <li>Stock price history: 90 days rolling retention (intraday), long-term daily history retained indefinitely</li>
+          <li>Paper trading data: retained while your account is active</li>
           <li>News articles: 90 days rolling retention (older articles are automatically deleted)</li>
           <li>AI usage logs: 12 months</li>
           <li>Fetch/error logs: 90 days</li>
@@ -92,8 +95,12 @@ export default function PrivacyPage() {
             </a>
           </li>
           <li>
-            <strong>Twelve Data / NewsAPI</strong>: Financial data and news providers.
-            No personal data is shared with these services.
+            <strong>Twelve Data</strong>: Financial data provider for S&amp;P 500 stocks, ETFs, and cryptocurrency
+            prices. No personal data is shared with this service.
+          </li>
+          <li>
+            <strong>NewsAPI</strong>: News aggregation provider.
+            No personal data is shared with this service.
           </li>
         </ul>
       </section>

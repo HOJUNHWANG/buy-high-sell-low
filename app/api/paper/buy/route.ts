@@ -42,6 +42,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Account suspended until ${statusCheck.suspended_until}.` }, { status: 403 });
   }
 
+  // Block ETFs from paper trading
+  const { data: stockInfo } = await supabase
+    .from("stocks")
+    .select("sector")
+    .eq("ticker", ticker)
+    .single();
+
+  if (stockInfo?.sector === "ETF") {
+    return NextResponse.json({ error: "ETFs are not available for paper trading" }, { status: 400 });
+  }
+
   // Get current price
   const { data: priceData } = await supabase
     .from("stock_prices")

@@ -24,6 +24,7 @@ interface WhatIfResult {
   currentValue: number;
   pnl: number;
   pnlPct: number;
+  spyComparison: { pnlPct: number } | null;
   chartData: { date: string; price: number }[];
 }
 
@@ -107,7 +108,7 @@ export default function WhatIfPage() {
   useEffect(() => {
     if (searchQuery.length < 1) { setSearchResults([]); return; }
     const timer = setTimeout(async () => {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`);
+      const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}&exclude_sector=ETF`);
       if (res.ok) setSearchResults(await res.json());
     }, 300);
     return () => clearTimeout(timer);
@@ -431,6 +432,16 @@ export default function WhatIfPage() {
             <div className="text-xs space-y-1" style={{ color: "var(--text-2)" }}>
               <p>Buy price: ${result.buyPrice.toFixed(2)} | {result.stillHolding ? "Current" : "Sell"} price: ${result.sellPrice.toFixed(2)}</p>
               <p>Shares: {result.shares.toFixed(4)}</p>
+              {result.spyComparison && (
+                <p style={{ color: "var(--text-3)" }}>
+                  S&amp;P 500 (SPY) over same period:{" "}
+                  <span style={{ color: result.spyComparison.pnlPct >= 0 ? "var(--up)" : "var(--down)", fontWeight: 600 }}>
+                    {result.spyComparison.pnlPct >= 0 ? "+" : ""}{result.spyComparison.pnlPct.toFixed(2)}%
+                  </span>
+                  {" "}
+                  ({result.pnlPct > result.spyComparison.pnlPct ? "You beat the market!" : "SPY did better."})
+                </p>
+              )}
             </div>
           </div>
 

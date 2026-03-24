@@ -6,9 +6,9 @@ import { MarketStatusWidget } from "@/components/MarketStatusWidget";
 import { AdSlot } from "@/components/AdSlot";
 
 export const metadata: Metadata = {
-  title: "Screener — S&P 100 + Crypto",
+  title: "Screener — Stocks, ETFs & Crypto",
   description:
-    "Browse S&P 100 stocks and top crypto with live prices, daily changes, and sector filters.",
+    "Browse S&P 500 stocks, ETFs, and top crypto with live prices, daily changes, and sector filters.",
 };
 
 type StockRow = Stock & { stock_prices: StockPrice | null };
@@ -39,7 +39,7 @@ export default async function StocksPage() {
             Stock Screener
           </h1>
           <p className="text-xs mt-0.5" style={{ color: "var(--text-3)" }}>
-            S&amp;P 100 + Crypto · {stocks.length} assets · Prices updated every 15 min (stocks) / 4 hrs (crypto)
+            S&amp;P 500 + ETFs + Crypto · {stocks.length} assets · Prices updated every 15 min
           </p>
         </div>
 

@@ -42,6 +42,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "ticker, buyDate, and amount (>0) are required" }, { status: 400 });
   }
 
+  // Block ETFs from What If calculator
+  const { data: stockInfo } = await supabase
+    .from("stocks")
+    .select("sector")
+    .eq("ticker", ticker)
+    .single();
+
+  if (stockInfo?.sector === "ETF") {
+    return NextResponse.json({ error: "ETFs are not available for the What If calculator" }, { status: 400 });
+  }
+
   // Get buy date price (closest available date on or after buyDate)
   const { data: buyData } = await supabase
     .from("price_history_long")
@@ -96,13 +107,47 @@ export async function POST(request: Request) {
   const pnl = currentValue - amount;
   const pnlPct = ((sellPrice - buyPrice) / buyPrice) * 100;
 
-  // S&P 500 comparison — use SPGI as proxy, or just skip if not available
-  // We'll use the VOO/SPY equivalent. Since we don't have SPY in our DB,
-  // we compare against the average S&P 100 performance via a simple message.
+  // S&P 500 comparison via SPY
   let spyComparison: { pnlPct: number } | null = null;
 
-  // Try to find SPY-like data (we don't have SPY, so skip comparison if unavailable)
-  // For now, we'll note this in the response
+  if (ticker !== "SPY") {
+    const { data: spyBuy } = await supabase
+      .from("price_history_long")
+      .select("close")
+      .eq("ticker", "SPY")
+      .gte("date", buyData.date)
+      .order("date", { ascending: true })
+      .limit(1)
+      .single();
+
+    if (spyBuy) {
+      let spySellPrice: number | null = null;
+      if (sellDate) {
+        const { data: spySell } = await supabase
+          .from("price_history_long")
+          .select("close")
+          .eq("ticker", "SPY")
+          .lte("date", actualSellDate)
+          .order("date", { ascending: false })
+          .limit(1)
+          .single();
+        spySellPrice = spySell?.close ?? null;
+      } else {
+        const { data: spyCurrent } = await supabase
+          .from("stock_prices")
+          .select("price")
+          .eq("ticker", "SPY")
+          .single();
+        spySellPrice = spyCurrent?.price ?? null;
+      }
+
+      if (spySellPrice) {
+        spyComparison = {
+          pnlPct: ((spySellPrice - spyBuy.close) / spyBuy.close) * 100,
+        };
+      }
+    }
+  }
 
   // Get chart data for the period
   const { data: chartData } = await supabase

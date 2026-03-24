@@ -45,10 +45,11 @@ export default function TermsPage() {
         <p className="text-sm leading-relaxed">
           Market prices, percentage changes, and financial data displayed on Buy High Sell Low may
           be delayed by up to 15 minutes or more. Data is sourced from third-party providers
-          (Twelve Data, Financial Modeling Prep, NewsAPI) and is provided &quot;as-is&quot; without
-          warranty of accuracy, completeness, or timeliness. Buy High Sell Low makes no guarantees
-          about the reliability of market data and is not liable for decisions made based on
-          information displayed on this site.
+          (Twelve Data, NewsAPI) and is provided &quot;as-is&quot; without warranty of accuracy,
+          completeness, or timeliness. Buy High Sell Low covers S&amp;P 500 stocks, select ETFs, and
+          cryptocurrencies. ETFs are available for data viewing only and are excluded from paper
+          trading and the What If calculator. Buy High Sell Low makes no guarantees about the reliability of market
+          data and is not liable for decisions made based on information displayed on this site.
         </p>
       </section>
 
@@ -70,7 +71,25 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">4. Acceptable Use</h2>
+        <h2 className="text-xl font-semibold text-white">4. Paper Trading Simulator</h2>
+        <p className="text-sm leading-relaxed">
+          Buy High Sell Low offers a paper trading simulator that uses virtual currency (starting
+          balance of $1,000) for educational purposes. Paper trading results:
+        </p>
+        <ul className="list-disc list-inside space-y-1 text-sm">
+          <li>Use real market prices but simulate trades with virtual money only</li>
+          <li>Do not reflect actual market conditions such as slippage, liquidity, or order execution</li>
+          <li>Are not indicative of future results with real money</li>
+          <li>Should not be used as a basis for real investment decisions</li>
+        </ul>
+        <p className="text-sm">
+          Achievements, rewards, and leaderboard positions are purely for entertainment and
+          have no monetary value.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold text-white">5. Acceptable Use</h2>
         <p className="text-sm">By using Buy High Sell Low, you agree not to:</p>
         <ul className="list-disc list-inside space-y-1 text-sm">
           <li>Scrape, crawl, or systematically extract data from the site without prior written consent</li>
@@ -87,7 +106,7 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">5. User Accounts</h2>
+        <h2 className="text-xl font-semibold text-white">6. User Accounts</h2>
         <p className="text-sm leading-relaxed">
           You are responsible for maintaining the security of your account credentials. You agree
           to notify us immediately at{" "}
@@ -104,7 +123,7 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">6. Affiliate Links &amp; Third-Party Sites</h2>
+        <h2 className="text-xl font-semibold text-white">7. Affiliate Links &amp; Third-Party Sites</h2>
         <p className="text-sm leading-relaxed">
           Buy High Sell Low may display links to third-party websites, including affiliate partners
           (clearly labelled &quot;Sponsored&quot;). We may earn a commission if you sign up or make a
@@ -115,7 +134,7 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">7. Intellectual Property</h2>
+        <h2 className="text-xl font-semibold text-white">8. Intellectual Property</h2>
         <p className="text-sm leading-relaxed">
           The Buy High Sell Low brand, logo, and original content (excluding third-party news and
           financial data) are owned by or licensed to Buy High Sell Low. You may not reproduce,
@@ -126,7 +145,7 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">8. Limitation of Liability</h2>
+        <h2 className="text-xl font-semibold text-white">9. Limitation of Liability</h2>
         <p className="text-sm leading-relaxed">
           To the maximum extent permitted by applicable law, Buy High Sell Low and its operators
           shall not be liable for any direct, indirect, incidental, consequential, or punitive
@@ -145,7 +164,7 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">9. Disclaimer of Warranties</h2>
+        <h2 className="text-xl font-semibold text-white">10. Disclaimer of Warranties</h2>
         <p className="text-sm leading-relaxed">
           Buy High Sell Low is provided &quot;as is&quot; and &quot;as available&quot; without warranties of any kind,
           express or implied. We do not warrant that the service will be uninterrupted,
@@ -156,7 +175,7 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">10. Governing Law</h2>
+        <h2 className="text-xl font-semibold text-white">11. Governing Law</h2>
         <p className="text-sm leading-relaxed">
           These Terms are governed by and construed in accordance with applicable law. Any
           disputes arising from these Terms or your use of Buy High Sell Low shall be resolved through
@@ -166,7 +185,7 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">11. Changes to These Terms</h2>
+        <h2 className="text-xl font-semibold text-white">12. Changes to These Terms</h2>
         <p className="text-sm leading-relaxed">
           We reserve the right to modify these Terms at any time. Material changes will be
           reflected in the &quot;Last updated&quot; date above. Continued use of the service after
@@ -175,7 +194,7 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">12. Contact</h2>
+        <h2 className="text-xl font-semibold text-white">13. Contact</h2>
         <p className="text-sm">
           For questions about these Terms, contact:{" "}
           <a href="mailto:adind96@gmail.com" className="text-blue-400 hover:underline">

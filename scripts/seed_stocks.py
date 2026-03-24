@@ -19,7 +19,7 @@ SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import SP100_TICKERS, CRYPTO_TICKERS, COMPANY_NAMES
+from tickers import SP500_TICKERS, CRYPTO_TICKERS, COMPANY_NAMES
 
 
 def fetch_yfinance_profile(ticker: str) -> dict | None:
@@ -39,10 +39,10 @@ def fetch_yfinance_profile(ticker: str) -> dict | None:
 
 
 def seed_stocks():
-    print(f"Seeding {len(SP100_TICKERS)} stocks via yfinance...")
+    print(f"Seeding {len(SP500_TICKERS)} stocks via yfinance...")
     success, failed = 0, []
 
-    for ticker in SP100_TICKERS:
+    for ticker in SP500_TICKERS:
         profile = fetch_yfinance_profile(ticker)
         if profile:
             row = {"ticker": ticker, **profile}

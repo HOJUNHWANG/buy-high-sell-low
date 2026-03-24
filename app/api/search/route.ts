@@ -14,13 +14,21 @@ export async function GET(request: Request) {
 
   const supabase = await createSupabaseServerClient();
 
-  const { data, error } = await supabase
+  const excludeSector = searchParams.get("exclude_sector");
+
+  let query = supabase
     .from("stocks")
     .select("ticker, name, exchange, sector, logo_url")
-    .or(`ticker.ilike.${q}%,name.ilike.%${q}%`)
-    .limit(10);
+    .or(`ticker.ilike.${q}%,name.ilike.%${q}%`);
+
+  if (excludeSector) {
+    query = query.neq("sector", excludeSector);
+  }
+
+  const { data, error } = await query.limit(10);
 
   if (error) {
+    console.error("Search query failed:", error.message);
     return NextResponse.json([], { status: 500 });
   }
 

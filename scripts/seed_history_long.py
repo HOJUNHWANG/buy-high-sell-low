@@ -4,7 +4,7 @@ Inserts into price_history_long. Safe to re-run (skips existing dates via UNIQUE
 
 Usage:
   python scripts/seed_history_long.py            # all tickers
-  python scripts/seed_history_long.py --stocks    # S&P 100 only
+  python scripts/seed_history_long.py --stocks    # S&P 500 only
   python scripts/seed_history_long.py --crypto    # crypto only
   python scripts/seed_history_long.py AAPL MSFT   # specific tickers
 """
@@ -22,7 +22,7 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABAS
 supabase = create_client(SUPABASE_URL, os.environ["SUPABASE_SERVICE_ROLE_KEY"])
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import SP100_TICKERS, CRYPTO_TICKERS, ALL_TICKERS, to_yf
+from tickers import SP500_TICKERS, CRYPTO_TICKERS, ALL_TICKERS, to_yf
 
 BATCH_SIZE = 10  # smaller batches for 20Y data (larger payloads)
 CHUNK_INSERT = 500
@@ -123,8 +123,8 @@ def main():
             tickers = CRYPTO_TICKERS
             print(f"Seeding {len(tickers)} crypto tickers (max history)")
         elif arg == "--stocks":
-            tickers = SP100_TICKERS
-            print(f"Seeding {len(tickers)} S&P 100 tickers (max history)")
+            tickers = SP500_TICKERS
+            print(f"Seeding {len(tickers)} S&P 500 tickers (max history)")
         elif arg == "--all":
             tickers = ALL_TICKERS
             print(f"Seeding all {len(tickers)} tickers (max history)")

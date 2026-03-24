@@ -1,10 +1,10 @@
-name: Fetch Prices (Stocks + Crypto)
+name: Fetch Prices (S&P 500 + ETFs + Crypto)
 
 on:
   schedule:
     # Stocks: every 15 min during US market hours (Mon-Fri)
     - cron: "*/15 14-21 * * 1-5"
-    # Crypto: every hour, every day (24/7 market — script skips stocks when closed)
+    # Crypto: every hour, every day (24/7 market — script handles both)
     - cron: "0 * * * *"
   workflow_dispatch:
 
