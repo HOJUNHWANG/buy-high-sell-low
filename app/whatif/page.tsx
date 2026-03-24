@@ -400,23 +400,40 @@ export default function WhatIfPage() {
       {/* Results */}
       {result && (
         <div className="card rounded-xl overflow-hidden fade-up">
-          {/* Stats */}
-          <div className="p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold" style={{ color: "var(--text)" }}>
-                {result.ticker}
-              </h2>
-              <span className="text-xs" style={{ color: "var(--text-3)" }}>
-                {result.buyDate} {result.stillHolding ? "~ now" : `~ ${result.sellDate}`}
-              </span>
-            </div>
+          {/* Hero verdict */}
+          <div className="p-6 text-center space-y-2" style={{
+            background: result.pnl >= 0
+              ? "linear-gradient(135deg, rgba(34,197,94,0.12), rgba(34,197,94,0.04))"
+              : "linear-gradient(135deg, rgba(239,68,68,0.12), rgba(239,68,68,0.04))",
+          }}>
+            <p className="text-sm font-medium" style={{ color: "var(--text-2)" }}>
+              {result.stillHolding ? "If you still held" : "If you had bought"} {result.ticker} on {result.buyDate}...
+            </p>
+            <p className="text-3xl sm:text-4xl font-extrabold tabular-nums" style={{
+              color: result.pnl >= 0 ? "var(--up)" : "var(--down)",
+            }}>
+              {result.pnl >= 0
+                ? `You'd be up ${formatMoney(result.pnl)}`
+                : `You'd have lost ${formatMoney(Math.abs(result.pnl))}`}
+            </p>
+            <p className="text-lg font-semibold tabular-nums" style={{
+              color: result.pnlPct >= 0 ? "var(--up)" : "var(--down)",
+            }}>
+              {result.pnlPct >= 0 ? "+" : ""}{result.pnlPct.toFixed(1)}% return
+            </p>
+            <p className="text-xs" style={{ color: "var(--text-3)" }}>
+              {formatMoney(result.investedAmount)} invested → {formatMoney(result.currentValue)} {result.stillHolding ? "today" : `on ${result.sellDate}`}
+            </p>
+          </div>
 
+          {/* Detail stats */}
+          <div className="p-5 space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
                 { label: "Invested", value: formatMoney(result.investedAmount), color: "var(--text)" },
-                { label: result.stillHolding ? "Current Value" : "Final Value", value: formatMoney(result.currentValue), color: "var(--text)" },
-                { label: "P&L", value: `${result.pnl >= 0 ? "+" : ""}${formatMoney(result.pnl)}`, color: result.pnl >= 0 ? "var(--up)" : "var(--down)" },
-                { label: "Return", value: `${result.pnlPct >= 0 ? "+" : ""}${result.pnlPct.toFixed(2)}%`, color: result.pnlPct >= 0 ? "var(--up)" : "var(--down)" },
+                { label: result.stillHolding ? "Worth Now" : "Final Value", value: formatMoney(result.currentValue), color: "var(--text)" },
+                { label: "Shares", value: result.shares >= 1 ? result.shares.toFixed(2) : result.shares.toFixed(4), color: "var(--text)" },
+                { label: "Return", value: `${result.pnlPct >= 0 ? "+" : ""}${result.pnlPct.toFixed(1)}%`, color: result.pnlPct >= 0 ? "var(--up)" : "var(--down)" },
               ].map((stat) => (
                 <div key={stat.label} className="rounded-lg p-3" style={{ background: "var(--surface-2)" }}>
                   <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: "var(--text-3)" }}>
@@ -430,16 +447,22 @@ export default function WhatIfPage() {
             </div>
 
             <div className="text-xs space-y-1" style={{ color: "var(--text-2)" }}>
-              <p>Buy price: ${result.buyPrice.toFixed(2)} | {result.stillHolding ? "Current" : "Sell"} price: ${result.sellPrice.toFixed(2)}</p>
-              <p>Shares: {result.shares.toFixed(4)}</p>
+              <p>${result.buyPrice.toFixed(2)} → ${result.sellPrice.toFixed(2)} per share</p>
               {result.spyComparison && (
-                <p style={{ color: "var(--text-3)" }}>
-                  S&amp;P 500 (SPY) over same period:{" "}
-                  <span style={{ color: result.spyComparison.pnlPct >= 0 ? "var(--up)" : "var(--down)", fontWeight: 600 }}>
-                    {result.spyComparison.pnlPct >= 0 ? "+" : ""}{result.spyComparison.pnlPct.toFixed(2)}%
+                <p className="rounded-lg px-3 py-2 mt-2" style={{ background: "var(--surface-2)" }}>
+                  <span style={{ color: "var(--text-3)" }}>If you put the same {formatMoney(result.investedAmount)} in S&amp;P 500 (SPY):{" "}</span>
+                  <span style={{ color: result.spyComparison.pnlPct >= 0 ? "var(--up)" : "var(--down)", fontWeight: 700 }}>
+                    {result.spyComparison.pnlPct >= 0 ? "+" : ""}{result.spyComparison.pnlPct.toFixed(1)}%
                   </span>
-                  {" "}
-                  ({result.pnlPct > result.spyComparison.pnlPct ? "You beat the market!" : "SPY did better."})
+                  <span style={{ color: "var(--text-3)" }}>
+                    {" "}({formatMoney(result.investedAmount * (1 + result.spyComparison.pnlPct / 100))})
+                    {" — "}
+                    {result.pnlPct > result.spyComparison.pnlPct
+                      ? "You beat the market!"
+                      : result.pnlPct < result.spyComparison.pnlPct
+                        ? "SPY would've done better."
+                        : "Exactly the same!"}
+                  </span>
                 </p>
               )}
             </div>
