@@ -33,19 +33,23 @@ function getWeekBounds(): { start: string; end: string } {
  * Auto-resolves results when week ends (but does NOT auto-pay — user must claim).
  */
 export async function GET() {
+  try {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { start, end } = getWeekBounds();
 
-  // Check existing challenge for this week
-  const { data: existing } = await supabase
+  // Check existing challenge for this week (use limit+order to handle duplicates gracefully)
+  const { data: existingRows } = await supabase
     .from("paper_challenges")
     .select("*")
     .eq("user_id", user.id)
     .eq("week_start", start)
-    .single();
+    .order("id", { ascending: false })
+    .limit(1);
+
+  const existing = existingRows?.[0] ?? null;
 
   if (existing) {
     const now = new Date();
@@ -189,6 +193,10 @@ export async function GET() {
   }
 
   return NextResponse.json(newChallenge);
+  } catch (err) {
+    console.error("Challenge GET error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 /**
@@ -212,13 +220,15 @@ export async function POST(request: Request) {
 
   // ── Claim reward ──
   if (body.action === "claim") {
-    const { data: challenge } = await supabase
+    const { data: challengeRows } = await supabase
       .from("paper_challenges")
       .select("*")
       .eq("user_id", user.id)
       .eq("week_start", start)
-      .single();
+      .order("id", { ascending: false })
+      .limit(1);
 
+    const challenge = challengeRows?.[0] ?? null;
     if (!challenge) {
       return NextResponse.json({ error: "No challenge found" }, { status: 404 });
     }
@@ -293,13 +303,15 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data: challenge } = await supabase
+  const { data: challengeRows2 } = await supabase
     .from("paper_challenges")
     .select("*")
     .eq("user_id", user.id)
     .eq("week_start", start)
-    .single();
+    .order("id", { ascending: false })
+    .limit(1);
 
+  const challenge = challengeRows2?.[0] ?? null;
   if (!challenge) {
     return NextResponse.json({ error: "No challenge found for this week" }, { status: 404 });
   }
