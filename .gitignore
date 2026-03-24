@@ -34,6 +34,11 @@ yarn-error.log*
 .env*
 !.env.example
 
+# internal docs (private — not for public repo)
+PRD.md
+docs/EXTERNAL_SERVICES.md
+docs/read.md
+
 # Python
 __pycache__/
 *.pyc
