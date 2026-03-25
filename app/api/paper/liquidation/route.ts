@@ -30,14 +30,16 @@ export async function GET() {
     const now = new Date();
     const suspendedUntil = new Date(account.suspended_until);
     if (now >= suspendedUntil) {
-      // Auto-restart: reset account
+      // Auto-restart: top up to $1,000 if below (check-in cash preserved)
+      const currentCash = account.cash_balance ?? 0;
+      const newBalance = currentCash < 1000 ? 1000 : currentCash;
+      const added = newBalance - currentCash;
       await supabase.from("paper_positions").delete().eq("user_id", user.id);
       await supabase.from("paper_accounts").update({
-        cash_balance: 1000,
+        cash_balance: newBalance,
         status: "active",
         margin_call_at: null,
         suspended_until: null,
-        streak: 0,
       }).eq("user_id", user.id);
 
       // Phoenix badge
@@ -48,36 +50,27 @@ export async function GET() {
 
       return NextResponse.json({
         status: "restarted",
-        message: "Your suspension has ended. Welcome back with $1,000!",
-        cashBalance: 1000,
+        message: added > 0
+          ? `Suspension ended. Topped up +$${added.toFixed(0)} to $1,000!`
+          : `Suspension ended. You already have $${newBalance.toFixed(2)} — no top-up needed.`,
+        cashBalance: newBalance,
       });
     }
     return NextResponse.json({
       status: "suspended",
       suspendedUntil: account.suspended_until,
-      message: `Account suspended until ${account.suspended_until}. You'll restart with $1,000.`,
+      cashBalance: account.cash_balance,
+      message: `Account suspended until ${account.suspended_until}. Daily check-ins still earn cash! Balance topped up to $1,000 on revival.`,
     });
   }
 
-  if (account.status === "liquidated") {
-    // Check if eligible for revive
-    const now = new Date();
-    const lastLiquidation = account.last_liquidation_at ? new Date(account.last_liquidation_at) : null;
-    const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const liqMonth = lastLiquidation
-      ? `${lastLiquidation.getFullYear()}-${String(lastLiquidation.getMonth() + 1).padStart(2, "0")}`
-      : null;
-
-    // Count liquidations this month
-    const liquidationsThisMonth = liqMonth === thisMonth ? account.liquidation_count : 0;
-
+  if (account.status === "liquidated" || account.status === "suspended") {
+    // Liquidation = suspended until next month. No revive option.
     return NextResponse.json({
-      status: "liquidated",
-      canRevive: liquidationsThisMonth < 2,
-      liquidationCount: account.liquidation_count,
-      message: liquidationsThisMonth >= 2
-        ? "You've been liquidated twice this month. Suspended until next month."
-        : "You've been liquidated. You can revive once with $500.",
+      status: "suspended",
+      suspendedUntil: account.suspended_until,
+      cashBalance: account.cash_balance,
+      message: `Liquidated. Suspended until ${account.suspended_until ?? "next month"}. Daily check-ins still earn cash!`,
     });
   }
 
@@ -140,34 +133,22 @@ export async function GET() {
           await supabase.from("paper_positions").delete().eq("user_id", user.id);
         }
 
+        // Liquidation = immediately suspended until next month. No revive.
         const newLiqCount = account.liquidation_count + 1;
         const now = new Date();
-        const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-        const lastLiqMonth = account.last_liquidation_at
-          ? (() => { const d = new Date(account.last_liquidation_at); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; })()
-          : null;
-        const liqThisMonth = lastLiqMonth === thisMonth ? newLiqCount : 1;
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const suspendedUntil = nextMonth.toISOString().split("T")[0];
 
-        // If 2nd liquidation this month → suspend until next month
-        let newStatus: string = "liquidated";
-        let suspendedUntil: string | null = null;
-
-        if (liqThisMonth >= 2) {
-          newStatus = "suspended";
-          const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-          suspendedUntil = nextMonth.toISOString().split("T")[0];
-        }
-
+        // Keep whatever cash remains (check-in rewards preserved)
         await supabase.from("paper_accounts").update({
-          cash_balance: 0,
-          status: newStatus,
+          status: "suspended",
           margin_call_at: null,
           liquidation_count: newLiqCount,
           last_liquidation_at: now.toISOString(),
           suspended_until: suspendedUntil,
         }).eq("user_id", user.id);
 
-        // Liquidated badge
+        // Badges
         await supabase.from("paper_achievements").upsert(
           { user_id: user.id, badge_key: "liquidated" },
           { onConflict: "user_id,badge_key" }
@@ -181,13 +162,11 @@ export async function GET() {
         }
 
         return NextResponse.json({
-          status: newStatus === "suspended" ? "suspended" : "liquidated",
-          message: newStatus === "suspended"
-            ? `Liquidated twice this month. Suspended until ${suspendedUntil}. You'll restart with $1,000.`
-            : "Your portfolio has been liquidated. All positions sold.",
-          canRevive: newStatus !== "suspended",
+          status: "suspended",
           suspendedUntil,
+          cashBalance: account.cash_balance,
           liquidationCount: newLiqCount,
+          message: `Liquidated. Suspended until ${suspendedUntil}. Check in daily to earn cash before revival!`,
         });
       }
 

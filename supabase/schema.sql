@@ -242,6 +242,8 @@ CREATE TABLE IF NOT EXISTS paper_positions (
   ticker      TEXT REFERENCES stocks(ticker),
   shares      NUMERIC NOT NULL,
   avg_cost    NUMERIC NOT NULL,
+  leverage    INT NOT NULL DEFAULT 1,
+  borrowed    NUMERIC NOT NULL DEFAULT 0,
   created_at  TIMESTAMPTZ DEFAULT NOW(),
   updated_at  TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id, ticker)
@@ -255,6 +257,7 @@ CREATE TABLE IF NOT EXISTS paper_transactions (
   shares       NUMERIC NOT NULL,
   price        NUMERIC NOT NULL,
   total        NUMERIC NOT NULL,
+  leverage     INT NOT NULL DEFAULT 1,
   executed_at  TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_paper_tx_user ON paper_transactions (user_id, executed_at DESC);

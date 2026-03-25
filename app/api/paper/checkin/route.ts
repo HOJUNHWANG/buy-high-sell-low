@@ -21,15 +21,8 @@ export async function POST() {
     return NextResponse.json({ error: "No account found" }, { status: 404 });
   }
 
-  // Suspended check
-  if (account.status === "suspended") {
-    const suspendedUntil = account.suspended_until;
-    if (suspendedUntil && new Date(suspendedUntil) > new Date()) {
-      return NextResponse.json({
-        error: `Account suspended until ${suspendedUntil}. You'll get a fresh $1,000 start then.`,
-      }, { status: 403 });
-    }
-  }
+  // Check-in is always allowed — even during liquidation/suspension.
+  // This keeps users engaged while they wait for revival.
 
   const today = new Date().toISOString().split("T")[0];
 

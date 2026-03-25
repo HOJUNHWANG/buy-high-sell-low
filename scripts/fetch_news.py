@@ -31,7 +31,6 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 groq     = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import COMPANY_NAMES
 
 MAX_AI_PER_RUN = 200  # Groq free tier: 14,400/day, 30/min — 200/hr is safe
 
@@ -47,15 +46,6 @@ RSS_FEEDS = [
     "https://www.coindesk.com/arc/outboundfeeds/rss/",
     "https://decrypt.co/feed",
 ]
-
-
-def map_ticker(title: str) -> str | None:
-    title_upper = title.upper()
-    for ticker, name in COMPANY_NAMES.items():
-        if ticker in title_upper or name.upper() in title_upper:
-            return ticker
-    return None
-
 
 
 def fetch_from_newsapi() -> list[dict]:
@@ -178,10 +168,8 @@ def main():
         source  = article.get("source", {})
         source_name = source.get("name") if isinstance(source, dict) else str(source)
         published   = article.get("publishedAt")
-        ticker      = map_ticker(title)
-
         row = {
-            "ticker":       ticker,
+            "ticker":       None,
             "title":        title[:500],
             "url":          url,
             "source":       source_name,
@@ -195,7 +183,6 @@ def main():
                 "id": new_id,
                 "title": title,
                 "content": article.get("content") or article.get("description") or "",
-                "ticker": ticker,
             })
         except Exception as e:
             err_msg = str(e)

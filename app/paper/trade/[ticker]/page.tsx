@@ -21,6 +21,9 @@ interface PositionInfo {
   pnl: number;
   pnlPct: number;
   marketValue: number;
+  borrowed: number;
+  equity: number;
+  leverage: number;
 }
 
 interface TradeResult {
@@ -28,7 +31,12 @@ interface TradeResult {
   side: string;
   shares: number;
   price: number;
-  total: number;
+  margin?: number;
+  borrowed?: number;
+  leverage?: number;
+  grossProceeds?: number;
+  borrowedRepay?: number;
+  netProceeds?: number;
   cashBalance: number;
   newAchievements: string[];
   realizedPnl?: number;
@@ -47,6 +55,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [inputMode, setInputMode] = useState<"shares" | "dollars">("dollars");
   const [inputValue, setInputValue] = useState("");
+  const [leverage, setLeverage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TradeResult | null>(null);
   const [error, setError] = useState("");
@@ -88,6 +97,9 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
           pnl: pos.pnl,
           pnlPct: pos.pnlPct,
           marketValue: pos.marketValue,
+          borrowed: pos.borrowed ?? 0,
+          equity: pos.equity ?? pos.marketValue,
+          leverage: pos.leverage ?? 1,
         });
       }
       setCashBalance(portfolio.cashBalance);
@@ -97,7 +109,8 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
   const shares = inputMode === "shares"
     ? parseFloat(inputValue) || 0
     : stock?.price ? (parseFloat(inputValue) || 0) / stock.price : 0;
-  const estimatedTotal = stock ? shares * stock.price : 0;
+  const effectiveShares = side === "buy" ? shares * leverage : shares;
+  const estimatedTotal = stock ? shares * stock.price : 0; // cash cost (base)
 
   async function executeTrade() {
     setError("");
@@ -109,7 +122,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
       const res = await fetch(`/api/paper/${side}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticker, shares }),
+        body: JSON.stringify({ ticker, shares, ...(side === "buy" && leverage > 1 ? { leverage } : {}) }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
@@ -128,6 +141,9 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
           pnl: pos.pnl,
           pnlPct: pos.pnlPct,
           marketValue: pos.marketValue,
+          borrowed: pos.borrowed ?? 0,
+          equity: pos.equity ?? pos.marketValue,
+          leverage: pos.leverage ?? 1,
         } : null);
       }
     } catch {
@@ -183,9 +199,17 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
       {/* Current position */}
       {position && (
         <div className="card rounded-xl p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-3)" }}>
-            Your Position
-          </p>
+          <div className="flex items-center gap-2 mb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>
+              Your Position
+            </p>
+            {position.leverage > 1 && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
+                {position.leverage}x
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
               <p className="text-xs" style={{ color: "var(--text-3)" }}>Shares</p>
@@ -204,9 +228,27 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
               <p className="text-sm font-semibold tabular-nums"
                 style={{ color: position.pnl >= 0 ? "var(--up)" : "var(--down)" }}>
                 {position.pnl >= 0 ? "+" : ""}${position.pnl.toFixed(2)}
+                <span className="text-[10px] ml-0.5">({position.pnlPct >= 0 ? "+" : ""}{position.pnlPct.toFixed(1)}%)</span>
               </p>
             </div>
           </div>
+          {position.borrowed > 0 && (
+            <div className="grid grid-cols-2 gap-3 text-center mt-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+              <div>
+                <p className="text-[10px]" style={{ color: "var(--text-3)" }}>Debt</p>
+                <p className="text-xs font-semibold tabular-nums" style={{ color: "var(--down)" }}>
+                  ${position.borrowed.toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px]" style={{ color: "var(--text-3)" }}>Equity</p>
+                <p className="text-xs font-semibold tabular-nums"
+                  style={{ color: position.equity >= 0 ? "var(--up)" : "var(--down)" }}>
+                  ${position.equity.toFixed(2)}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -250,6 +292,39 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
             </button>
           ))}
         </div>
+
+        {/* Leverage selector (buy only) */}
+        {side === "buy" && (
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs" style={{ color: "var(--text-3)" }}>Leverage:</span>
+              <span className="text-xs font-bold tabular-nums" style={{ color: leverage > 1 ? "var(--accent)" : "var(--text-2)" }}>
+                {leverage}x
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {[1, 2, 5, 10, 25, 50, 100].map((lev) => (
+                <button
+                  key={lev}
+                  onClick={() => setLeverage(lev)}
+                  className="px-2.5 py-1 rounded text-[11px] font-medium transition-colors"
+                  style={{
+                    background: leverage === lev ? "var(--accent-dim)" : "var(--surface-3)",
+                    color: leverage === lev ? "var(--accent)" : "var(--text-2)",
+                    border: leverage === lev ? "1px solid rgba(124,108,252,0.3)" : "1px solid transparent",
+                  }}
+                >
+                  {lev}x
+                </button>
+              ))}
+            </div>
+            {leverage > 1 && (
+              <p className="text-[10px] mt-1.5" style={{ color: "var(--down)" }}>
+                {leverage}x leverage — gains and losses are amplified. Liquidation risk is real.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Input */}
         <div>
@@ -364,17 +439,43 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
         {/* Order summary */}
         {shares > 0 && (
           <div className="rounded-lg p-3 space-y-1" style={{ background: "var(--surface-2)" }}>
+            {side === "buy" && leverage > 1 && (
+              <div className="flex justify-between text-xs">
+                <span style={{ color: "var(--text-3)" }}>Leverage</span>
+                <span className="tabular-nums font-semibold" style={{ color: "var(--accent)" }}>{leverage}x</span>
+              </div>
+            )}
             <div className="flex justify-between text-xs">
-              <span style={{ color: "var(--text-3)" }}>Shares</span>
-              <span className="tabular-nums" style={{ color: "var(--text)" }}>{shares.toFixed(4)}</span>
+              <span style={{ color: "var(--text-3)" }}>
+                {side === "buy" && leverage > 1 ? "Effective Shares" : "Shares"}
+              </span>
+              <span className="tabular-nums" style={{ color: "var(--text)" }}>{effectiveShares.toFixed(4)}</span>
             </div>
             <div className="flex justify-between text-xs">
               <span style={{ color: "var(--text-3)" }}>Price</span>
               <span className="tabular-nums" style={{ color: "var(--text)" }}>${stock.price.toFixed(2)}</span>
             </div>
+            {side === "buy" && leverage > 1 && (
+              <>
+                <div className="flex justify-between text-xs">
+                  <span style={{ color: "var(--text-3)" }}>Borrowed</span>
+                  <span className="tabular-nums" style={{ color: "var(--down)" }}>
+                    ${(estimatedTotal * (leverage - 1)).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span style={{ color: "var(--text-3)" }}>Total Position Value</span>
+                  <span className="tabular-nums" style={{ color: "var(--text)" }}>
+                    ${(estimatedTotal * leverage).toFixed(2)}
+                  </span>
+                </div>
+              </>
+            )}
             <div className="flex justify-between text-xs font-semibold pt-1"
               style={{ borderTop: "1px solid var(--border)" }}>
-              <span style={{ color: "var(--text-2)" }}>Estimated {side === "buy" ? "Cost" : "Proceeds"}</span>
+              <span style={{ color: "var(--text-2)" }}>
+                {side === "buy" ? (leverage > 1 ? "Your Margin (Cash)" : "Estimated Cost") : "Estimated Proceeds"}
+              </span>
               <span className="tabular-nums" style={{ color: "var(--text)" }}>${estimatedTotal.toFixed(2)}</span>
             </div>
           </div>
@@ -388,14 +489,26 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
         )}
 
         {result && (
-          <div className="text-xs font-medium px-3 py-2 rounded-lg"
-            style={{ background: "var(--up-dim)", color: "var(--up)" }}>
-            {result.side === "buy" ? "Bought" : "Sold"} {result.shares.toFixed(4)} shares at ${result.price.toFixed(2)} (${result.total.toFixed(2)})
+          <div className="text-xs font-medium px-3 py-2 rounded-lg space-y-0.5"
+            style={{
+              background: (result.realizedPnl ?? 0) >= 0 ? "var(--up-dim)" : "var(--down-dim)",
+              color: (result.realizedPnl ?? 0) >= 0 ? "var(--up)" : "var(--down)",
+            }}>
+            <p>
+              {result.side === "buy" ? "Bought" : "Sold"} {result.shares.toFixed(4)} shares at ${result.price.toFixed(2)}
+              {result.leverage && result.leverage > 1 && ` @ ${result.leverage}x`}
+            </p>
+            {result.side === "buy" && result.leverage && result.leverage > 1 && (
+              <p>Margin: ${result.margin?.toFixed(2)} | Borrowed: ${result.borrowed?.toFixed(2)}</p>
+            )}
+            {result.side === "sell" && result.borrowedRepay && result.borrowedRepay > 0 && (
+              <p>Gross: ${result.grossProceeds?.toFixed(2)} − Debt repay: ${result.borrowedRepay.toFixed(2)} = Net: ${result.netProceeds?.toFixed(2)}</p>
+            )}
             {result.realizedPnl != null && (
-              <span> | P&L: {result.realizedPnl >= 0 ? "+" : ""}${result.realizedPnl.toFixed(2)}</span>
+              <p>P&L: {result.realizedPnl >= 0 ? "+" : ""}${result.realizedPnl.toFixed(2)}</p>
             )}
             {result.newAchievements.length > 0 && (
-              <span className="block mt-1">New badge: {result.newAchievements.join(", ")}</span>
+              <p>New badge: {result.newAchievements.join(", ")}</p>
             )}
           </div>
         )}

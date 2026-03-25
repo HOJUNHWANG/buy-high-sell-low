@@ -50,12 +50,15 @@ export async function GET() {
   }
 
   // Build enriched positions
-  const enrichedPositions = (positions ?? []).map((p: { ticker: string; shares: number; avg_cost: number; created_at: string; updated_at: string }) => {
+  const enrichedPositions = (positions ?? []).map((p: { ticker: string; shares: number; avg_cost: number; borrowed?: number; leverage?: number; created_at: string; updated_at: string }) => {
     const currentPrice = prices[p.ticker] ?? p.avg_cost;
     const marketValue = p.shares * currentPrice;
     const costBasis = p.shares * p.avg_cost;
-    const pnl = marketValue - costBasis;
-    const pnlPct = costBasis > 0 ? (pnl / costBasis) * 100 : 0;
+    const borrowed = p.borrowed ?? 0;
+    const equity = marketValue - borrowed; // user's actual equity after debt
+    const marginUsed = costBasis - borrowed; // what user originally put up
+    const pnl = equity - marginUsed; // real P&L accounting for leverage
+    const pnlPct = marginUsed > 0 ? (pnl / marginUsed) * 100 : 0;
     return {
       ...p,
       name: stockInfo[p.ticker]?.name ?? p.ticker,
@@ -63,15 +66,20 @@ export async function GET() {
       currentPrice,
       marketValue,
       costBasis,
+      borrowed,
+      equity,
       pnl,
       pnlPct,
+      leverage: p.leverage ?? 1,
     };
   });
 
-  // Calculate totals
+  // Calculate totals (equity = market value minus borrowed debt)
   const totalMarketValue = enrichedPositions.reduce((sum: number, p: { marketValue: number }) => sum + p.marketValue, 0);
+  const totalBorrowed = enrichedPositions.reduce((sum: number, p: { borrowed: number }) => sum + p.borrowed, 0);
+  const totalEquity = totalMarketValue - totalBorrowed;
   const totalCostBasis = enrichedPositions.reduce((sum: number, p: { costBasis: number }) => sum + p.costBasis, 0);
-  const totalValue = cashBalance + totalMarketValue;
+  const totalValue = cashBalance + totalEquity;
   const totalPnl = totalValue - 1000;
   const totalPnlPct = (totalPnl / 1000) * 100;
 
@@ -84,6 +92,8 @@ export async function GET() {
   return NextResponse.json({
     cashBalance,
     totalMarketValue,
+    totalBorrowed,
+    totalEquity,
     totalCostBasis,
     totalValue,
     totalPnl,

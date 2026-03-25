@@ -19,6 +19,9 @@ interface Position {
   currentPrice: number;
   marketValue: number;
   costBasis: number;
+  borrowed: number;
+  equity: number;
+  leverage: number;
   pnl: number;
   pnlPct: number;
 }
@@ -26,6 +29,8 @@ interface Position {
 interface Portfolio {
   cashBalance: number;
   totalMarketValue: number;
+  totalBorrowed: number;
+  totalEquity: number;
   totalValue: number;
   totalPnl: number;
   totalPnlPct: number;
@@ -41,8 +46,8 @@ interface LiquidationStatus {
   message?: string;
   totalValue?: number;
   hoursLeft?: number;
-  canRevive?: boolean;
   suspendedUntil?: string;
+  cashBalance?: number;
 }
 
 interface ChallengePick {
@@ -87,7 +92,6 @@ export default function PaperTradingPage() {
   const [loading, setLoading] = useState(true);
   const [checkinResult, setCheckinResult] = useState<{ reward: number; streak: number; bonusMessage?: string } | null>(null);
   const [checkinDone, setCheckinDone] = useState(false);
-  const [reviving, setReviving] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
   const [predictions, setPredictions] = useState<Record<string, "up" | "down">>({});
   const [submittingChallenge, setSubmittingChallenge] = useState(false);
@@ -140,13 +144,6 @@ export default function PaperTradingPage() {
       setCheckinDone(true);
       loadAll(); // refresh portfolio
     }
-  }
-
-  async function handleRevive() {
-    setReviving(true);
-    const res = await fetch("/api/paper/revive", { method: "POST" });
-    if (res.ok) loadAll();
-    setReviving(false);
   }
 
   async function retryChallenge() {
@@ -240,23 +237,22 @@ export default function PaperTradingPage() {
     );
   }
 
-  // Liquidated state
-  if (liqStatus?.status === "liquidated") {
+  // Liquidated / suspended state
+  if (liqStatus?.status === "liquidated" || liqStatus?.status === "suspended") {
     return (
       <div className="max-w-2xl mx-auto px-5 py-16 text-center space-y-4 fade-up">
         <PaperTradeBanner />
         <div className="text-5xl">&#x1F480;</div>
         <h1 className="text-2xl font-bold" style={{ color: "var(--down)" }}>LIQUIDATED</h1>
         <p className="text-sm" style={{ color: "var(--text-2)" }}>{liqStatus.message}</p>
-        {liqStatus.canRevive && (
-          <button
-            onClick={handleRevive}
-            disabled={reviving}
-            className="btn btn-primary btn-lg"
-          >
-            {reviving ? "Reviving..." : "Revive with $500"}
-          </button>
+        {liqStatus.suspendedUntil && (
+          <p className="text-xs" style={{ color: "var(--text-3)" }}>
+            Trading resumes {liqStatus.suspendedUntil}
+          </p>
         )}
+        <p className="text-xs" style={{ color: "var(--up)" }}>
+          Daily check-ins still earn cash — build up your balance for next month!
+        </p>
       </div>
     );
   }
@@ -586,10 +582,17 @@ export default function PaperTradingPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{p.ticker}</span>
+                      {p.leverage > 1 && (
+                        <span className="text-[9px] font-bold px-1 py-0.5 rounded"
+                          style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
+                          {p.leverage}x
+                        </span>
+                      )}
                       <span className="text-xs" style={{ color: "var(--text-3)" }}>{p.name}</span>
                     </div>
                     <p className="text-[11px]" style={{ color: "var(--text-3)" }}>
                       {p.shares.toFixed(4)} shares @ {formatMoney(p.avg_cost)}
+                      {p.borrowed > 0 && <span style={{ color: "var(--down)" }}> | Debt: {formatMoney(p.borrowed)}</span>}
                     </p>
                   </div>
                   <div className="text-right shrink-0">

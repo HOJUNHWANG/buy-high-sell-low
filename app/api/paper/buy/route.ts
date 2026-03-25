@@ -23,6 +23,9 @@ export async function POST(request: Request) {
 
   const ticker = body.ticker as string | undefined;
   const shares = body.shares;
+  const leverage = typeof body.leverage === "number" && body.leverage >= 1 && body.leverage <= 100
+    ? Math.floor(body.leverage)
+    : 1;
 
   if (!ticker || typeof shares !== "number" || !isFinite(shares) || shares <= 0) {
     return NextResponse.json({ error: "ticker and shares (> 0) are required" }, { status: 400 });
@@ -35,22 +38,8 @@ export async function POST(request: Request) {
     .eq("user_id", user.id)
     .single();
 
-  if (statusCheck?.status === "liquidated") {
-    return NextResponse.json({ error: "Account liquidated. Revive first." }, { status: 403 });
-  }
-  if (statusCheck?.status === "suspended") {
-    return NextResponse.json({ error: `Account suspended until ${statusCheck.suspended_until}.` }, { status: 403 });
-  }
-
-  // Block ETFs from paper trading
-  const { data: stockInfo } = await supabase
-    .from("stocks")
-    .select("sector")
-    .eq("ticker", ticker)
-    .single();
-
-  if (stockInfo?.sector === "ETF") {
-    return NextResponse.json({ error: "ETFs are not available for paper trading" }, { status: 400 });
+  if (statusCheck?.status === "liquidated" || statusCheck?.status === "suspended") {
+    return NextResponse.json({ error: "Account suspended. Trading resumes next month." }, { status: 403 });
   }
 
   // Get current price
@@ -65,7 +54,9 @@ export async function POST(request: Request) {
   }
 
   const price = priceData.price;
-  const total = shares * price;
+  const effectiveShares = shares * leverage;
+  const margin = shares * price;          // cash the user puts up (collateral)
+  const borrowed = margin * (leverage - 1); // amount "borrowed" from broker
 
   // Auto-create account if needed
   const { data: account } = await supabase
@@ -81,14 +72,14 @@ export async function POST(request: Request) {
     cashBalance = account.cash_balance;
   }
 
-  if (total > cashBalance) {
+  if (margin > cashBalance) {
     return NextResponse.json({
-      error: `Insufficient funds. Need $${total.toFixed(2)} but only have $${cashBalance.toFixed(2)}`,
+      error: `Insufficient margin. Need $${margin.toFixed(2)} but only have $${cashBalance.toFixed(2)}`,
     }, { status: 400 });
   }
 
-  // Deduct cash
-  const newBalance = cashBalance - total;
+  // Deduct margin from cash
+  const newBalance = cashBalance - margin;
   const { error: updateErr } = await supabase
     .from("paper_accounts")
     .update({ cash_balance: newBalance })
@@ -98,28 +89,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to update balance" }, { status: 500 });
   }
 
-  // Upsert position (weighted average cost)
+  // Upsert position (weighted average cost + accumulated borrowed)
   const { data: existingPos } = await supabase
     .from("paper_positions")
-    .select("shares, avg_cost")
+    .select("shares, avg_cost, borrowed")
     .eq("user_id", user.id)
     .eq("ticker", ticker)
     .single();
 
   if (existingPos) {
-    const newShares = existingPos.shares + shares;
-    const newAvgCost = (existingPos.shares * existingPos.avg_cost + shares * price) / newShares;
+    const newShares = existingPos.shares + effectiveShares;
+    const newAvgCost = (existingPos.shares * existingPos.avg_cost + effectiveShares * price) / newShares;
+    const newBorrowed = (existingPos.borrowed ?? 0) + borrowed;
     await supabase
       .from("paper_positions")
-      .update({ shares: newShares, avg_cost: newAvgCost, updated_at: new Date().toISOString() })
+      .update({
+        shares: newShares,
+        avg_cost: newAvgCost,
+        borrowed: newBorrowed,
+        leverage: borrowed > 0 || (existingPos.borrowed ?? 0) > 0 ? leverage : 1,
+        updated_at: new Date().toISOString(),
+      })
       .eq("user_id", user.id)
       .eq("ticker", ticker);
   } else {
     await supabase.from("paper_positions").insert({
       user_id: user.id,
       ticker,
-      shares,
+      shares: effectiveShares,
       avg_cost: price,
+      leverage,
+      borrowed,
     });
   }
 
@@ -128,9 +128,10 @@ export async function POST(request: Request) {
     user_id: user.id,
     ticker,
     side: "buy",
-    shares,
+    shares: effectiveShares,
     price,
-    total,
+    total: margin,
+    leverage,
   });
 
   // Check achievements
@@ -143,10 +144,10 @@ export async function POST(request: Request) {
   candidates.push(...await checkCryptoAchievements(supabase, user.id, ticker));
 
   // Full send (90%+ of balance)
-  if (total >= cashBalance * 0.9) candidates.push("full_send");
+  if (margin >= cashBalance * 0.9) candidates.push("full_send");
 
   // Penny pincher
-  if (total < 10) candidates.push("penny_pincher");
+  if (margin < 10) candidates.push("penny_pincher");
 
   // Diversified (5+ positions)
   const { count: posCount } = await supabase
@@ -171,9 +172,11 @@ export async function POST(request: Request) {
     ok: true,
     ticker,
     side: "buy",
-    shares,
+    shares: effectiveShares,
     price,
-    total,
+    margin,
+    borrowed,
+    leverage,
     cashBalance: newBalance + totalReward,
     newAchievements,
   });

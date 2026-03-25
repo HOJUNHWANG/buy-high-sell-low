@@ -43,30 +43,12 @@ async function getStockData(ticker: string) {
 
   const news = (newsRes.data ?? []) as NewsArticle[];
 
-  // Collect tickers from news to fetch their logos
-  const relatedTickerSet = new Set<string>();
-  for (const a of news) {
-    if (a.ticker && a.ticker !== ticker) relatedTickerSet.add(a.ticker);
-  }
-
-  let logoMap: Record<string, string | null> = {};
-  if (relatedTickerSet.size > 0) {
-    const { data: logos } = await supabase
-      .from("stocks")
-      .select("ticker, logo_url")
-      .in("ticker", [...relatedTickerSet]);
-    for (const s of logos ?? []) {
-      logoMap[s.ticker] = s.logo_url;
-    }
-  }
-
   return {
     stock:     stockRes.data as Stock | null,
     price:     priceRes.data as StockPrice | null,
     history:   (historyRes.data ?? []) as StockPriceHistory[],
     news,
     affiliate: affiliateRes.data as AffiliateLink | null,
-    logoMap,
   };
 }
 
@@ -91,7 +73,7 @@ export default async function StockDetailPage({ params }: Props) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { stock, price, history, news: rawNews, affiliate, logoMap } = await getStockData(ticker.toUpperCase());
+  const { stock, price, history, news: rawNews, affiliate } = await getStockData(ticker.toUpperCase());
   if (!stock) notFound();
 
   // Summary gating
@@ -230,7 +212,6 @@ export default async function StockDetailPage({ params }: Props) {
             ticker={ticker}
             isLoggedIn={!!user}
             initialRemainingUnlocks={remainingUnlocks}
-            logoMap={logoMap}
           />
         </div>
 

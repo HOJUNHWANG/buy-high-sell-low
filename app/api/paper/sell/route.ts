@@ -34,17 +34,14 @@ export async function POST(request: Request) {
     .eq("user_id", user.id)
     .single();
 
-  if (statusCheck?.status === "liquidated") {
-    return NextResponse.json({ error: "Account liquidated. Revive first." }, { status: 403 });
-  }
-  if (statusCheck?.status === "suspended") {
-    return NextResponse.json({ error: `Account suspended until ${statusCheck.suspended_until}.` }, { status: 403 });
+  if (statusCheck?.status === "liquidated" || statusCheck?.status === "suspended") {
+    return NextResponse.json({ error: "Account suspended. Trading resumes next month." }, { status: 403 });
   }
 
-  // Get position
+  // Get position (including margin data)
   const { data: position } = await supabase
     .from("paper_positions")
-    .select("shares, avg_cost, created_at")
+    .select("shares, avg_cost, borrowed, leverage, created_at")
     .eq("user_id", user.id)
     .eq("ticker", ticker)
     .single();
@@ -69,21 +66,32 @@ export async function POST(request: Request) {
   }
 
   const price = priceData.price;
-  const total = shares * price;
-  const costBasis = shares * position.avg_cost;
-  const realizedPnl = total - costBasis;
+  const grossProceeds = shares * price;
 
-  // Update cash balance
+  // Calculate proportional borrowed amount to repay
+  const sellRatio = shares / position.shares;
+  const borrowedRepay = (position.borrowed ?? 0) * sellRatio;
+
+  // Net proceeds = gross - borrowed repayment
+  // This can be negative if the position lost more than the margin
+  const netProceeds = grossProceeds - borrowedRepay;
+
+  // Realized P&L: compare to original margin (what user actually paid)
+  const costBasis = shares * position.avg_cost;
+  const originalMargin = costBasis - (borrowedRepay); // what user originally put up for these shares
+  const realizedPnl = netProceeds - originalMargin;
+
+  // Update cash balance (net proceeds can be negative — user owes)
   const { data: account } = await supabase
     .from("paper_accounts")
     .select("cash_balance")
     .eq("user_id", user.id)
     .single();
 
-  const newBalance = (account?.cash_balance ?? 0) + total;
+  const newBalance = (account?.cash_balance ?? 0) + netProceeds;
   await supabase
     .from("paper_accounts")
-    .update({ cash_balance: newBalance })
+    .update({ cash_balance: Math.max(0, newBalance) })
     .eq("user_id", user.id);
 
   // Update or delete position
@@ -95,9 +103,14 @@ export async function POST(request: Request) {
       .eq("user_id", user.id)
       .eq("ticker", ticker);
   } else {
+    const remainingBorrowed = (position.borrowed ?? 0) - borrowedRepay;
     await supabase
       .from("paper_positions")
-      .update({ shares: remainingShares, updated_at: new Date().toISOString() })
+      .update({
+        shares: remainingShares,
+        borrowed: Math.max(0, remainingBorrowed),
+        updated_at: new Date().toISOString(),
+      })
       .eq("user_id", user.id)
       .eq("ticker", ticker);
   }
@@ -109,7 +122,8 @@ export async function POST(request: Request) {
     side: "sell",
     shares,
     price,
-    total,
+    total: netProceeds,
+    leverage: position.leverage ?? 1,
   });
 
   // Check achievements
@@ -173,9 +187,11 @@ export async function POST(request: Request) {
     side: "sell",
     shares,
     price,
-    total,
+    grossProceeds,
+    borrowedRepay,
+    netProceeds,
     realizedPnl,
-    cashBalance: newBalance + totalReward,
+    cashBalance: Math.max(0, newBalance) + totalReward,
     newAchievements,
   });
 }

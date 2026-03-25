@@ -63,7 +63,7 @@ function LoginForm() {
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setError(error.message);
-      else router.push("/");
+      else { window.location.href = "/"; return; }
     }
     setLoading(false);
   }

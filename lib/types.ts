@@ -118,6 +118,8 @@ export interface PaperPosition {
   ticker: string;
   shares: number;
   avg_cost: number;
+  leverage: number;
+  borrowed: number;
   created_at: string;
   updated_at: string;
 }
@@ -130,6 +132,7 @@ export interface PaperTransaction {
   shares: number;
   price: number;
   total: number;
+  leverage: number;
   executed_at: string;
 }
 
