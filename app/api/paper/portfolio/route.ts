@@ -50,17 +50,31 @@ export async function GET() {
   }
 
   // Build enriched positions
-  const enrichedPositions = (positions ?? []).map((p: { ticker: string; shares: number; avg_cost: number; borrowed?: number; leverage?: number; created_at: string; updated_at: string }) => {
+  const enrichedPositions = (positions ?? []).map((p: { ticker: string; shares: number; avg_cost: number; borrowed?: number; leverage?: number; side?: string; created_at: string; updated_at: string }) => {
     const currentPrice = prices[p.ticker] ?? p.avg_cost;
+    const isShort = p.side === "short";
     const marketValue = p.shares * currentPrice;
     const costBasis = p.shares * p.avg_cost;
     const borrowed = p.borrowed ?? 0;
-    const equity = marketValue - borrowed; // user's actual equity after debt
     const marginUsed = costBasis - borrowed; // what user originally put up
-    const pnl = equity - marginUsed; // real P&L accounting for leverage
+
+    let equity: number;
+    let pnl: number;
+    if (isShort) {
+      // Short: profit when price drops
+      // pnl = (avg_cost - currentPrice) × shares
+      pnl = (p.avg_cost - currentPrice) * p.shares;
+      equity = marginUsed + pnl; // margin back + unrealized P&L
+    } else {
+      // Long: profit when price rises
+      equity = marketValue - borrowed;
+      pnl = equity - marginUsed;
+    }
     const pnlPct = marginUsed > 0 ? (pnl / marginUsed) * 100 : 0;
+
     return {
       ...p,
+      side: p.side ?? "long",
       name: stockInfo[p.ticker]?.name ?? p.ticker,
       logo_url: stockInfo[p.ticker]?.logo_url ?? null,
       currentPrice,
@@ -74,10 +88,10 @@ export async function GET() {
     };
   });
 
-  // Calculate totals (equity = market value minus borrowed debt)
+  // Calculate totals — equity differs for long vs short positions
   const totalMarketValue = enrichedPositions.reduce((sum: number, p: { marketValue: number }) => sum + p.marketValue, 0);
   const totalBorrowed = enrichedPositions.reduce((sum: number, p: { borrowed: number }) => sum + p.borrowed, 0);
-  const totalEquity = totalMarketValue - totalBorrowed;
+  const totalEquity = enrichedPositions.reduce((sum: number, p: { equity: number }) => sum + p.equity, 0);
   const totalCostBasis = enrichedPositions.reduce((sum: number, p: { costBasis: number }) => sum + p.costBasis, 0);
   const totalValue = cashBalance + totalEquity;
   const totalPnl = totalValue - 1000;

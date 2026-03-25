@@ -14,6 +14,7 @@ interface Position {
   ticker: string;
   name: string;
   logo_url: string | null;
+  side: string;
   shares: number;
   avg_cost: number;
   currentPrice: number;
@@ -582,6 +583,12 @@ export default function PaperTradingPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{p.ticker}</span>
+                      {p.side === "short" && (
+                        <span className="text-[9px] font-bold px-1 py-0.5 rounded"
+                          style={{ background: "rgba(249,115,22,0.15)", color: "#f97316" }}>
+                          SHORT
+                        </span>
+                      )}
                       {p.leverage > 1 && (
                         <span className="text-[9px] font-bold px-1 py-0.5 rounded"
                           style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>

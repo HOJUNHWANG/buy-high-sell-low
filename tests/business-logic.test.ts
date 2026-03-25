@@ -16,8 +16,8 @@ describe("Achievements: Badge metadata integrity", () => {
     }
   });
 
-  it("has exactly 33 badges across 5 tiers", () => {
-    expect(ALL_BADGE_KEYS.length).toBe(33);
+  it("has exactly 38 badges across 5 tiers", () => {
+    expect(ALL_BADGE_KEYS.length).toBe(38);
     expect(TIERS_ORDERED).toEqual(["bronze", "silver", "gold", "platinum", "diamond"]);
   });
 
@@ -35,10 +35,10 @@ describe("Achievements: Badge metadata integrity", () => {
 
   it("getBadgesByTier returns correct counts", () => {
     expect(getBadgesByTier("bronze").length).toBe(8);
-    expect(getBadgesByTier("silver").length).toBe(8);
-    expect(getBadgesByTier("gold").length).toBe(7);
-    expect(getBadgesByTier("platinum").length).toBe(5);
-    expect(getBadgesByTier("diamond").length).toBe(5);
+    expect(getBadgesByTier("silver").length).toBe(9);   // +short_seller
+    expect(getBadgesByTier("gold").length).toBe(9);     // +bear_raid, contrarian
+    expect(getBadgesByTier("platinum").length).toBe(6);  // +short_squeeze
+    expect(getBadgesByTier("diamond").length).toBe(6);   // +bear_king
   });
 
   it("all badge keys are unique", () => {

@@ -74,14 +74,14 @@ export async function GET() {
     });
   }
 
-  // Calculate portfolio value
+  // Calculate portfolio value (accounting for both long and short positions)
   const { data: positions } = await supabase
     .from("paper_positions")
-    .select("ticker, shares")
+    .select("ticker, shares, side, avg_cost, borrowed")
     .eq("user_id", user.id);
 
-  const tickers = (positions ?? []).map((p: { ticker: string }) => p.ticker);
-  let positionValue = 0;
+  const tickers = [...new Set((positions ?? []).map((p: { ticker: string }) => p.ticker))];
+  let positionEquity = 0;
   if (tickers.length > 0) {
     const { data: priceData } = await supabase
       .from("stock_prices")
@@ -90,13 +90,20 @@ export async function GET() {
     const prices = Object.fromEntries(
       (priceData ?? []).map((p: { ticker: string; price: number }) => [p.ticker, p.price])
     );
-    positionValue = (positions ?? []).reduce(
-      (sum: number, p: { ticker: string; shares: number }) => sum + p.shares * (prices[p.ticker] ?? 0),
-      0
-    );
+    for (const pos of (positions ?? []) as { ticker: string; shares: number; side?: string; avg_cost: number; borrowed?: number }[]) {
+      const curPrice = prices[pos.ticker] ?? 0;
+      const borrowed = pos.borrowed ?? 0;
+      if (pos.side === "short") {
+        const marginUsed = pos.shares * pos.avg_cost - borrowed;
+        const pnl = (pos.avg_cost - curPrice) * pos.shares;
+        positionEquity += marginUsed + pnl;
+      } else {
+        positionEquity += pos.shares * curPrice - borrowed;
+      }
+    }
   }
 
-  const totalValue = account.cash_balance + positionValue;
+  const totalValue = account.cash_balance + positionEquity;
 
   // Check liquidation thresholds
   if (totalValue < 50) {
@@ -104,7 +111,7 @@ export async function GET() {
       const elapsed = Date.now() - new Date(account.margin_call_at).getTime();
       if (elapsed >= 24 * 60 * 60 * 1000) {
         // FORCE LIQUIDATE
-        // Sell all positions
+        // Close all positions (sell longs, cover shorts)
         if (tickers.length > 0) {
           const { data: priceData } = await supabase
             .from("stock_prices")
@@ -114,17 +121,27 @@ export async function GET() {
             (priceData ?? []).map((p: { ticker: string; price: number }) => [p.ticker, p.price])
           );
 
-          let totalProceeds = 0;
-          for (const pos of (positions ?? [])) {
-            const price = prices[(pos as { ticker: string }).ticker] ?? 0;
-            const proceeds = (pos as { shares: number }).shares * price;
-            totalProceeds += proceeds;
+          for (const pos of (positions ?? []) as { ticker: string; shares: number; side?: string; avg_cost: number; borrowed?: number }[]) {
+            const price = prices[pos.ticker] ?? 0;
+            const isShort = pos.side === "short";
+            const txSide = isShort ? "cover" : "sell";
+            const borrowed = pos.borrowed ?? 0;
+
+            let proceeds: number;
+            if (isShort) {
+              // Cover: return margin + pnl
+              const marginUsed = pos.shares * pos.avg_cost - borrowed;
+              const pnl = (pos.avg_cost - price) * pos.shares;
+              proceeds = marginUsed + pnl;
+            } else {
+              proceeds = pos.shares * price - borrowed;
+            }
 
             await supabase.from("paper_transactions").insert({
               user_id: user.id,
-              ticker: (pos as { ticker: string }).ticker,
-              side: "sell",
-              shares: (pos as { shares: number }).shares,
+              ticker: pos.ticker,
+              side: txSide,
+              shares: pos.shares,
               price,
               total: proceeds,
             });

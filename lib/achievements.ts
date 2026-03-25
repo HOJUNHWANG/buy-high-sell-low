@@ -37,6 +37,7 @@ export const BADGES: Record<string, Badge> = {
   fifty_trades:      { key: "fifty_trades",        label: "Regular",           icon: "📊", desc: "Execute 50 total trades",            tier: "silver", reward: 100 },
   profit_master:     { key: "profit_master",       label: "Profit Master",     icon: "💰", desc: "5 profitable sells in a row",        tier: "silver", reward: 100 },
   crypto_collector:  { key: "crypto_collector",    label: "Crypto Collector",  icon: "🏦", desc: "Hold 3+ different cryptos at once",  tier: "silver", reward: 100 },
+  short_seller:      { key: "short_seller",        label: "Short Seller",      icon: "🐻", desc: "Open your first short position",     tier: "silver", reward: 100 },
 
   // ── Gold ($200) — creative/unusual conditions ──
   broke:             { key: "broke",               label: "Broke",             icon: "💸", desc: "Portfolio value under $100",          tier: "gold", reward: 200 },
@@ -46,6 +47,8 @@ export const BADGES: Record<string, Badge> = {
   day_trader:        { key: "day_trader",          label: "Day Trader",        icon: "⚡", desc: "Execute 5+ trades in a single day",  tier: "gold", reward: 200 },
   bargain_hunter:    { key: "bargain_hunter",      label: "Bargain Hunter",    icon: "🏷️", desc: "Buy a stock that's down 5%+ today",  tier: "gold", reward: 200 },
   fomo_buyer:        { key: "fomo_buyer",          label: "FOMO Buyer",        icon: "🤯", desc: "Buy a stock that's up 5%+ today",    tier: "gold", reward: 200 },
+  bear_raid:         { key: "bear_raid",           label: "Bear Raid",         icon: "📉", desc: "Short 3+ stocks simultaneously",     tier: "gold", reward: 200 },
+  contrarian:        { key: "contrarian",          label: "Contrarian",        icon: "🔄", desc: "Profit $200+ from a short cover",    tier: "gold", reward: 200 },
 
   // ── Platinum ($300) — serendipitous/unlikely ──
   cockroach:         { key: "cockroach",           label: "Cockroach",         icon: "🪳", desc: "Liquidated 3+ times and still trading", tier: "platinum", reward: 300 },
@@ -53,6 +56,7 @@ export const BADGES: Record<string, Badge> = {
   flash_profit:      { key: "flash_profit",        label: "Flash Profit",      icon: "⚡", desc: "Single sell with $500+ realized profit", tier: "platinum", reward: 300 },
   hundred_trades:    { key: "hundred_trades",      label: "Centurion",         icon: "💯", desc: "Execute 100 total trades",           tier: "platinum", reward: 300 },
   hodl_master:       { key: "hodl_master",         label: "HODL Master",       icon: "🗿", desc: "Hold one position for 90+ days",     tier: "platinum", reward: 300 },
+  short_squeeze:     { key: "short_squeeze",       label: "Short Squeezed",    icon: "🫠", desc: "Lose $500+ covering a short",        tier: "platinum", reward: 300 },
 
   // ── Diamond ($1,000) — extremely rare ──
   ten_x:             { key: "ten_x",              label: "10X Return",        icon: "👑", desc: "Portfolio reaches $10,000+",          tier: "diamond", reward: 1000 },
@@ -60,6 +64,7 @@ export const BADGES: Record<string, Badge> = {
   market_wizard:     { key: "market_wizard",      label: "Market Wizard",     icon: "🧙", desc: "10 profitable sells in a row",        tier: "diamond", reward: 1000 },
   zero_to_hero:      { key: "zero_to_hero",       label: "Zero to Hero",      icon: "🦸", desc: "Go from under $100 to over $5,000",   tier: "diamond", reward: 1000 },
   ultimate_hodl:     { key: "ultimate_hodl",      label: "Ultimate HODL",     icon: "🏔️", desc: "Hold 5+ positions each for 60+ days", tier: "diamond", reward: 1000 },
+  bear_king:         { key: "bear_king",          label: "Bear King",         icon: "🐻‍❄️", desc: "Profit $1,000+ total from short selling", tier: "diamond", reward: 1000 },
 } as const;
 
 export type BadgeKey = keyof typeof BADGES;

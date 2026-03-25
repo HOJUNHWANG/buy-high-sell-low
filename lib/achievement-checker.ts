@@ -86,20 +86,28 @@ export async function checkPortfolioValueAchievements(
 ): Promise<string[]> {
   const { data: positions } = await supabase
     .from("paper_positions")
-    .select("ticker, shares")
+    .select("ticker, shares, side, avg_cost, borrowed")
     .eq("user_id", userId);
 
   let totalValue = cashBalance;
   if (positions && positions.length > 0) {
-    const tickers = positions.map((p: { ticker: string }) => p.ticker);
+    const tickers = [...new Set(positions.map((p: { ticker: string }) => p.ticker))];
     const { data: prices } = await supabase
       .from("stock_prices")
       .select("ticker, price")
       .in("ticker", tickers);
 
     const priceMap = new Map((prices ?? []).map((p: { ticker: string; price: number }) => [p.ticker, p.price]));
-    for (const pos of positions) {
-      totalValue += pos.shares * (priceMap.get(pos.ticker) ?? 0);
+    for (const pos of positions as { ticker: string; shares: number; side?: string; avg_cost: number; borrowed?: number }[]) {
+      const curPrice = priceMap.get(pos.ticker) ?? 0;
+      const borrowed = pos.borrowed ?? 0;
+      if (pos.side === "short") {
+        const marginUsed = pos.shares * pos.avg_cost - borrowed;
+        const pnl = (pos.avg_cost - curPrice) * pos.shares;
+        totalValue += marginUsed + pnl;
+      } else {
+        totalValue += pos.shares * curPrice - borrowed;
+      }
     }
   }
 

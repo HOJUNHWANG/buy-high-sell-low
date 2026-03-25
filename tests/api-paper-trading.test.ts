@@ -74,7 +74,7 @@ describe("Paper Trading: Buy", () => {
     const res = await callRoute("paper/buy", "POST", { ticker: "AAPL", shares: 1 });
     expect(res.status).toBe(403);
     const data = await res.json();
-    expect(data.error).toContain("liquidated");
+    expect(data.error).toContain("suspended");
   });
 
   it("rejects trade on suspended account", async () => {
@@ -121,7 +121,7 @@ describe("Paper Trading: Buy", () => {
     expect(data.ticker).toBe("AAPL");
     expect(data.shares).toBe(2);
     expect(data.price).toBe(100);
-    expect(data.total).toBe(200);
+    expect(data.margin).toBe(200);
     expect(data.cashBalance).toBe(800);
   });
 
@@ -301,7 +301,7 @@ describe("Paper Trading: Check-in", () => {
     expect(data.streak).toBe(1); // reset because gap
   });
 
-  it("rejects check-in on suspended account", async () => {
+  it("allows check-in on suspended account (builds balance for revival)", async () => {
     setMockData("paper_accounts", [
       {
         user_id: USER.id,
@@ -314,72 +314,22 @@ describe("Paper Trading: Check-in", () => {
     ]);
 
     const res = await callRoute("paper/checkin", "POST");
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
   });
 });
 
-describe("Paper Trading: Revive", () => {
+describe("Paper Trading: Revive (deprecated)", () => {
   beforeEach(() => {
     clearMockData();
     setMockUser(USER);
   });
 
-  it("returns 404 if no account", async () => {
-    setMockData("paper_accounts", []);
-    const res = await callRoute("paper/revive", "POST");
-    expect(res.status).toBe(404);
-  });
-
-  it("rejects revive on active account", async () => {
+  it("returns 410 Gone (revive is deprecated)", async () => {
     setMockData("paper_accounts", [
-      { user_id: USER.id, status: "active", liquidation_count: 0 },
+      { user_id: USER.id, status: "liquidated", liquidation_count: 1 },
     ]);
     const res = await callRoute("paper/revive", "POST");
-    expect(res.status).toBe(400);
-    const data = await res.json();
-    expect(data.error).toContain("not liquidated");
-  });
-
-  it("successfully revives with $500", async () => {
-    setMockData("paper_accounts", [
-      {
-        user_id: USER.id,
-        status: "liquidated",
-        liquidation_count: 1,
-        last_liquidation_at: new Date().toISOString(),
-      },
-    ]);
-
-    const res = await callRoute("paper/revive", "POST");
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.ok).toBe(true);
-    expect(data.cashBalance).toBe(500);
-
-    // Check phoenix badge awarded
-    const upserts = getUpsertCalls().filter(
-      (c) => c.table === "paper_achievements"
-    );
-    const phoenixUpsert = upserts.find(
-      (c) => (c.data as { badge_key: string }).badge_key === "phoenix"
-    );
-    expect(phoenixUpsert).toBeTruthy();
-  });
-
-  it("rejects 2nd revive in same month", async () => {
-    setMockData("paper_accounts", [
-      {
-        user_id: USER.id,
-        status: "liquidated",
-        liquidation_count: 2,
-        last_liquidation_at: new Date().toISOString(),
-      },
-    ]);
-
-    const res = await callRoute("paper/revive", "POST");
-    expect(res.status).toBe(403);
-    const data = await res.json();
-    expect(data.error).toContain("twice this month");
+    expect(res.status).toBe(410);
   });
 });
 
@@ -457,7 +407,7 @@ describe("Paper Trading: Buy Edge Cases", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.ok).toBe(true);
-    expect(data.total).toBe(2000); // 10 * 200
+    expect(data.margin).toBe(2000); // 10 * 200
     expect(data.cashBalance).toBe(3000); // 5000 - 2000
 
     // Verify position was updated with weighted avg
@@ -652,5 +602,207 @@ describe("Paper Trading: Transactions", () => {
     const res = await mod.GET(request);
     const data = await res.json();
     expect(data.limit).toBe(100);
+  });
+});
+
+describe("Paper Trading: Short Selling", () => {
+  beforeEach(() => {
+    clearMockData();
+    setMockUser(USER);
+  });
+
+  it("rejects short with missing ticker", async () => {
+    setMockData("paper_accounts", [{ user_id: USER.id, status: "active" }]);
+    const res = await callRoute("paper/short", "POST", { shares: 1 });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects short with zero shares", async () => {
+    setMockData("paper_accounts", [{ user_id: USER.id, status: "active" }]);
+    const res = await callRoute("paper/short", "POST", { ticker: "AAPL", shares: 0 });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects short on suspended account", async () => {
+    setMockData("paper_accounts", [{ user_id: USER.id, status: "suspended", suspended_until: "2099-01-01" }]);
+    const res = await callRoute("paper/short", "POST", { ticker: "AAPL", shares: 1 });
+    expect(res.status).toBe(403);
+  });
+
+  it("rejects short with insufficient margin", async () => {
+    setMockData("paper_accounts", [{ user_id: USER.id, status: "active", cash_balance: 10 }]);
+    setMockData("stock_prices", [{ ticker: "AAPL", price: 200 }]);
+    const res = await callRoute("paper/short", "POST", { ticker: "AAPL", shares: 1 });
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toContain("Insufficient");
+  });
+
+  it("opens short position successfully", async () => {
+    setMockData("paper_accounts", [{ user_id: USER.id, status: "active", cash_balance: 1000 }]);
+    setMockData("stock_prices", [{ ticker: "AAPL", price: 100 }]);
+    setMockData("paper_positions", []);
+    setMockData("paper_transactions", []);
+    setAllAchievementsEarned(["short_seller"]);
+
+    const res = await callRoute("paper/short", "POST", { ticker: "AAPL", shares: 5 });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.ok).toBe(true);
+    expect(data.side).toBe("short");
+    expect(data.shares).toBe(5);
+    expect(data.price).toBe(100);
+    expect(data.margin).toBe(500);
+    expect(data.cashBalance).toBeGreaterThanOrEqual(500); // 1000 - 500 + short_seller reward
+    expect(data.newAchievements).toContain("short_seller");
+  });
+
+  it("opens short position with leverage", async () => {
+    setMockData("paper_accounts", [{ user_id: USER.id, status: "active", cash_balance: 1000 }]);
+    setMockData("stock_prices", [{ ticker: "TSLA", price: 200 }]);
+    setMockData("paper_positions", []);
+    setMockData("paper_transactions", []);
+    setAllAchievementsEarned();
+
+    const res = await callRoute("paper/short", "POST", { ticker: "TSLA", shares: 2, leverage: 5 });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.ok).toBe(true);
+    expect(data.shares).toBe(10); // 2 × 5 effective
+    expect(data.margin).toBe(400); // 2 × 200
+    expect(data.borrowed).toBe(1600); // 400 × (5-1)
+    expect(data.leverage).toBe(5);
+    expect(data.cashBalance).toBe(600); // 1000 - 400
+  });
+
+  it("records short transaction", async () => {
+    setMockData("paper_accounts", [{ user_id: USER.id, status: "active", cash_balance: 1000 }]);
+    setMockData("stock_prices", [{ ticker: "AAPL", price: 100 }]);
+    setMockData("paper_positions", []);
+    setMockData("paper_transactions", []);
+    setAllAchievementsEarned();
+
+    await callRoute("paper/short", "POST", { ticker: "AAPL", shares: 3 });
+    const inserts = getInsertCalls().filter((c) => c.table === "paper_transactions");
+    expect(inserts.length).toBeGreaterThanOrEqual(1);
+    const txInsert = inserts.find((c) => (c.data as { side: string }).side === "short");
+    expect(txInsert).toBeTruthy();
+    expect((txInsert!.data as { ticker: string }).ticker).toBe("AAPL");
+    expect((txInsert!.data as { shares: number }).shares).toBe(3);
+  });
+});
+
+describe("Paper Trading: Cover (Close Short)", () => {
+  beforeEach(() => {
+    clearMockData();
+    setMockUser(USER);
+  });
+
+  it("rejects cover with no short position", async () => {
+    setMockData("paper_accounts", [{ user_id: USER.id, status: "active" }]);
+    setMockData("paper_positions", []);
+    const res = await callRoute("paper/cover", "POST", { ticker: "AAPL", shares: 1 });
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toContain("No short position");
+  });
+
+  it("rejects covering more shares than shorted", async () => {
+    setMockData("paper_accounts", [{ user_id: USER.id, status: "active" }]);
+    setMockData("paper_positions", [
+      { user_id: USER.id, ticker: "AAPL", side: "short", shares: 5, avg_cost: 100, created_at: "2024-01-01T00:00:00Z" },
+    ]);
+    const res = await callRoute("paper/cover", "POST", { ticker: "AAPL", shares: 10 });
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toContain("Only have 5");
+  });
+
+  it("covers short at profit (price dropped)", async () => {
+    setMockData("paper_accounts", [{ user_id: USER.id, status: "active", cash_balance: 500 }]);
+    setMockData("paper_positions", [
+      { user_id: USER.id, ticker: "AAPL", side: "short", shares: 10, avg_cost: 100, borrowed: 0, created_at: "2024-01-01T00:00:00Z" },
+    ]);
+    setMockData("stock_prices", [{ ticker: "AAPL", price: 80 }]);
+    setAllAchievementsEarned();
+
+    const res = await callRoute("paper/cover", "POST", { ticker: "AAPL", shares: 10 });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.ok).toBe(true);
+    expect(data.side).toBe("cover");
+    // P&L = (100 - 80) × 10 = 200 profit
+    expect(data.realizedPnl).toBe(200);
+    // netProceeds = marginUsed(1000) + pnl(200) = 1200
+    expect(data.netProceeds).toBe(1200);
+    // cash = 500 + 1200 = 1700
+    expect(data.cashBalance).toBe(1700);
+  });
+
+  it("covers short at loss (price rose)", async () => {
+    setMockData("paper_accounts", [{ user_id: USER.id, status: "active", cash_balance: 500 }]);
+    setMockData("paper_positions", [
+      { user_id: USER.id, ticker: "AAPL", side: "short", shares: 5, avg_cost: 100, borrowed: 0, created_at: "2024-01-01T00:00:00Z" },
+    ]);
+    setMockData("stock_prices", [{ ticker: "AAPL", price: 150 }]);
+    setAllAchievementsEarned();
+
+    const res = await callRoute("paper/cover", "POST", { ticker: "AAPL", shares: 5 });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    // P&L = (100 - 150) × 5 = -250 loss
+    expect(data.realizedPnl).toBe(-250);
+    // netProceeds = marginUsed(500) + pnl(-250) = 250
+    expect(data.netProceeds).toBe(250);
+    // cash = 500 + 250 = 750
+    expect(data.cashBalance).toBe(750);
+  });
+
+  it("covers short with leverage", async () => {
+    setMockData("paper_accounts", [{ user_id: USER.id, status: "active", cash_balance: 200 }]);
+    setMockData("paper_positions", [
+      { user_id: USER.id, ticker: "TSLA", side: "short", shares: 10, avg_cost: 100, borrowed: 800, leverage: 5, created_at: "2024-01-01T00:00:00Z" },
+    ]);
+    setMockData("stock_prices", [{ ticker: "TSLA", price: 80 }]);
+    setAllAchievementsEarned();
+
+    const res = await callRoute("paper/cover", "POST", { ticker: "TSLA", shares: 10 });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    // P&L = (100 - 80) × 10 = 200
+    expect(data.realizedPnl).toBe(200);
+    // marginUsed = 10*100 - 800 = 200, netProceeds = 200 + 200 = 400
+    expect(data.netProceeds).toBe(400);
+    // cash = 200 + 400 = 600
+    expect(data.cashBalance).toBe(600);
+  });
+
+  it("records cover transaction", async () => {
+    setMockData("paper_accounts", [{ user_id: USER.id, status: "active", cash_balance: 500 }]);
+    setMockData("paper_positions", [
+      { user_id: USER.id, ticker: "AAPL", side: "short", shares: 5, avg_cost: 100, borrowed: 0, created_at: "2024-01-01T00:00:00Z" },
+    ]);
+    setMockData("stock_prices", [{ ticker: "AAPL", price: 90 }]);
+    setAllAchievementsEarned();
+
+    await callRoute("paper/cover", "POST", { ticker: "AAPL", shares: 5 });
+    const inserts = getInsertCalls().filter((c) => c.table === "paper_transactions");
+    const coverTx = inserts.find((c) => (c.data as { side: string }).side === "cover");
+    expect(coverTx).toBeTruthy();
+    expect((coverTx!.data as { shares: number }).shares).toBe(5);
+  });
+
+  it("triggers buy_high_sell_low when covering at a loss", async () => {
+    setMockData("paper_accounts", [{ user_id: USER.id, status: "active", cash_balance: 500 }]);
+    setMockData("paper_positions", [
+      { user_id: USER.id, ticker: "AAPL", side: "short", shares: 5, avg_cost: 100, borrowed: 0, created_at: "2024-01-01T00:00:00Z" },
+    ]);
+    setMockData("stock_prices", [{ ticker: "AAPL", price: 200 }]);
+    setAllAchievementsEarned(["buy_high_sell_low"]);
+
+    const res = await callRoute("paper/cover", "POST", { ticker: "AAPL", shares: 5 });
+    const data = await res.json();
+    expect(data.realizedPnl).toBe(-500); // (100-200)*5
+    expect(data.newAchievements).toContain("buy_high_sell_low");
   });
 });

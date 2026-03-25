@@ -24,6 +24,7 @@ interface PositionInfo {
   borrowed: number;
   equity: number;
   leverage: number;
+  side: string;
 }
 
 interface TradeResult {
@@ -37,10 +38,14 @@ interface TradeResult {
   grossProceeds?: number;
   borrowedRepay?: number;
   netProceeds?: number;
+  costToCover?: number;
+  marginReturned?: number;
   cashBalance: number;
   newAchievements: string[];
   realizedPnl?: number;
 }
+
+type TradeSide = "buy" | "sell" | "short" | "cover";
 
 export default function TradePage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker: rawTicker } = use(params);
@@ -50,9 +55,10 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
 
   const [authed, setAuthed] = useState<boolean | null>(null);
   const [stock, setStock] = useState<StockInfo | null>(null);
-  const [position, setPosition] = useState<PositionInfo | null>(null);
+  const [longPosition, setLongPosition] = useState<PositionInfo | null>(null);
+  const [shortPosition, setShortPosition] = useState<PositionInfo | null>(null);
   const [cashBalance, setCashBalance] = useState(0);
-  const [side, setSide] = useState<"buy" | "sell">("buy");
+  const [side, setSide] = useState<TradeSide>("buy");
   const [inputMode, setInputMode] = useState<"shares" | "dollars">("dollars");
   const [inputValue, setInputValue] = useState("");
   const [leverage, setLeverage] = useState(1);
@@ -67,10 +73,8 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
     });
   }, [supabase, router]);
 
-  useEffect(() => {
+  const loadData = () => {
     if (!authed) return;
-
-    // Fetch stock info, current price, and portfolio in parallel
     Promise.all([
       fetch(`/api/search?q=${ticker}`).then((r) => r.json()),
       fetch("/api/paper/portfolio").then((r) => r.json()),
@@ -79,8 +83,10 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
       const matched = searchResults.find((s: { ticker: string }) => s.ticker === ticker);
       if (!matched) return;
 
-      const pos = portfolio.positions?.find((p: { ticker: string }) => p.ticker === ticker);
-      const currentPrice = priceData?.price ?? pos?.currentPrice ?? 0;
+      const positions = portfolio.positions ?? [];
+      const longPos = positions.find((p: { ticker: string; side: string }) => p.ticker === ticker && p.side !== "short");
+      const shortPos = positions.find((p: { ticker: string; side: string }) => p.ticker === ticker && p.side === "short");
+      const currentPrice = priceData?.price ?? longPos?.currentPrice ?? shortPos?.currentPrice ?? 0;
 
       setStock({
         ticker: matched.ticker,
@@ -90,39 +96,66 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
         change_pct: priceData?.change_pct ?? null,
       });
 
-      if (pos) {
-        setPosition({
-          shares: pos.shares,
-          avg_cost: pos.avg_cost,
-          pnl: pos.pnl,
-          pnlPct: pos.pnlPct,
-          marketValue: pos.marketValue,
-          borrowed: pos.borrowed ?? 0,
-          equity: pos.equity ?? pos.marketValue,
-          leverage: pos.leverage ?? 1,
-        });
-      }
+      const mapPos = (pos: Record<string, number | string | null> | undefined): PositionInfo | null => {
+        if (!pos) return null;
+        return {
+          shares: pos.shares as number,
+          avg_cost: pos.avg_cost as number,
+          pnl: pos.pnl as number,
+          pnlPct: pos.pnlPct as number,
+          marketValue: pos.marketValue as number,
+          borrowed: (pos.borrowed as number) ?? 0,
+          equity: (pos.equity as number) ?? (pos.marketValue as number),
+          leverage: (pos.leverage as number) ?? 1,
+          side: (pos.side as string) ?? "long",
+        };
+      };
+
+      setLongPosition(mapPos(longPos));
+      setShortPosition(mapPos(shortPos));
       setCashBalance(portfolio.cashBalance);
     });
-  }, [authed, ticker, supabase]);
+  };
+
+  useEffect(loadData, [authed, ticker, supabase]);
+
+  // Active position for the current side
+  const activePosition = (side === "sell") ? longPosition
+    : (side === "cover") ? shortPosition
+    : null;
 
   const shares = inputMode === "shares"
     ? parseFloat(inputValue) || 0
     : stock?.price ? (parseFloat(inputValue) || 0) / stock.price : 0;
-  const effectiveShares = side === "buy" ? shares * leverage : shares;
-  const estimatedTotal = stock ? shares * stock.price : 0; // cash cost (base)
+  const showLeverage = side === "buy" || side === "short";
+  const effectiveShares = showLeverage ? shares * leverage : shares;
+  const estimatedTotal = stock ? shares * stock.price : 0;
+
+  // Estimated short P&L preview for cover
+  const estimatedShortPnl = side === "cover" && shortPosition && stock
+    ? (shortPosition.avg_cost - stock.price) * shares
+    : 0;
 
   async function executeTrade() {
     setError("");
     setResult(null);
     if (shares <= 0) { setError("Enter a valid amount"); return; }
 
+    const endpoint = side === "buy" ? "buy"
+      : side === "sell" ? "sell"
+      : side === "short" ? "short"
+      : "cover";
+
     setLoading(true);
     try {
-      const res = await fetch(`/api/paper/${side}`, {
+      const res = await fetch(`/api/paper/${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticker, shares, ...(side === "buy" && leverage > 1 ? { leverage } : {}) }),
+        body: JSON.stringify({
+          ticker,
+          shares,
+          ...(showLeverage && leverage > 1 ? { leverage } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
@@ -130,21 +163,30 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
       setCashBalance(data.cashBalance);
       setInputValue("");
 
-      // Refresh position
+      // Refresh positions
       const portfolioRes = await fetch("/api/paper/portfolio");
       if (portfolioRes.ok) {
         const portfolio = await portfolioRes.json();
-        const pos = portfolio.positions?.find((p: { ticker: string }) => p.ticker === ticker);
-        setPosition(pos ? {
-          shares: pos.shares,
-          avg_cost: pos.avg_cost,
-          pnl: pos.pnl,
-          pnlPct: pos.pnlPct,
-          marketValue: pos.marketValue,
-          borrowed: pos.borrowed ?? 0,
-          equity: pos.equity ?? pos.marketValue,
-          leverage: pos.leverage ?? 1,
-        } : null);
+        const positions = portfolio.positions ?? [];
+        const longPos = positions.find((p: { ticker: string; side: string }) => p.ticker === ticker && p.side !== "short");
+        const shortPos = positions.find((p: { ticker: string; side: string }) => p.ticker === ticker && p.side === "short");
+
+        const mapPos = (pos: Record<string, number | string | null> | undefined): PositionInfo | null => {
+          if (!pos) return null;
+          return {
+            shares: pos.shares as number,
+            avg_cost: pos.avg_cost as number,
+            pnl: pos.pnl as number,
+            pnlPct: pos.pnlPct as number,
+            marketValue: pos.marketValue as number,
+            borrowed: (pos.borrowed as number) ?? 0,
+            equity: (pos.equity as number) ?? (pos.marketValue as number),
+            leverage: (pos.leverage as number) ?? 1,
+            side: (pos.side as string) ?? "long",
+          };
+        };
+        setLongPosition(mapPos(longPos));
+        setShortPosition(mapPos(shortPos));
       }
     } catch {
       setError("Trade failed. Try again.");
@@ -163,6 +205,27 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
   }
 
   const isUp = (stock.change_pct ?? 0) >= 0;
+
+  const sideConfig: Record<TradeSide, { label: string; color: string; bg: string }> = {
+    buy: { label: "BUY", color: "var(--up)", bg: "rgba(74,222,128,0.15)" },
+    sell: { label: "SELL", color: "var(--down)", bg: "rgba(248,113,113,0.15)" },
+    short: { label: "SHORT", color: "#f97316", bg: "rgba(249,115,22,0.15)" },
+    cover: { label: "COVER", color: "#38bdf8", bg: "rgba(56,189,248,0.15)" },
+  };
+
+  const maxForSide = () => {
+    if (side === "buy" || side === "short") return cashBalance;
+    if (side === "sell" && longPosition) return longPosition.shares * (stock?.price ?? 0);
+    if (side === "cover" && shortPosition) return shortPosition.shares * (stock?.price ?? 0);
+    return 0;
+  };
+
+  const maxSharesForSide = () => {
+    if ((side === "buy" || side === "short") && stock?.price) return cashBalance / stock.price;
+    if (side === "sell" && longPosition) return longPosition.shares;
+    if (side === "cover" && shortPosition) return shortPosition.shares;
+    return 0;
+  };
 
   return (
     <div className="max-w-xl mx-auto px-5 py-8 space-y-5 fade-up">
@@ -196,17 +259,24 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
         </div>
       </div>
 
-      {/* Current position */}
-      {position && (
-        <div className="card rounded-xl p-4">
+      {/* Current positions */}
+      {[
+        { pos: longPosition, label: "Long Position", badge: "LONG", badgeColor: "var(--up)" },
+        { pos: shortPosition, label: "Short Position", badge: "SHORT", badgeColor: "#f97316" },
+      ].map(({ pos, label, badge, badgeColor }) => pos && (
+        <div key={badge} className="card rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>
-              Your Position
+              {label}
             </p>
-            {position.leverage > 1 && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+              style={{ background: `${badgeColor}20`, color: badgeColor }}>
+              {badge}
+            </span>
+            {pos.leverage > 1 && (
               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
                 style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
-                {position.leverage}x
+                {pos.leverage}x
               </span>
             )}
           </div>
@@ -214,66 +284,79 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
             <div>
               <p className="text-xs" style={{ color: "var(--text-3)" }}>Shares</p>
               <p className="text-sm font-semibold tabular-nums" style={{ color: "var(--text)" }}>
-                {position.shares.toFixed(4)}
+                {pos.shares.toFixed(4)}
               </p>
             </div>
             <div>
-              <p className="text-xs" style={{ color: "var(--text-3)" }}>Avg Cost</p>
+              <p className="text-xs" style={{ color: "var(--text-3)" }}>
+                {badge === "SHORT" ? "Entry" : "Avg Cost"}
+              </p>
               <p className="text-sm font-semibold tabular-nums" style={{ color: "var(--text)" }}>
-                ${position.avg_cost.toFixed(2)}
+                ${pos.avg_cost.toFixed(2)}
               </p>
             </div>
             <div>
               <p className="text-xs" style={{ color: "var(--text-3)" }}>P&L</p>
               <p className="text-sm font-semibold tabular-nums"
-                style={{ color: position.pnl >= 0 ? "var(--up)" : "var(--down)" }}>
-                {position.pnl >= 0 ? "+" : ""}${position.pnl.toFixed(2)}
-                <span className="text-[10px] ml-0.5">({position.pnlPct >= 0 ? "+" : ""}{position.pnlPct.toFixed(1)}%)</span>
+                style={{ color: pos.pnl >= 0 ? "var(--up)" : "var(--down)" }}>
+                {pos.pnl >= 0 ? "+" : ""}${pos.pnl.toFixed(2)}
+                <span className="text-[10px] ml-0.5">({pos.pnlPct >= 0 ? "+" : ""}{pos.pnlPct.toFixed(1)}%)</span>
               </p>
             </div>
           </div>
-          {position.borrowed > 0 && (
+          {pos.borrowed > 0 && (
             <div className="grid grid-cols-2 gap-3 text-center mt-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
               <div>
                 <p className="text-[10px]" style={{ color: "var(--text-3)" }}>Debt</p>
                 <p className="text-xs font-semibold tabular-nums" style={{ color: "var(--down)" }}>
-                  ${position.borrowed.toFixed(2)}
+                  ${pos.borrowed.toFixed(2)}
                 </p>
               </div>
               <div>
                 <p className="text-[10px]" style={{ color: "var(--text-3)" }}>Equity</p>
                 <p className="text-xs font-semibold tabular-nums"
-                  style={{ color: position.equity >= 0 ? "var(--up)" : "var(--down)" }}>
-                  ${position.equity.toFixed(2)}
+                  style={{ color: pos.equity >= 0 ? "var(--up)" : "var(--down)" }}>
+                  ${pos.equity.toFixed(2)}
                 </p>
               </div>
             </div>
           )}
         </div>
-      )}
+      ))}
 
       {/* Trade form */}
       <div className="card rounded-xl p-5 space-y-4">
-        {/* Buy/Sell tabs */}
+        {/* 4-tab selector: Buy / Sell / Short / Cover */}
         <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--border-md)" }}>
-          {(["buy", "sell"] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => { setSide(s); setResult(null); setError(""); }}
-              className="flex-1 py-2 text-xs font-semibold uppercase tracking-wider transition-all"
-              style={{
-                background: side === s
-                  ? (s === "buy" ? "rgba(74,222,128,0.15)" : "rgba(248,113,113,0.15)")
-                  : "transparent",
-                color: side === s
-                  ? (s === "buy" ? "var(--up)" : "var(--down)")
-                  : "var(--text-3)",
-              }}
-            >
-              {s}
-            </button>
-          ))}
+          {(["buy", "sell", "short", "cover"] as const).map((s) => {
+            const cfg = sideConfig[s];
+            const disabled = (s === "sell" && !longPosition) || (s === "cover" && !shortPosition);
+            return (
+              <button
+                key={s}
+                onClick={() => { if (!disabled) { setSide(s); setResult(null); setError(""); setLeverage(1); } }}
+                disabled={disabled}
+                className="flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider transition-all"
+                style={{
+                  background: side === s ? cfg.bg : "transparent",
+                  color: disabled ? "var(--text-4)" : side === s ? cfg.color : "var(--text-3)",
+                  opacity: disabled ? 0.4 : 1,
+                  cursor: disabled ? "not-allowed" : "pointer",
+                }}
+              >
+                {cfg.label}
+              </button>
+            );
+          })}
         </div>
+
+        {/* Short info banner */}
+        {side === "short" && (
+          <div className="rounded-lg px-3 py-2 text-[10px]"
+            style={{ background: "rgba(249,115,22,0.08)", color: "#f97316", border: "1px solid rgba(249,115,22,0.2)" }}>
+            Short selling: you profit when the price drops. Losses are theoretically unlimited if the price rises.
+          </div>
+        )}
 
         {/* Input mode toggle */}
         <div className="flex items-center gap-2 text-xs">
@@ -293,8 +376,8 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
           ))}
         </div>
 
-        {/* Leverage selector (buy only) */}
-        {side === "buy" && (
+        {/* Leverage selector (buy & short) */}
+        {showLeverage && (
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xs" style={{ color: "var(--text-3)" }}>Leverage:</span>
@@ -320,7 +403,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
             </div>
             {leverage > 1 && (
               <p className="text-[10px] mt-1.5" style={{ color: "var(--down)" }}>
-                {leverage}x leverage — gains and losses are amplified. Liquidation risk is real.
+                {leverage}x leverage — {side === "short" ? "short squeeze risk amplified" : "gains and losses are amplified"}. Liquidation risk is real.
               </p>
             )}
           </div>
@@ -339,7 +422,8 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
           />
           <p className="text-xs mt-1.5" style={{ color: "var(--text-3)" }}>
             Available: ${cashBalance.toFixed(2)}
-            {side === "sell" && position ? ` | ${position.shares.toFixed(4)} shares` : ""}
+            {(side === "sell" && longPosition) ? ` | ${longPosition.shares.toFixed(4)} shares (long)` : ""}
+            {(side === "cover" && shortPosition) ? ` | ${shortPosition.shares.toFixed(4)} shares (short)` : ""}
           </p>
 
           {/* Quick amount buttons */}
@@ -347,7 +431,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
             {inputMode === "dollars" ? (
               <>
                 {[1, 10, 100, 1000].map((amt) => {
-                  const maxAmt = side === "buy" ? cashBalance : (position ? position.shares * (stock?.price ?? 0) : 0);
+                  const maxAmt = maxForSide();
                   return (
                     <button
                       key={amt}
@@ -371,28 +455,28 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
                 })}
                 <button
                   onClick={() => {
-                    if (side === "buy") {
+                    if (side === "buy" || side === "short") {
                       setInputValue(cashBalance.toFixed(2));
-                    } else if (position && stock) {
-                      setInputValue((position.shares * stock.price).toFixed(2));
+                    } else if (side === "sell" && longPosition && stock) {
+                      setInputValue((longPosition.shares * stock.price).toFixed(2));
+                    } else if (side === "cover" && shortPosition && stock) {
+                      setInputValue((shortPosition.shares * stock.price).toFixed(2));
                     }
                   }}
-                  disabled={side === "sell" && !position}
+                  disabled={(side === "sell" && !longPosition) || (side === "cover" && !shortPosition)}
                   className="px-2.5 py-1 rounded text-[11px] font-semibold transition-colors"
                   style={{
-                    background: side === "buy" ? "rgba(74,222,128,0.15)" : "rgba(248,113,113,0.15)",
-                    color: side === "buy" ? "var(--up)" : "var(--down)",
+                    background: sideConfig[side].bg,
+                    color: sideConfig[side].color,
                   }}
                 >
-                  {side === "buy" ? "Buy All" : "Sell All"}
+                  {side === "buy" ? "Buy All" : side === "sell" ? "Sell All" : side === "short" ? "Short All" : "Cover All"}
                 </button>
               </>
             ) : (
               <>
                 {[1, 10, 100].map((amt) => {
-                  const maxShares = side === "buy"
-                    ? (stock?.price ? cashBalance / stock.price : 0)
-                    : (position?.shares ?? 0);
+                  const maxShares = maxSharesForSide();
                   return (
                     <button
                       key={amt}
@@ -416,20 +500,22 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
                 })}
                 <button
                   onClick={() => {
-                    if (side === "buy" && stock?.price) {
+                    if ((side === "buy" || side === "short") && stock?.price) {
                       setInputValue((cashBalance / stock.price).toFixed(4));
-                    } else if (position) {
-                      setInputValue(position.shares.toFixed(4));
+                    } else if (side === "sell" && longPosition) {
+                      setInputValue(longPosition.shares.toFixed(4));
+                    } else if (side === "cover" && shortPosition) {
+                      setInputValue(shortPosition.shares.toFixed(4));
                     }
                   }}
-                  disabled={side === "sell" && !position}
+                  disabled={(side === "sell" && !longPosition) || (side === "cover" && !shortPosition)}
                   className="px-2.5 py-1 rounded text-[11px] font-semibold transition-colors"
                   style={{
-                    background: side === "buy" ? "rgba(74,222,128,0.15)" : "rgba(248,113,113,0.15)",
-                    color: side === "buy" ? "var(--up)" : "var(--down)",
+                    background: sideConfig[side].bg,
+                    color: sideConfig[side].color,
                   }}
                 >
-                  {side === "buy" ? "Buy All" : "Sell All"}
+                  {side === "buy" ? "Buy All" : side === "sell" ? "Sell All" : side === "short" ? "Short All" : "Cover All"}
                 </button>
               </>
             )}
@@ -439,7 +525,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
         {/* Order summary */}
         {shares > 0 && (
           <div className="rounded-lg p-3 space-y-1" style={{ background: "var(--surface-2)" }}>
-            {side === "buy" && leverage > 1 && (
+            {showLeverage && leverage > 1 && (
               <div className="flex justify-between text-xs">
                 <span style={{ color: "var(--text-3)" }}>Leverage</span>
                 <span className="tabular-nums font-semibold" style={{ color: "var(--accent)" }}>{leverage}x</span>
@@ -447,7 +533,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
             )}
             <div className="flex justify-between text-xs">
               <span style={{ color: "var(--text-3)" }}>
-                {side === "buy" && leverage > 1 ? "Effective Shares" : "Shares"}
+                {showLeverage && leverage > 1 ? "Effective Shares" : "Shares"}
               </span>
               <span className="tabular-nums" style={{ color: "var(--text)" }}>{effectiveShares.toFixed(4)}</span>
             </div>
@@ -455,7 +541,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
               <span style={{ color: "var(--text-3)" }}>Price</span>
               <span className="tabular-nums" style={{ color: "var(--text)" }}>${stock.price.toFixed(2)}</span>
             </div>
-            {side === "buy" && leverage > 1 && (
+            {showLeverage && leverage > 1 && (
               <>
                 <div className="flex justify-between text-xs">
                   <span style={{ color: "var(--text-3)" }}>Borrowed</span>
@@ -471,10 +557,21 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
                 </div>
               </>
             )}
+            {side === "cover" && shortPosition && (
+              <div className="flex justify-between text-xs">
+                <span style={{ color: "var(--text-3)" }}>Est. P&L</span>
+                <span className="tabular-nums font-semibold"
+                  style={{ color: estimatedShortPnl >= 0 ? "var(--up)" : "var(--down)" }}>
+                  {estimatedShortPnl >= 0 ? "+" : ""}${estimatedShortPnl.toFixed(2)}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between text-xs font-semibold pt-1"
               style={{ borderTop: "1px solid var(--border)" }}>
               <span style={{ color: "var(--text-2)" }}>
-                {side === "buy" ? (leverage > 1 ? "Your Margin (Cash)" : "Estimated Cost") : "Estimated Proceeds"}
+                {(side === "buy" || side === "short")
+                  ? (leverage > 1 ? "Your Margin (Cash)" : "Estimated Cost")
+                  : side === "cover" ? "Cost to Cover" : "Estimated Proceeds"}
               </span>
               <span className="tabular-nums" style={{ color: "var(--text)" }}>${estimatedTotal.toFixed(2)}</span>
             </div>
@@ -495,14 +592,20 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
               color: (result.realizedPnl ?? 0) >= 0 ? "var(--up)" : "var(--down)",
             }}>
             <p>
-              {result.side === "buy" ? "Bought" : "Sold"} {result.shares.toFixed(4)} shares at ${result.price.toFixed(2)}
+              {result.side === "buy" ? "Bought" :
+               result.side === "sell" ? "Sold" :
+               result.side === "short" ? "Shorted" : "Covered"}{" "}
+              {result.shares.toFixed(4)} shares at ${result.price.toFixed(2)}
               {result.leverage && result.leverage > 1 && ` @ ${result.leverage}x`}
             </p>
-            {result.side === "buy" && result.leverage && result.leverage > 1 && (
+            {(result.side === "buy" || result.side === "short") && result.leverage && result.leverage > 1 && (
               <p>Margin: ${result.margin?.toFixed(2)} | Borrowed: ${result.borrowed?.toFixed(2)}</p>
             )}
             {result.side === "sell" && result.borrowedRepay && result.borrowedRepay > 0 && (
               <p>Gross: ${result.grossProceeds?.toFixed(2)} − Debt repay: ${result.borrowedRepay.toFixed(2)} = Net: ${result.netProceeds?.toFixed(2)}</p>
+            )}
+            {result.side === "cover" && (
+              <p>Margin returned: ${result.marginReturned?.toFixed(2)} | Net: ${result.netProceeds?.toFixed(2)}</p>
             )}
             {result.realizedPnl != null && (
               <p>P&L: {result.realizedPnl >= 0 ? "+" : ""}${result.realizedPnl.toFixed(2)}</p>
@@ -516,9 +619,14 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
         <button
           onClick={executeTrade}
           disabled={loading || shares <= 0}
-          className={`btn btn-block btn-lg uppercase tracking-wider ${side === "buy" ? "btn-success" : "btn-danger"}`}
+          className="btn btn-block btn-lg uppercase tracking-wider"
+          style={{
+            background: sideConfig[side].bg,
+            color: sideConfig[side].color,
+            border: `1px solid ${sideConfig[side].color}40`,
+          }}
         >
-          {loading ? "Executing..." : `${side} ${ticker}`}
+          {loading ? "Executing..." : `${sideConfig[side].label} ${ticker}`}
         </button>
       </div>
 

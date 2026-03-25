@@ -87,8 +87,14 @@ export default function PaperHistoryPage() {
                     <td className="px-4 py-3">
                       <span className="badge"
                         style={{
-                          background: tx.side === "buy" ? "var(--up-dim)" : "var(--down-dim)",
-                          color: tx.side === "buy" ? "var(--up)" : "var(--down)",
+                          background: tx.side === "buy" ? "var(--up-dim)"
+                            : tx.side === "short" ? "rgba(249,115,22,0.15)"
+                            : tx.side === "cover" ? "rgba(56,189,248,0.15)"
+                            : "var(--down-dim)",
+                          color: tx.side === "buy" ? "var(--up)"
+                            : tx.side === "short" ? "#f97316"
+                            : tx.side === "cover" ? "#38bdf8"
+                            : "var(--down)",
                         }}>
                         {tx.side.toUpperCase()}
                       </span>

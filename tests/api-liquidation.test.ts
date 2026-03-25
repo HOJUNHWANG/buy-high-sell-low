@@ -59,13 +59,13 @@ describe("Liquidation: Status checks", () => {
   it("force liquidates after 24h margin call", async () => {
     const twentyFiveHoursAgo = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
     setMockData("paper_accounts", [{ user_id: USER.id, cash_balance: 10, status: "margin_call", margin_call_at: twentyFiveHoursAgo, liquidation_count: 0, last_liquidation_at: null }]);
-    setMockData("paper_positions", [{ user_id: USER.id, ticker: "AAPL", shares: 1 }]);
+    setMockData("paper_positions", [{ user_id: USER.id, ticker: "AAPL", shares: 1, side: "long", avg_cost: 20, borrowed: 0 }]);
     setMockData("stock_prices", [{ ticker: "AAPL", price: 20 }]);
     const mod = await import("@/app/api/paper/liquidation/route");
     const res = await mod.GET();
     const data = await res.json();
-    expect(data.status).toBe("liquidated");
-    expect(data.canRevive).toBe(true);
+    expect(data.status).toBe("suspended");
+    expect(data.suspendedUntil).toBeTruthy();
   });
 
   it("suspends on 2nd liquidation same month", async () => {
@@ -77,7 +77,6 @@ describe("Liquidation: Status checks", () => {
     const res = await mod.GET();
     const data = await res.json();
     expect(data.status).toBe("suspended");
-    expect(data.canRevive).toBe(false);
     expect(data.suspendedUntil).toBeTruthy();
   });
 
@@ -110,18 +109,17 @@ describe("Liquidation: Status checks", () => {
     expect(data.cashBalance).toBe(1000);
   });
 
-  it("returns liquidated status with canRevive", async () => {
+  it("returns suspended status for liquidated account", async () => {
     setMockData("paper_accounts", [{ user_id: USER.id, status: "liquidated", liquidation_count: 1, last_liquidation_at: new Date().toISOString(), cash_balance: 0 }]);
     const mod = await import("@/app/api/paper/liquidation/route");
     const res = await mod.GET();
     const data = await res.json();
-    expect(data.status).toBe("liquidated");
-    expect(data.canRevive).toBe(true);
+    expect(data.status).toBe("suspended");
   });
 
   it("includes position value in portfolio total", async () => {
     setMockData("paper_accounts", [{ user_id: USER.id, cash_balance: 20, status: "active", liquidation_count: 0 }]);
-    setMockData("paper_positions", [{ user_id: USER.id, ticker: "AAPL", shares: 1 }]);
+    setMockData("paper_positions", [{ user_id: USER.id, ticker: "AAPL", shares: 1, side: "long", avg_cost: 200, borrowed: 0 }]);
     setMockData("stock_prices", [{ ticker: "AAPL", price: 200 }]);
     const mod = await import("@/app/api/paper/liquidation/route");
     const res = await mod.GET();

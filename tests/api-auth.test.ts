@@ -32,7 +32,9 @@ describe("Auth: All protected routes reject unauthenticated requests", () => {
     { path: "paper/transactions", method: "GET" },
     { path: "paper/checkin", method: "POST" },
     { path: "paper/liquidation", method: "GET" },
-    { path: "paper/revive", method: "POST" },
+    // paper/revive is deprecated (always 410), no auth check needed
+    { path: "paper/short", method: "POST", body: { ticker: "AAPL", shares: 1 } },
+    { path: "paper/cover", method: "POST", body: { ticker: "AAPL", shares: 1 } },
     { path: "paper/roast", method: "POST" },
     { path: "paper/challenge", method: "GET" },
     { path: "whatif/date-range", method: "GET" },

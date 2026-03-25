@@ -116,6 +116,7 @@ export interface PaperPosition {
   id: number;
   user_id: string;
   ticker: string;
+  side: "long" | "short";
   shares: number;
   avg_cost: number;
   leverage: number;
@@ -128,7 +129,7 @@ export interface PaperTransaction {
   id: number;
   user_id: string;
   ticker: string;
-  side: "buy" | "sell";
+  side: "buy" | "sell" | "short" | "cover";
   shares: number;
   price: number;
   total: number;
