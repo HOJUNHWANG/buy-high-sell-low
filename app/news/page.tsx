@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { NewsFilter } from "@/components/NewsFilter";
 import { TrendingTickersWidget } from "@/components/TrendingTickersWidget";
 import { SentimentWidget } from "@/components/SentimentWidget";
+import { BookRecommendation } from "@/components/BookRecommendation";
 import { gateSummaries, FREE_USER_DAILY_UNLOCKS } from "@/lib/summary-gate";
 import type { UserTier } from "@/lib/summary-gate";
 
@@ -100,6 +101,7 @@ export default async function NewsPage({
           <Suspense fallback={<WidgetSkeleton />}>
             <SentimentWidget />
           </Suspense>
+          <BookRecommendation />
         </aside>
 
         {/* ── Main news feed ── */}
