@@ -42,6 +42,8 @@ export function Disclaimer() {
           <span style={{ color: "var(--border-md)" }}>·</span>
           <a href="/terms" className="nav-link">Terms of Use</a>
           <span style={{ color: "var(--border-md)" }}>·</span>
+          <a href="/disclaimer" className="nav-link">Disclaimer</a>
+          <span style={{ color: "var(--border-md)" }}>·</span>
           <span>© {new Date().getFullYear()} Buy High Sell Low. All rights reserved.</span>
         </div>
       </div>
