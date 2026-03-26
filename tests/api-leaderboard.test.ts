@@ -3,7 +3,7 @@
  * Covers ranking, sorting, caching, and edge cases.
  */
 import { describe, it, expect, beforeEach } from "vitest";
-import { setMockUser, setMockData, clearMockData } from "./setup";
+import { setMockData, clearMockData } from "./setup";
 
 describe("Leaderboard", () => {
   beforeEach(() => { clearMockData(); });
@@ -27,21 +27,43 @@ describe("Leaderboard", () => {
     expect(data).toHaveLength(1);
     expect(data[0].returnPct).toBe(50); // (1500-1000)/1000*100
     expect(data[0].rank).toBe(1);
+    expect(data[0].positions).toEqual([]);
   });
 
-  it("includes position value in total", async () => {
+  it("includes equity (not raw market value) in total", async () => {
     setMockData("paper_accounts", [
       { user_id: "u1", cash_balance: 200 },
     ]);
     setMockData("paper_positions", [
-      { user_id: "u1", ticker: "AAPL", shares: 5 },
+      { user_id: "u1", ticker: "AAPL", shares: 5, avg_cost: 200, side: "long", leverage: 1, borrowed: 0 },
     ]);
     setMockData("stock_prices", [{ ticker: "AAPL", price: 200 }]);
     const mod = await import("@/app/api/paper/leaderboard/route");
     const res = await mod.GET();
     const data = await res.json();
-    expect(data[0].totalValue).toBe(1200); // 200 + 5*200
+    expect(data[0].totalValue).toBe(1200); // 200 + (5*200 - 0)
     expect(data[0].returnPct).toBe(20);
+    expect(data[0].positions).toHaveLength(1);
+    expect(data[0].positions[0].ticker).toBe("AAPL");
+    expect(data[0].positions[0].side).toBe("long");
+  });
+
+  it("subtracts borrowed amount for leveraged positions", async () => {
+    setMockData("paper_accounts", [
+      { user_id: "u1", cash_balance: 0 },
+    ]);
+    setMockData("paper_positions", [
+      { user_id: "u1", ticker: "AAPL", shares: 10, avg_cost: 200, side: "long", leverage: 2, borrowed: 1000 },
+    ]);
+    setMockData("stock_prices", [{ ticker: "AAPL", price: 200 }]);
+    const mod = await import("@/app/api/paper/leaderboard/route");
+    const res = await mod.GET();
+    const data = await res.json();
+    // equity = marketValue - borrowed = 2000 - 1000 = 1000
+    // totalValue = 0 (cash) + 1000 (equity) = 1000
+    expect(data[0].totalValue).toBe(1000);
+    expect(data[0].returnPct).toBe(0);
+    expect(data[0].positions[0].leverage).toBe(2);
   });
 
   it("sorts by return % descending", async () => {
@@ -94,8 +116,6 @@ describe("Leaderboard", () => {
   });
 
   it("returns valid response for empty leaderboard", async () => {
-    // Cache-Control header is set in the source but NextResponse mock may not preserve it.
-    // Instead verify the response structure is correct for empty state.
     setMockData("paper_accounts", []);
     const mod = await import("@/app/api/paper/leaderboard/route");
     const res = await mod.GET();
@@ -104,11 +124,11 @@ describe("Leaderboard", () => {
     expect(Array.isArray(data)).toBe(true);
   });
 
-  it("counts positions per user", async () => {
+  it("counts positions per user and returns position details", async () => {
     setMockData("paper_accounts", [{ user_id: "u1", cash_balance: 500 }]);
     setMockData("paper_positions", [
-      { user_id: "u1", ticker: "AAPL", shares: 5 },
-      { user_id: "u1", ticker: "MSFT", shares: 3 },
+      { user_id: "u1", ticker: "AAPL", shares: 5, avg_cost: 100, side: "long", leverage: 1, borrowed: 0 },
+      { user_id: "u1", ticker: "MSFT", shares: 3, avg_cost: 200, side: "short", leverage: 2, borrowed: 300 },
     ]);
     setMockData("stock_prices", [
       { ticker: "AAPL", price: 100 },
@@ -118,5 +138,14 @@ describe("Leaderboard", () => {
     const res = await mod.GET();
     const data = await res.json();
     expect(data[0].positionCount).toBe(2);
+    expect(data[0].positions).toHaveLength(2);
+
+    const aapl = data[0].positions.find((p: { ticker: string }) => p.ticker === "AAPL");
+    expect(aapl.side).toBe("long");
+    expect(aapl.leverage).toBe(1);
+
+    const msft = data[0].positions.find((p: { ticker: string }) => p.ticker === "MSFT");
+    expect(msft.side).toBe("short");
+    expect(msft.leverage).toBe(2);
   });
 });

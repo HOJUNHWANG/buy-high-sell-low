@@ -182,6 +182,19 @@ vi.mock("@/lib/supabase/server", () => ({
   ),
 }));
 
+// ── Mock admin client (service role, used by leaderboard) ──
+vi.mock("@/lib/supabase/admin", () => ({
+  createSupabaseAdmin: vi.fn(() => ({
+    from: vi.fn((table: string) => ({
+      select: (...args: unknown[]) => createQueryBuilder(table, _mockData[table]).select(...(args as [string])),
+      insert: (data: unknown) => createMutationBuilder(table, "insert", data),
+      update: (data: unknown) => createMutationBuilder(table, "update", data),
+      delete: () => createMutationBuilder(table, "delete"),
+      upsert: (data: unknown, _opts?: unknown) => createMutationBuilder(table, "upsert", data),
+    })),
+  })),
+}));
+
 // ── Mock groq-sdk ──
 vi.mock("groq-sdk", () => {
   class MockGroq {
