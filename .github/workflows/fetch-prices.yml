@@ -1,4 +1,4 @@
-name: Fetch Prices (S&P 500 + ETFs + Crypto)
+name: Fetch Prices (S&P 100 + Crypto)
 
 on:
   schedule:

@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from tickers import SP500_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_crypto
 
 BATCH_SIZE = 8
-BATCH_SLEEP = 4  # seconds between batches (144 credits/min on Grow $49)
+BATCH_SLEEP = 8  # seconds between batches (free plan: 8 credits/min)
 
 
 def is_market_open() -> bool:
