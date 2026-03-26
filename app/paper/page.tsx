@@ -29,6 +29,7 @@ interface Position {
 
 interface Portfolio {
   cashBalance: number;
+  nickname: string | null;
   totalMarketValue: number;
   totalBorrowed: number;
   totalEquity: number;
@@ -99,6 +100,10 @@ export default function PaperTradingPage() {
   const [claimingReward, setClaimingReward] = useState(false);
   const [challengeError, setChallengeError] = useState<string | null>(null);
   const [challengeRetrying, setChallengeRetrying] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [newNickname, setNewNickname] = useState("");
+  const [updatingNickname, setUpdatingNickname] = useState(false);
+  const [nicknameError, setNicknameError] = useState("");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -301,7 +306,16 @@ export default function PaperTradingPage() {
       {/* Header + Check-in */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Paper Trading</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Paper Trading</h1>
+            <button 
+              onClick={() => { setShowSettings(true); setNewNickname(portfolio.nickname || ""); setNicknameError(""); }}
+              className="text-[10px] font-semibold px-2 py-1 rounded"
+              style={{ background: "var(--surface-2)", color: "var(--text-2)" }}
+            >
+              ⚙️ {portfolio.nickname ? `Alias: ${portfolio.nickname}` : "Set Alias"}
+            </button>
+          </div>
           <p className="text-xs mt-0.5" style={{ color: "var(--text-2)" }}>
             For those too cowardly to risk real money...
           </p>
@@ -574,43 +588,66 @@ export default function PaperTradingPage() {
                 <Link
                   key={p.ticker}
                   href={`/paper/trade/${p.ticker}`}
-                  className="card-clickable rounded-xl p-4 flex items-center gap-3"
+                  className="card-clickable rounded-xl p-4 flex flex-col gap-3"
                 >
-                  {p.logo_url && (
-                    <Image src={p.logo_url} alt={p.ticker} width={32} height={32}
-                      className="rounded-lg object-contain bg-white p-0.5 shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{p.ticker}</span>
-                      {p.side === "short" && (
-                        <span className="text-[9px] font-bold px-1 py-0.5 rounded"
-                          style={{ background: "rgba(249,115,22,0.15)", color: "#f97316" }}>
-                          SHORT
-                        </span>
-                      )}
-                      {p.leverage > 1 && (
-                        <span className="text-[9px] font-bold px-1 py-0.5 rounded"
-                          style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
-                          {p.leverage}x
-                        </span>
-                      )}
-                      <span className="text-xs" style={{ color: "var(--text-3)" }}>{p.name}</span>
+                  <div className="flex items-center gap-3 w-full">
+                    {p.logo_url && (
+                      <Image src={p.logo_url} alt={p.ticker} width={32} height={32}
+                        className="rounded-lg object-contain bg-white p-0.5 shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{p.ticker}</span>
+                        {p.side === "short" && (
+                          <span className="text-[9px] font-bold px-1 py-0.5 rounded"
+                            style={{ background: "rgba(249,115,22,0.15)", color: "#f97316" }}>
+                            SHORT
+                          </span>
+                        )}
+                        {p.leverage > 1 && (
+                          <span className="text-[9px] font-bold px-1 py-0.5 rounded"
+                            style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
+                            {p.leverage}x
+                          </span>
+                        )}
+                        <span className="text-xs truncate" style={{ color: "var(--text-3)" }}>{p.name}</span>
+                      </div>
+                      <p className="text-[11px]" style={{ color: "var(--text-3)" }}>
+                        {p.shares.toFixed(4)} shares @ {formatMoney(p.avg_cost)}
+                      </p>
                     </div>
-                    <p className="text-[11px]" style={{ color: "var(--text-3)" }}>
-                      {p.shares.toFixed(4)} shares @ {formatMoney(p.avg_cost)}
-                      {p.borrowed > 0 && <span style={{ color: "var(--down)" }}> | Debt: {formatMoney(p.borrowed)}</span>}
-                    </p>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-semibold tabular-nums" style={{ color: "var(--text)" }}>
+                        {formatMoney(p.marketValue)}
+                      </p>
+                      <p className="text-xs font-medium tabular-nums"
+                        style={{ color: p.pnl >= 0 ? "var(--up)" : "var(--down)" }}>
+                        {p.pnl >= 0 ? "+" : ""}{formatMoney(p.pnl)} ({p.pnlPct >= 0 ? "+" : ""}{p.pnlPct.toFixed(2)}%)
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-semibold tabular-nums" style={{ color: "var(--text)" }}>
-                      {formatMoney(p.marketValue)}
-                    </p>
-                    <p className="text-xs font-medium tabular-nums"
-                      style={{ color: p.pnl >= 0 ? "var(--up)" : "var(--down)" }}>
-                      {p.pnl >= 0 ? "+" : ""}{formatMoney(p.pnl)} ({p.pnlPct >= 0 ? "+" : ""}{p.pnlPct.toFixed(2)}%)
-                    </p>
-                  </div>
+                  
+                  {/* Position Health Bar for Leveraged Trades */}
+                  {p.leverage > 1 && (
+                    <div className="w-full pt-2 mt-1 border-t" style={{ borderColor: "var(--border)" }}>
+                      <div className="flex justify-between text-[10px] mb-1">
+                        <span style={{ color: "var(--text-3)" }}>Risk Health (Equity vs Debt)</span>
+                        <span style={{ color: (p.equity || 0) <= (p.borrowed || 0) * 0.1 ? "var(--down)" : "var(--text-2)", fontWeight: "bold" }}>
+                          {(p.equity || 0) <= 0 ? "🚨 Margin Call" : (p.equity || 0) <= (p.borrowed || 0) * 0.1 ? "⚠️ High Risk" : "OK"}
+                        </span>
+                      </div>
+                      <div className="h-1.5 rounded-full overflow-hidden flex bg-gray-700 w-full relative">
+                        <div style={{
+                          width: `${Math.max(0, Math.min(100, ((p.equity || 0) / ((p.equity || 0) + (p.borrowed || 0))) * 100))}%`,
+                          background: (p.equity || 0) <= (p.borrowed || 0) * 0.1 ? "var(--down)" : "var(--up)"
+                        }} />
+                      </div>
+                      <div className="flex justify-between text-[10px] mt-1 opacity-70">
+                        <span style={{ color: "var(--up)" }}>Eq: {formatMoney(p.equity || 0)}</span>
+                        <span style={{ color: "var(--down)" }}>Debt: {formatMoney(p.borrowed || 0)}</span>
+                      </div>
+                    </div>
+                  )}
                 </Link>
               ))}
             </div>
@@ -697,6 +734,66 @@ export default function PaperTradingPage() {
           );
         })}
       </div>
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)" }}>
+          <div className="card rounded-2xl w-full max-w-sm p-6 space-y-4 fade-up relative" style={{ background: "var(--surface)" }}>
+            <button onClick={() => setShowSettings(false)} className="absolute top-4 right-4 text-xs font-bold" style={{ color: "var(--text-3)" }}>
+              &times; CLOSE
+            </button>
+            <h2 className="text-lg font-bold" style={{ color: "var(--text)" }}>Settings</h2>
+            
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>Leaderboard Alias</label>
+              <input 
+                type="text" 
+                value={newNickname} 
+                onChange={(e) => setNewNickname(e.target.value)}
+                placeholder="e.g. StonksKing" 
+                className="input input-lg w-full"
+                maxLength={20}
+              />
+              <p className="text-[10px]" style={{ color: "var(--text-3)" }}>You can only change your alias once every 30 days.</p>
+            </div>
+
+            {nicknameError && (
+              <p className="text-[11px] font-semibold py-1.5 px-3 rounded" style={{ background: "var(--down-dim)", color: "var(--down)" }}>
+                {nicknameError}
+              </p>
+            )}
+
+            <button
+              onClick={async () => {
+                setUpdatingNickname(true);
+                setNicknameError("");
+                try {
+                  const res = await fetch("/api/user/nickname", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ nickname: newNickname })
+                  });
+                  const data = await res.json();
+                  if (!res.ok) setNicknameError(data.error || "Failed to update.");
+                  else {
+                    setPortfolio((prev) => prev ? { ...prev, nickname: data.nickname } : prev);
+                    setShowSettings(false);
+                  }
+                } catch (e) {
+                  setNicknameError("Network error. Try again.");
+                } finally {
+                  setUpdatingNickname(false);
+                }
+              }}
+              disabled={updatingNickname || !newNickname || newNickname === portfolio.nickname}
+              className="btn btn-primary btn-block"
+            >
+              {updatingNickname ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

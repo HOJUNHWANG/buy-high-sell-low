@@ -280,7 +280,24 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
               </span>
             )}
           </div>
-          <div className="grid grid-cols-3 gap-3 text-center">
+          {/* Health Bar / Margin Warning */}
+          {pos.leverage > 1 && (
+            <div className="mt-2 space-y-1">
+              <div className="flex justify-between text-[10px]" style={{ color: "var(--text-3)" }}>
+                <span>Health (Equity vs Loan)</span>
+                <span style={{ color: pos.equity <= 0 ? "var(--down)" : "var(--text-2)" }}>
+                  {pos.equity <= 0 ? "⚠️ Liquidation Risk" : "OK"}
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full overflow-hidden flex bg-gray-700 w-full relative">
+                <div style={{
+                  width: `${Math.max(0, Math.min(100, (pos.equity / (pos.equity + pos.borrowed)) * 100))}%`,
+                  background: pos.equity <= pos.borrowed * 0.1 ? "var(--down)" : "var(--up)"
+                }} />
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-3 gap-3 text-center mt-3">
             <div>
               <p className="text-xs" style={{ color: "var(--text-3)" }}>Shares</p>
               <p className="text-sm font-semibold tabular-nums" style={{ color: "var(--text)" }}>
@@ -350,13 +367,23 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
           })}
         </div>
 
-        {/* Short info banner */}
-        {side === "short" && (
-          <div className="rounded-lg px-3 py-2 text-[10px]"
-            style={{ background: "rgba(249,115,22,0.08)", color: "#f97316", border: "1px solid rgba(249,115,22,0.2)" }}>
-            Short selling: you profit when the price drops. Losses are theoretically unlimited if the price rises.
-          </div>
-        )}
+        {/* Plain English Action Explanation */}
+        <div className="rounded-lg px-3 py-2 text-[10px] space-y-1"
+          style={{ 
+            background: side === "short" ? "rgba(249,115,22,0.08)" : "var(--surface-3)", 
+            color: side === "short" ? "#f97316" : "var(--text-2)", 
+            border: side === "short" ? "1px solid rgba(249,115,22,0.2)" : "1px solid var(--border-md)" 
+          }}>
+          {side === "buy" ? (
+            <p><strong>BUY (Long):</strong> You profit if the price goes UP. You own the shares.</p>
+          ) : side === "sell" ? (
+            <p><strong>SELL:</strong> Close your existing Long position to lock in profit/loss and repay any borrowed money.</p>
+          ) : side === "short" ? (
+            <p><strong>SHORT:</strong> You profit if the price goes DOWN. You borrow shares to sell them, hoping to buy them back cheaper. ⚠️ Losses are theoretically unlimited.</p>
+          ) : (
+            <p><strong>COVER:</strong> Close your Short position by buying back the borrowed shares to lock in profit/loss.</p>
+          )}
+        </div>
 
         {/* Input mode toggle */}
         <div className="flex items-center gap-2 text-xs">
@@ -575,6 +602,42 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
               </span>
               <span className="tabular-nums" style={{ color: "var(--text)" }}>${estimatedTotal.toFixed(2)}</span>
             </div>
+
+            {/* Beginner-friendly Leverage Explanation */}
+            {showLeverage && leverage > 1 && (
+              <div className="mt-3 p-3 rounded-lg text-[11px] space-y-2" style={{ background: "rgba(124,108,252,0.05)", border: "1px solid rgba(124,108,252,0.2)" }}>
+                <p style={{ color: "var(--accent)" }}><strong>How this trade works:</strong></p>
+                <div className="h-3 w-full rounded flex items-center overflow-hidden" title="Your Money vs Borrowed Money">
+                  <div style={{ width: `${(1/leverage)*100}%`, background: "var(--accent)", height: "100%"}}></div>
+                  <div style={{ width: `${(1 - 1/leverage)*100}%`, background: "#475569", height: "100%"}}></div>
+                </div>
+                <div className="flex justify-between text-[10px] uppercase font-bold tracking-widest">
+                  <span style={{ color: "var(--accent)" }}>Your Money: ${(estimatedTotal).toFixed(0)}</span>
+                  <span style={{ color: "#94a3b8" }}>Borrowed: ${(estimatedTotal * (leverage - 1)).toFixed(0)}</span>
+                </div>
+                
+                <p style={{ color: "var(--text-2)" }}>
+                  If the stock moves <strong>1%</strong>, your actual money moves <strong>{leverage}%</strong>.
+                </p>
+                <p style={{ color: "var(--down)" }}>
+                  <strong>🚨 Danger:</strong> If the stock {side === "short" ? "rises" : "drops"} by <strong>{(100 / leverage).toFixed(1)}%</strong> to <strong className="tabular-nums">${(side === "short" ? stock.price * (1 + 1/leverage) : stock.price * (1 - 1/leverage)).toFixed(2)}</strong>, you will lose your entire ${estimatedTotal.toFixed(2)} investment (Margin Call).
+                </p>
+              </div>
+            )}
+            
+            {/* Beginner-friendly closing explanation */}
+            {(side === "sell" || side === "cover") && (
+              <div className="mt-3 p-3 rounded-lg text-[11px] space-y-1" style={{ background: "var(--surface-3)" }}>
+                <p style={{ color: "var(--text)" }}><strong>Trade Outcome Summary</strong></p>
+                <p style={{ color: "var(--text-2)" }}>
+                  By closing this position, you are securing a 
+                  <strong style={{ color: (side === "sell" ? ((longPosition?.avg_cost ?? 0) <= stock.price) : estimatedShortPnl >= 0) ? "var(--up)" : "var(--down)", marginLeft: "4px" }}>
+                    {(side === "sell" ? ((longPosition?.avg_cost ?? 0) <= stock.price) : estimatedShortPnl >= 0) ? "PROFIT" : "LOSS"}
+                  </strong>.
+                  Any borrowed debt will be automatically repaid.
+                </p>
+              </div>
+            )}
           </div>
         )}
 

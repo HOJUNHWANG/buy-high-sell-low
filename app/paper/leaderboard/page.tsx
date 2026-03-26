@@ -19,6 +19,8 @@ interface PositionInfo {
 interface LeaderboardEntry {
   rank: number;
   userId: string;
+  nickname: string | null;
+  status: string;
   totalValue: number;
   returnPct: number;
   positionCount: number;
@@ -28,6 +30,7 @@ interface LeaderboardEntry {
 interface GraveyardEntry {
   rank: number;
   userId: string;
+  nickname: string | null;
   finalValue: number;
   cashAtDeath: number;
   positions: PositionInfo[];
@@ -431,14 +434,20 @@ export default function LeaderboardPage() {
                   {e.rank <= 3 ? ["", "🥇", "🥈", "🥉"][e.rank] : `#${e.rank}`}
                 </span>
                 <div>
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-xs" style={{ color: isMe ? "var(--accent)" : "var(--text-2)" }}>
-                      {isMe ? "You" : `Trader_${e.userId.slice(0, 6)}`}
+                  <span className="flex items-center gap-1.5 line-clamp-1">
+                    <span className="text-xs truncate" style={{ color: isMe ? "var(--accent)" : "var(--text-2)", maxWidth: "100px" }}>
+                      {isMe ? "You" : (e.nickname || `Trader_${e.userId.slice(0, 6)}`)}
                     </span>
                     {isMe && (
-                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full leading-none"
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0"
                         style={{ background: "rgba(124,108,252,0.2)", color: "var(--accent)", border: "1px solid rgba(124,108,252,0.3)" }}>
                         ME
+                      </span>
+                    )}
+                    {e.status === "margin_call" && (
+                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full leading-none shrink-0"
+                        style={{ background: "rgba(248,113,113,0.15)", color: "var(--down)", border: "1px solid rgba(248,113,113,0.3)" }}>
+                        🚨 MARGIN CALL
                       </span>
                     )}
                   </span>
@@ -474,9 +483,9 @@ export default function LeaderboardPage() {
                 }}>
                 <span className="text-sm pt-0.5">🪦</span>
                 <div>
-                  <span className="flex items-center gap-1.5">
-                    <span className="text-xs" style={{ color: isMe ? "var(--down)" : "var(--text-2)" }}>
-                      {isMe ? "You" : `Trader_${e.userId.slice(0, 6)}`}
+                  <span className="flex items-center gap-1.5 line-clamp-1">
+                    <span className="text-xs truncate" style={{ color: isMe ? "var(--down)" : "var(--text-2)", maxWidth: "120px" }}>
+                      {isMe ? "You" : (e.nickname || `Trader_${e.userId.slice(0, 6)}`)}
                     </span>
                     {isMe && (
                       <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full leading-none"

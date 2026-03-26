@@ -9,7 +9,7 @@ export async function GET() {
   // Auto-create account if missing
   const { data: account } = await supabase
     .from("paper_accounts")
-    .select("*")
+    .select("cash_balance, streak_count, nickname, last_checkin, status")
     .eq("user_id", user.id)
     .single();
 
@@ -107,6 +107,7 @@ export async function GET() {
 
   return NextResponse.json({
     cashBalance,
+    nickname: account?.nickname || null,
     totalMarketValue,
     totalBorrowed,
     totalEquity,
@@ -114,9 +115,9 @@ export async function GET() {
     totalValue,
     totalPnl,
     totalPnlPct,
-    positions: enrichedPositions,
+    positions: enrichedPositions.sort((a, b) => b.marketValue - a.marketValue),
     achievements: achievements ?? [],
-    streak: account?.streak ?? 0,
+    streak: account?.streak_count ?? 0,
     lastCheckin: account?.last_checkin ?? null,
     status: account?.status ?? "active",
   });

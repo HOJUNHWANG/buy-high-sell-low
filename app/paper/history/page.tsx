@@ -62,56 +62,80 @@ export default function PaperHistoryPage() {
         </div>
       ) : (
         <>
-          {/* Table */}
-          <div className="card rounded-xl overflow-hidden">
-            <table className="w-full text-xs">
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                  {["Date", "Ticker", "Side", "Shares", "Price", "Total"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left font-semibold uppercase tracking-widest"
-                      style={{ color: "var(--text-3)", fontSize: "10px" }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((tx) => (
-                  <tr key={tx.id} className="tr-hover" style={{ borderBottom: "1px solid var(--border)" }}>
-                    <td className="px-4 py-3 tabular-nums" style={{ color: "var(--text-2)" }}>
-                      {new Date(tx.executed_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}
-                    </td>
-                    <td className="px-4 py-3 font-semibold" style={{ color: "var(--accent)" }}>
-                      <Link href={`/paper/trade/${tx.ticker}`}>{tx.ticker}</Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="badge"
-                        style={{
-                          background: tx.side === "buy" ? "var(--up-dim)"
-                            : tx.side === "short" ? "rgba(249,115,22,0.15)"
-                            : tx.side === "cover" ? "rgba(56,189,248,0.15)"
-                            : "var(--down-dim)",
-                          color: tx.side === "buy" ? "var(--up)"
-                            : tx.side === "short" ? "#f97316"
-                            : tx.side === "cover" ? "#38bdf8"
-                            : "var(--down)",
-                        }}>
-                        {tx.side.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 tabular-nums" style={{ color: "var(--text)" }}>
-                      {tx.shares.toFixed(4)}
-                    </td>
-                    <td className="px-4 py-3 tabular-nums" style={{ color: "var(--text)" }}>
-                      ${tx.price.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 font-semibold tabular-nums" style={{ color: "var(--text)" }}>
-                      ${tx.total.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* Activity Feed */}
+          <div className="space-y-3">
+            {transactions.map((tx) => {
+              const dateString = new Date(tx.executed_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "numeric" });
+              const isClosing = tx.side === "sell" || tx.side === "cover";
+              const isLeveraged = tx.leverage > 1;
+
+              return (
+                <div key={tx.id} className="card rounded-xl p-4 flex gap-4 items-start relative overflow-hidden">
+                  {/* Decorative side border indicating side */}
+                  <div className="absolute top-0 left-0 bottom-0 w-1" style={{ 
+                    background: tx.side === "buy" ? "var(--up)" : tx.side === "short" ? "#f97316" : tx.side === "cover" ? "#38bdf8" : "var(--down)" 
+                  }} />
+
+                  <div className="flex-1 space-y-1">
+                    <div className="flex justify-between items-start mb-1">
+                      <div className="flex items-center gap-2">
+                        <Link href={`/paper/trade/${tx.ticker}`} className="text-sm font-bold hover:underline" style={{ color: "var(--accent)" }}>
+                          {tx.ticker}
+                        </Link>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider"
+                          style={{
+                            background: tx.side === "buy" ? "var(--up-dim)"
+                              : tx.side === "short" ? "rgba(249,115,22,0.15)"
+                              : tx.side === "cover" ? "rgba(56,189,248,0.15)"
+                              : "var(--down-dim)",
+                            color: tx.side === "buy" ? "var(--up)"
+                              : tx.side === "short" ? "#f97316"
+                              : tx.side === "cover" ? "#38bdf8"
+                              : "var(--down)",
+                          }}>
+                          {tx.side}
+                        </span>
+                        {isLeveraged && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded tracking-wider"
+                            style={{ background: "var(--surface-3)", color: "var(--accent)" }}>
+                            {tx.leverage}x Leverage
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px]" style={{ color: "var(--text-3)" }}>{dateString}</span>
+                    </div>
+
+                    <p className="text-xs" style={{ color: "var(--text-2)", lineHeight: "1.5" }}>
+                      {tx.side === "buy" && `Bought ${tx.shares.toFixed(4)} shares of ${tx.ticker} at $${tx.price.toFixed(2)}. `}
+                      {tx.side === "short" && `Shorted ${tx.shares.toFixed(4)} shares of ${tx.ticker} at $${tx.price.toFixed(2)}. `}
+                      {tx.side === "sell" && `Sold ${tx.shares.toFixed(4)} shares of ${tx.ticker} at $${tx.price.toFixed(2)} to close the Long position. `}
+                      {tx.side === "cover" && `Bought back ${tx.shares.toFixed(4)} shares of ${tx.ticker} at $${tx.price.toFixed(2)} to cover the Short position. `}
+                      
+                      {isLeveraged && !isClosing && (
+                        <span style={{ color: "var(--text-4)" }}>
+                          Total value was ${tx.total.toFixed(2)}, using ${(tx.total / tx.leverage).toFixed(2)} of your cash and ${(tx.total * (tx.leverage - 1) / tx.leverage).toFixed(2)} in borrowed funds.
+                        </span>
+                      )}
+                      
+                      {!isLeveraged && !isClosing && (
+                        <span style={{ color: "var(--text-4)" }}>
+                          Total investment of ${tx.total.toFixed(2)}.
+                        </span>
+                      )}
+                    </p>
+
+                    {/* Summary Badges for closing trades - we estimate since PnL isn't fully in paper_transactions historically */}
+                    {isClosing && (
+                      <div className="flex gap-2 mt-2 pt-2" style={{ borderTop: "1px dashed var(--border)" }}>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "var(--surface-3)", color: "var(--text-2)" }}>
+                          Proceeds: ${tx.total.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* Pagination */}

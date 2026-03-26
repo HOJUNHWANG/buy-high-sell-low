@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   // Get active paper accounts (excluded: suspended/liquidated → they go to graveyard)
   const { data: accounts } = await admin
     .from("paper_accounts")
-    .select("user_id, cash_balance, status")
+    .select("user_id, cash_balance, status, nickname")
     .in("status", ["active", "margin_call"]);
 
   if (!accounts || accounts.length === 0) {
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     (allPositions ?? []).map((p: { user_id: string }) => p.user_id)
   );
   const activeTraders = (accounts ?? []).filter(
-    (acc: { user_id: string; cash_balance: number }) =>
+    (acc: { user_id: string; cash_balance: number; status: string; nickname: string | null }) =>
       usersWithPositions.has(acc.user_id) || acc.cash_balance !== 1000
   );
 
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Calculate portfolio values with equity (debt subtracted)
-  const leaderboard = activeTraders.map((acc: { user_id: string; cash_balance: number }) => {
+  const leaderboard = activeTraders.map((acc: { user_id: string; cash_balance: number; status: string; nickname: string | null }) => {
     const userPositions = (allPositions ?? []).filter(
       (p: { user_id: string }) => p.user_id === acc.user_id
     );
@@ -131,6 +131,8 @@ export async function GET(request: NextRequest) {
 
     return {
       userId: acc.user_id,
+      nickname: acc.nickname,
+      status: acc.status,
       totalValue,
       returnPct,
       positionCount: userPositions.length,
