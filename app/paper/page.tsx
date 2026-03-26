@@ -6,8 +6,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PaperTradeBanner } from "@/components/PaperTradeBanner";
-import { AchievementBadge, TierHeader } from "@/components/AchievementBadge";
-import { ALL_BADGE_KEYS, TIERS_ORDERED, getBadgesByTier } from "@/lib/achievements";
 import { RoastCard } from "@/components/RoastCard";
 
 interface Position {
@@ -37,7 +35,6 @@ interface Portfolio {
   totalPnl: number;
   totalPnlPct: number;
   positions: Position[];
-  achievements: { badge_key: string; earned_at: string }[];
   streak: number;
   lastCheckin: string | null;
   status: string;
@@ -264,9 +261,6 @@ export default function PaperTradingPage() {
   }
 
   if (!portfolio) return null;
-
-  const earnedKeys = new Set(portfolio.achievements.map((a) => a.badge_key));
-  const earnedMap = Object.fromEntries(portfolio.achievements.map((a) => [a.badge_key, a.earned_at]));
 
   const allocationItems = portfolio.positions
     .map((p) => ({ label: p.ticker, value: p.marketValue }))
@@ -709,32 +703,6 @@ export default function PaperTradingPage() {
           </Link>
         </div>
       </div>
-
-      {/* Achievements */}
-      <div className="space-y-2">
-        <h2 className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>
-          Achievements ({portfolio.achievements.length}/{ALL_BADGE_KEYS.length})
-        </h2>
-        {TIERS_ORDERED.map((tier) => {
-          const tierBadges = getBadgesByTier(tier);
-          return (
-            <div key={tier}>
-              <TierHeader tier={tier} />
-              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-                {tierBadges.map((badge) => (
-                  <AchievementBadge
-                    key={badge.key}
-                    badgeKey={badge.key}
-                    earned={earnedKeys.has(badge.key)}
-                    earnedAt={earnedMap[badge.key]}
-                  />
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
       {/* Settings Modal */}
       {showSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)" }}>

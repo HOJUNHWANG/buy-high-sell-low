@@ -9,7 +9,7 @@ export async function GET() {
   // Auto-create account if missing
   const { data: account } = await supabase
     .from("paper_accounts")
-    .select("cash_balance, streak_count, nickname, last_checkin, status")
+    .select("cash_balance, streak, nickname, last_checkin, status")
     .eq("user_id", user.id)
     .single();
 
@@ -99,12 +99,6 @@ export async function GET() {
   const totalPnl = totalValue - 1000;
   const totalPnlPct = (totalPnl / 1000) * 100;
 
-  // Get achievements
-  const { data: achievements } = await supabase
-    .from("paper_achievements")
-    .select("badge_key, earned_at")
-    .eq("user_id", user.id);
-
   return NextResponse.json({
     cashBalance,
     nickname: account?.nickname || null,
@@ -116,8 +110,7 @@ export async function GET() {
     totalPnl,
     totalPnlPct,
     positions: enrichedPositions.sort((a, b) => b.marketValue - a.marketValue),
-    achievements: achievements ?? [],
-    streak: account?.streak_count ?? 0,
+    streak: account?.streak ?? 0,
     lastCheckin: account?.last_checkin ?? null,
     status: account?.status ?? "active",
   });

@@ -1,13 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import {
-  grantAchievements,
-  checkTradeCountAchievements,
-  checkPortfolioValueAchievements,
-  checkCryptoAchievements,
-  checkDayTrader,
-  checkMarketTimingAchievements,
-} from "@/lib/achievement-checker";
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
@@ -134,40 +126,6 @@ export async function POST(request: Request) {
     leverage,
   });
 
-  // Check achievements
-  const candidates: string[] = [];
-
-  // Trade count achievements
-  candidates.push(...await checkTradeCountAchievements(supabase, user.id));
-
-  // Crypto achievements
-  candidates.push(...await checkCryptoAchievements(supabase, user.id, ticker));
-
-  // Full send (90%+ of balance)
-  if (margin >= cashBalance * 0.9) candidates.push("full_send");
-
-  // Penny pincher
-  if (margin < 10) candidates.push("penny_pincher");
-
-  // Diversified (5+ positions)
-  const { count: posCount } = await supabase
-    .from("paper_positions")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id);
-  if ((posCount ?? 0) >= 5) candidates.push("diversified");
-
-  // Day trader
-  candidates.push(...await checkDayTrader(supabase, user.id));
-
-  // Market timing (bargain_hunter, fomo_buyer)
-  candidates.push(...await checkMarketTimingAchievements(supabase, ticker, "buy"));
-
-  // Portfolio value achievements
-  candidates.push(...await checkPortfolioValueAchievements(supabase, user.id, newBalance));
-
-  // Grant new achievements with rewards
-  const { newKeys: newAchievements, totalReward } = await grantAchievements(supabase, user.id, candidates);
-
   return NextResponse.json({
     ok: true,
     ticker,
@@ -177,7 +135,6 @@ export async function POST(request: Request) {
     margin,
     borrowed,
     leverage,
-    cashBalance: newBalance + totalReward,
-    newAchievements,
+    cashBalance: newBalance,
   });
 }

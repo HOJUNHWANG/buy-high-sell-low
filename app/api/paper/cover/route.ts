@@ -1,12 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import {
-  grantAchievements,
-  checkTradeCountAchievements,
-  checkPortfolioValueAchievements,
-  checkDayTrader,
-  checkHoldAchievements,
-} from "@/lib/achievement-checker";
 
 /**
  * POST /api/paper/cover — Close (cover) a short position.
@@ -141,93 +134,6 @@ export async function POST(request: Request) {
     leverage: position.leverage ?? 1,
   });
 
-  // Check achievements
-  const candidates: string[] = [];
-
-  // "Buy High Sell Low" in reverse — covered at a loss (price went up)
-  if (realizedPnl < 0) candidates.push("buy_high_sell_low");
-
-  // Contrarian: profit $200+ from a short cover
-  if (realizedPnl >= 200) candidates.push("contrarian");
-
-  // Short squeeze: lose $500+ covering a short
-  if (realizedPnl <= -500) candidates.push("short_squeeze");
-
-  // Bear king: check total realized short profits ($1,000+)
-  const { data: coverTxs } = await supabase
-    .from("paper_transactions")
-    .select("total")
-    .eq("user_id", user.id)
-    .eq("side", "cover");
-  if (coverTxs) {
-    // total field in cover tx = netProceeds (margin + pnl), need to estimate realized profits
-    // Simplified: sum all cover totals minus sum of corresponding short margins
-    // For accuracy, we track that positive realizedPnl accumulates
-    // Use current realizedPnl + historical as proxy
-    const { data: shortTxs } = await supabase
-      .from("paper_transactions")
-      .select("total")
-      .eq("user_id", user.id)
-      .eq("side", "short");
-    const totalShortMargin = (shortTxs ?? []).reduce((s: number, t: { total: number }) => s + t.total, 0);
-    const totalCoverReturns = (coverTxs ?? []).reduce((s: number, t: { total: number }) => s + t.total, 0);
-    const totalShortProfit = totalCoverReturns - totalShortMargin;
-    if (totalShortProfit >= 1000) candidates.push("bear_king");
-  }
-
-  // Hold-based achievements
-  candidates.push(...await checkHoldAchievements(supabase, user.id, position.created_at));
-
-  // Paper Hands (covered within 24h)
-  const holdTime = Date.now() - new Date(position.created_at).getTime();
-  if (holdTime < 24 * 60 * 60 * 1000) candidates.push("paper_hands");
-
-  // Flash profit ($500+ realized on single cover)
-  if (realizedPnl >= 500) candidates.push("flash_profit");
-
-  candidates.push(...await checkTradeCountAchievements(supabase, user.id));
-  candidates.push(...await checkDayTrader(supabase, user.id));
-  candidates.push(...await checkPortfolioValueAchievements(supabase, user.id, newBalance));
-
-  // Zero to hero check
-  const { data: hasBroke } = await supabase
-    .from("paper_achievements")
-    .select("badge_key")
-    .eq("user_id", user.id)
-    .eq("badge_key", "broke")
-    .single();
-
-  if (hasBroke) {
-    const { data: allPos } = await supabase
-      .from("paper_positions")
-      .select("ticker, shares, side, avg_cost, borrowed")
-      .eq("user_id", user.id);
-    let totalVal = newBalance;
-    if (allPos && allPos.length > 0) {
-      const tickers = allPos.map((p: { ticker: string }) => p.ticker);
-      const { data: prices } = await supabase
-        .from("stock_prices")
-        .select("ticker, price")
-        .in("ticker", tickers);
-      const pm = new Map((prices ?? []).map((p: { ticker: string; price: number }) => [p.ticker, p.price]));
-      for (const pos of allPos) {
-        const curPrice = pm.get(pos.ticker) ?? 0;
-        const mv = pos.shares * curPrice;
-        const b = pos.borrowed ?? 0;
-        if (pos.side === "short") {
-          // Short equity = margin_used + (avg_cost - curPrice) × shares
-          const marginUsedPos = pos.shares * pos.avg_cost - b;
-          const pnl = (pos.avg_cost - curPrice) * pos.shares;
-          totalVal += marginUsedPos + pnl;
-        } else {
-          totalVal += mv - b;
-        }
-      }
-    }
-    if (totalVal > 5000) candidates.push("zero_to_hero");
-  }
-
-  const { newKeys: newAchievements, totalReward } = await grantAchievements(supabase, user.id, candidates);
 
   return NextResponse.json({
     ok: true,
@@ -239,7 +145,6 @@ export async function POST(request: Request) {
     marginReturned: marginUsed,
     netProceeds,
     realizedPnl,
-    cashBalance: Math.max(0, newBalance) + totalReward,
-    newAchievements,
+    cashBalance: Math.max(0, newBalance),
   });
 }

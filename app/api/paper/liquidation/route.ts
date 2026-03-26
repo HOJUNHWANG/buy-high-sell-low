@@ -43,11 +43,6 @@ export async function GET() {
         suspended_until: null,
       }).eq("user_id", user.id);
 
-      // Phoenix badge
-      await supabase.from("paper_achievements").upsert(
-        { user_id: user.id, badge_key: "phoenix" },
-        { onConflict: "user_id,badge_key" }
-      );
 
       return NextResponse.json({
         status: "restarted",
@@ -199,18 +194,6 @@ export async function GET() {
           suspended_until: suspendedUntil,
         }).eq("user_id", user.id);
 
-        // Badges
-        await supabase.from("paper_achievements").upsert(
-          { user_id: user.id, badge_key: "liquidated" },
-          { onConflict: "user_id,badge_key" }
-        );
-
-        if (newLiqCount >= 3) {
-          await supabase.from("paper_achievements").upsert(
-            { user_id: user.id, badge_key: "cockroach" },
-            { onConflict: "user_id,badge_key" }
-          );
-        }
 
         return NextResponse.json({
           status: "suspended",

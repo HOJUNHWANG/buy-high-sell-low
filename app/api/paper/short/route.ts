@@ -1,13 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import {
-  grantAchievements,
-  checkTradeCountAchievements,
-  checkPortfolioValueAchievements,
-  checkCryptoAchievements,
-  checkDayTrader,
-  checkMarketTimingAchievements,
-} from "@/lib/achievement-checker";
 
 /**
  * POST /api/paper/short — Open a short position.
@@ -146,35 +138,6 @@ export async function POST(request: Request) {
     leverage,
   });
 
-  // Check achievements
-  const candidates: string[] = [];
-  candidates.push("short_seller"); // first short
-  candidates.push(...await checkTradeCountAchievements(supabase, user.id));
-  candidates.push(...await checkCryptoAchievements(supabase, user.id, ticker));
-
-  if (margin >= cashBalance * 0.9) candidates.push("full_send");
-  if (margin < 10) candidates.push("penny_pincher");
-
-  const { count: posCount } = await supabase
-    .from("paper_positions")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id);
-  if ((posCount ?? 0) >= 5) candidates.push("diversified");
-
-  // Bear raid: 3+ concurrent short positions
-  const { count: shortCount } = await supabase
-    .from("paper_positions")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("side", "short");
-  if ((shortCount ?? 0) >= 3) candidates.push("bear_raid");
-
-  candidates.push(...await checkDayTrader(supabase, user.id));
-  candidates.push(...await checkMarketTimingAchievements(supabase, ticker, "sell"));
-  candidates.push(...await checkPortfolioValueAchievements(supabase, user.id, newBalance));
-
-  const { newKeys: newAchievements, totalReward } = await grantAchievements(supabase, user.id, candidates);
-
   return NextResponse.json({
     ok: true,
     ticker,
@@ -184,7 +147,6 @@ export async function POST(request: Request) {
     margin,
     borrowed,
     leverage,
-    cashBalance: newBalance + totalReward,
-    newAchievements,
+    cashBalance: newBalance,
   });
 }
