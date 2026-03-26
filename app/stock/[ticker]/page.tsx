@@ -7,7 +7,7 @@ import Link from "next/link";
 import { StockChart } from "@/components/StockChart";
 import { WatchlistButton } from "@/components/WatchlistButton";
 import { AdSlot } from "@/components/AdSlot";
-import { BookRecommendation } from "@/components/BookRecommendation";
+
 import { StockNewsSection } from "@/components/StockNewsSection";
 import { gateSummaries, FREE_USER_DAILY_UNLOCKS } from "@/lib/summary-gate";
 import type { UserTier } from "@/lib/summary-gate";
@@ -343,9 +343,6 @@ export default async function StockDetailPage({ params }: Props) {
               Paper Trade {stock.ticker}
             </Link>
           )}
-
-          {/* Book recommendations */}
-          <BookRecommendation />
 
           {/* Back to screener */}
           <Link

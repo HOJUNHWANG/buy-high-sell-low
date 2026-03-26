@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PaperTradeBanner } from "@/components/PaperTradeBanner";
-import { BookRecommendation } from "@/components/BookRecommendation";
 import type { PaperTransaction } from "@/lib/types";
 
 export default function PaperHistoryPage() {
@@ -151,9 +150,6 @@ export default function PaperHistoryPage() {
           )}
         </>
       )}
-      <div className="mt-8 max-w-sm mx-auto">
-        <BookRecommendation />
-      </div>
     </div>
   );
 }
