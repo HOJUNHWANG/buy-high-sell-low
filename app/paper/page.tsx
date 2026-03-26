@@ -9,6 +9,7 @@ import { PaperTradeBanner } from "@/components/PaperTradeBanner";
 import { AchievementBadge, TierHeader } from "@/components/AchievementBadge";
 import { ALL_BADGE_KEYS, TIERS_ORDERED, getBadgesByTier } from "@/lib/achievements";
 import { RoastCard } from "@/components/RoastCard";
+import { BookRecommendation } from "@/components/BookRecommendation";
 
 interface Position {
   ticker: string;
@@ -696,6 +697,10 @@ export default function PaperTradingPage() {
             </div>
           );
         })}
+      </div>
+
+      <div className="mt-8 max-w-sm mx-auto">
+        <BookRecommendation />
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import type { WhatIfScenario } from "@/lib/types";
 import { useAdBlocked } from "@/components/AdBlockDetector";
+import { BookRecommendation } from "@/components/BookRecommendation";
 
 interface SearchResult {
   ticker: string;
@@ -536,6 +537,9 @@ export default function WhatIfPage() {
           </div>
         </div>
       )}
+      <div className="mt-8 max-w-sm mx-auto">
+        <BookRecommendation />
+      </div>
     </div>
   );
 }
