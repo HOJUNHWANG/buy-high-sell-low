@@ -1,5 +1,5 @@
 """
-fetch_prices.py — Fetch S&P 500 + ETF + crypto prices from Twelve Data.
+fetch_prices.py — Fetch S&P 100 + crypto prices from Twelve Data.
 Schedule: */15 14-21 * * 1-5 (GitHub Actions, market hours filtered internally)
 """
 import os
@@ -190,7 +190,7 @@ def main():
         print("Post-market close window — fetching final closing prices...")
 
     stock_tickers = SP500_TICKERS + ETF_TICKERS
-    print(f"Fetching prices for {len(stock_tickers)} tickers ({len(SP500_TICKERS)} stocks + {len(ETF_TICKERS)} ETFs)...")
+    print(f"Fetching prices for {len(stock_tickers)} stock tickers...")
     total_fetched, all_failed = 0, []
 
     batches = [stock_tickers[i:i+BATCH_SIZE] for i in range(0, len(stock_tickers), BATCH_SIZE)]

@@ -17,8 +17,6 @@ import type { UserTier } from "@/lib/summary-gate";
 async function getMovers(): Promise<{
   stockGainers: (StockPrice & { stocks: Stock })[];
   stockLosers:  (StockPrice & { stocks: Stock })[];
-  etfGainers:   (StockPrice & { stocks: Stock })[];
-  etfLosers:    (StockPrice & { stocks: Stock })[];
   cryptoGainers: (StockPrice & { stocks: Stock })[];
   cryptoLosers:  (StockPrice & { stocks: Stock })[];
 }> {
@@ -30,24 +28,20 @@ async function getMovers(): Promise<{
       .not("change_pct", "is", null);
     const all = (data as (StockPrice & { stocks: Stock })[]) ?? [];
 
-    const stocks = all.filter((s) => !s.ticker.includes("-USD") && s.stocks?.sector !== "ETF");
-    const etfs   = all.filter((s) => s.stocks?.sector === "ETF");
+    const stocks = all.filter((s) => !s.ticker.includes("-USD"));
     const crypto = all.filter((s) => s.ticker.includes("-USD"));
 
     const sortedStocks = [...stocks].sort((a, b) => (b.change_pct ?? 0) - (a.change_pct ?? 0));
-    const sortedETFs   = [...etfs].sort((a, b) => (b.change_pct ?? 0) - (a.change_pct ?? 0));
     const sortedCrypto = [...crypto].sort((a, b) => (b.change_pct ?? 0) - (a.change_pct ?? 0));
 
     return {
       stockGainers: sortedStocks.slice(0, 5),
       stockLosers:  sortedStocks.slice(-5).reverse(),
-      etfGainers:   sortedETFs.slice(0, 5),
-      etfLosers:    sortedETFs.slice(-5).reverse(),
       cryptoGainers: sortedCrypto.slice(0, 5),
       cryptoLosers:  sortedCrypto.slice(-5).reverse(),
     };
   } catch {
-    return { stockGainers: [], stockLosers: [], etfGainers: [], etfLosers: [], cryptoGainers: [], cryptoLosers: [] };
+    return { stockGainers: [], stockLosers: [], cryptoGainers: [], cryptoLosers: [] };
   }
 }
 
@@ -98,7 +92,7 @@ export default async function HomePage() {
     unlockedIds = new Set((unlocks ?? []).map((u: { article_id: number }) => u.article_id));
   }
 
-  const [{ stockGainers, stockLosers, etfGainers, etfLosers, cryptoGainers, cryptoLosers }, rawNews] = await Promise.all([
+  const [{ stockGainers, stockLosers, cryptoGainers, cryptoLosers }, rawNews] = await Promise.all([
     getMovers(),
     getLatestNews(user ? 20 : 6),
   ]);
@@ -132,7 +126,7 @@ export default async function HomePage() {
               className="text-base sm:text-lg max-w-xl mx-auto mb-10 leading-relaxed"
               style={{ color: "var(--text-2)" }}
             >
-              Real-time S&amp;P 500, ETF &amp; crypto prices, AI-powered news analysis,
+              Real-time S&amp;P 100 &amp; crypto prices, AI-powered news analysis,
               and a full paper trading simulator — completely free.
             </p>
 
@@ -150,7 +144,7 @@ export default async function HomePage() {
 
             <div className="flex flex-wrap justify-center gap-2.5 mt-14 stagger">
               {[
-                { label: "S&P 500 + ETFs + Crypto" },
+                { label: "S&P 100 + Crypto" },
                 { label: "AI News Analysis" },
                 { label: "Paper Trading" },
                 { label: "What If Calculator" },
@@ -216,7 +210,7 @@ export default async function HomePage() {
                 </Link>
               </div>
 
-              {stockGainers.length === 0 && etfGainers.length === 0 && cryptoGainers.length === 0 ? (
+              {stockGainers.length === 0 && cryptoGainers.length === 0 ? (
                 <div
                   className="card rounded-xl px-5 py-8 text-sm text-center"
                   style={{ color: "var(--text-2)" }}
@@ -249,36 +243,6 @@ export default async function HomePage() {
                           </p>
                           <div className="space-y-1.5">
                             {stockLosers.map((m) => <MoverRow key={m.ticker} m={m} />)}
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {/* ETFs */}
-                  {etfGainers.length > 0 && (
-                    <>
-                      <p className="text-[10px] font-semibold uppercase tracking-widest mt-2"
-                        style={{ color: "var(--text-3)" }}>
-                        ETFs
-                      </p>
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1"
-                            style={{ color: "var(--up)" }}>
-                            <span>▲</span> Top Gainers
-                          </p>
-                          <div className="space-y-1.5">
-                            {etfGainers.map((m) => <MoverRow key={m.ticker} m={m} />)}
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1"
-                            style={{ color: "var(--down)" }}>
-                            <span>▼</span> Top Losers
-                          </p>
-                          <div className="space-y-1.5">
-                            {etfLosers.map((m) => <MoverRow key={m.ticker} m={m} />)}
                           </div>
                         </div>
                       </div>

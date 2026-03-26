@@ -12,7 +12,7 @@ export function Disclaimer() {
         >
           <strong style={{ color: "var(--text-2)" }}>Investment Risk Disclaimer:</strong>{" "}
           All content on Buy High Sell Low is for informational and educational purposes only and does
-          not constitute financial, investment, tax, or legal advice. S&amp;P 500, ETF, and crypto prices
+          not constitute financial, investment, tax, or legal advice. S&amp;P 100 and crypto prices
           may be delayed up to 15 minutes. Paper trading uses virtual money only and is not available
           for ETFs. Past performance
           is not indicative of future results. Always consult a qualified financial advisor before

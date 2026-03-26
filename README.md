@@ -26,7 +26,7 @@
 
 ## What is this?
 
-A free, real-time US stock market intelligence platform covering **S&P 500 + 25 ETFs + 19 Cryptocurrencies** — with AI-powered news analysis, paper trading, and a "What If" time machine.
+A free, real-time US stock market intelligence platform covering **S&P 100 + 19 Cryptocurrencies** — with AI-powered news analysis, paper trading, and a "What If" time machine.
 
 > All data is delayed. Nothing here is investment advice. You will probably lose fake money.
 
@@ -35,7 +35,7 @@ A free, real-time US stock market intelligence platform covering **S&P 500 + 25 
 ## Features
 
 ### Market Intelligence
-- **500+ tickers** with interactive candlestick charts (1D / 1W / 1M / 3M / 6M / 1Y)
+- **120+ tickers** with interactive candlestick charts (1D / 1W / 1M / 3M / 6M / 1Y)
 - Screener with market cap sorting, sector tabs, and Top Movers
 - Real-time price updates via Twelve Data API
 
@@ -124,7 +124,7 @@ Automated via GitHub Actions cron jobs:
 
 | Script | Schedule | Purpose |
 |:-------|:---------|:--------|
-| `fetch_prices.py` | Every 15 min (market hours) | Stock + ETF + crypto prices |
+| `fetch_prices.py` | Every 15 min (market hours) | Stock + crypto prices |
 | `fetch_news.py` | Every 30 min | News aggregation + AI summarization |
 | `update_market_caps.py` | Daily | Market cap refresh |
 | `cleanup.py` | Daily | Data retention (400d prices, 90d news) |

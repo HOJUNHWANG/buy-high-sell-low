@@ -45,19 +45,17 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
   });
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const initialTab = tabParam === "crypto" ? "crypto" : tabParam === "etf" ? "etf" : "stocks";
-  const [assetType, setAssetType] = useState<"stocks" | "crypto" | "etf">(initialTab);
+  const initialTab = tabParam === "crypto" ? "crypto" : "stocks";
+  const [assetType, setAssetType] = useState<"stocks" | "crypto">(initialTab);
   const [sector, setSector] = useState("All");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"table" | "grid">("table");
 
   const isCrypto = (s: StockRow) => s.sector === "Cryptocurrency";
-  const isETF = (s: StockRow) => s.sector === "ETF";
 
   const filterByTab = (s: StockRow) => {
     if (assetType === "crypto") return isCrypto(s);
-    if (assetType === "etf") return isETF(s);
-    return !isCrypto(s) && !isETF(s);
+    return !isCrypto(s);
   };
 
   const sectors = useMemo(() => {
@@ -65,7 +63,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
     stocks
       .filter(filterByTab)
       .forEach((st) => { if (st.sector) s.add(st.sector); });
-    return assetType === "crypto" || assetType === "etf" ? ["All"] : ["All", ...Array.from(s).sort()];
+    return assetType === "crypto" ? ["All"] : ["All", ...Array.from(s).sort()];
   }, [stocks, assetType]);
 
   const filtered = useMemo(() => {
@@ -123,7 +121,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
         className="flex rounded-lg overflow-hidden w-fit"
         style={{ border: "1px solid var(--border-md)", background: "var(--surface)" }}
       >
-        {(["stocks", "crypto", "etf"] as const).map((t) => (
+        {(["stocks", "crypto"] as const).map((t) => (
           <button
             key={t}
             onClick={() => { setAssetType(t); setSector("All"); }}
@@ -133,7 +131,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
               color: assetType === t ? "#fff" : "var(--text-2)",
             }}
           >
-            {t === "stocks" ? "Stocks" : t === "crypto" ? "Crypto" : "ETFs"}
+            {t === "stocks" ? "Stocks" : "Crypto"}
           </button>
         ))}
       </div>
@@ -194,7 +192,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
           </div>
 
           <span className="text-xs" style={{ color: "var(--text-3)" }}>
-            {filtered.length} {assetType === "crypto" ? "coins" : assetType === "etf" ? "ETFs" : "stocks"}
+            {filtered.length} {assetType === "crypto" ? "coins" : "stocks"}
           </span>
 
           {/* View toggle */}

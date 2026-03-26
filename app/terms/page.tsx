@@ -46,7 +46,7 @@ export default function TermsPage() {
           Market prices, percentage changes, and financial data displayed on Buy High Sell Low may
           be delayed by up to 15 minutes or more. Data is sourced from third-party providers
           (Twelve Data, NewsAPI) and is provided &quot;as-is&quot; without warranty of accuracy,
-          completeness, or timeliness. Buy High Sell Low covers S&amp;P 500 stocks, select ETFs, and
+          completeness, or timeliness. Buy High Sell Low covers S&amp;P 100 stocks and
           cryptocurrencies. ETFs are available for data viewing only and are excluded from paper
           trading and the What If calculator. Buy High Sell Low makes no guarantees about the reliability of market
           data and is not liable for decisions made based on information displayed on this site.

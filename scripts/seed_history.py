@@ -107,7 +107,7 @@ def main():
             print(f"Seeding {len(tickers)} crypto tickers")
         elif arg == "--stocks":
             tickers = SP500_TICKERS
-            print(f"Seeding {len(tickers)} S&P 500 tickers")
+            print(f"Seeding {len(tickers)} S&P 100 tickers")
         elif arg == "--all":
             tickers = ALL_TICKERS
             print(f"Seeding all {len(tickers)} tickers (stocks + crypto)")

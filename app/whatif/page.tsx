@@ -108,7 +108,7 @@ export default function WhatIfPage() {
   useEffect(() => {
     if (searchQuery.length < 1) { setSearchResults([]); return; }
     const timer = setTimeout(async () => {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}&exclude_sector=ETF`);
+      const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`);
       if (res.ok) setSearchResults(await res.json());
     }, 300);
     return () => clearTimeout(timer);

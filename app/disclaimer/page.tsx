@@ -25,7 +25,7 @@ export default function DisclaimerPage() {
             recommendation to buy, sell, or hold any security or cryptocurrency.
           </p>
           <p>
-            Market data (S&amp;P 500 stocks, ETFs, and cryptocurrencies) may be delayed by up to
+            Market data (S&amp;P 100 stocks and cryptocurrencies) may be delayed by up to
             15 minutes. Data is sourced from third-party providers and is provided &quot;as-is&quot;
             without any guarantee of accuracy, completeness, or timeliness.
           </p>

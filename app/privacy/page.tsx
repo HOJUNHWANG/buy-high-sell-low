@@ -9,7 +9,7 @@ export default function PrivacyPage() {
       <p className="text-gray-500 text-sm">Last updated: March 2026</p>
       <p className="text-sm leading-relaxed">
         Buy High Sell Low (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) operates this website as an informational
-        platform for S&amp;P 500 stock, ETF, and cryptocurrency market data, paper trading, and AI-powered
+        platform for S&amp;P 100 stock and cryptocurrency market data, paper trading, and AI-powered
         news analysis. This Privacy Policy explains how we collect, use, and protect your
         information when you visit Buy High Sell Low.
       </p>
@@ -95,7 +95,7 @@ export default function PrivacyPage() {
             </a>
           </li>
           <li>
-            <strong>Twelve Data</strong>: Financial data provider for S&amp;P 500 stocks, ETFs, and cryptocurrency
+            <strong>Twelve Data</strong>: Financial data provider for S&amp;P 100 stocks and cryptocurrency
             prices. No personal data is shared with this service.
           </li>
           <li>
