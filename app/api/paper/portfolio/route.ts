@@ -84,7 +84,9 @@ export async function GET() {
       equity,
       pnl,
       pnlPct,
-      leverage: p.leverage ?? 1,
+      leverage: borrowed > 0 && equity > 0
+        ? Math.round((marketValue / equity) * 10) / 10
+        : 1,
     };
   });
 

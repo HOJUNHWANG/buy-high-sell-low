@@ -1,20 +1,43 @@
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-export async function GET() {
-  const supabase = createSupabaseAdmin();
+const PAGE_SIZE = 20;
+
+export async function GET(request: NextRequest) {
+  const admin = createSupabaseAdmin();
+
+  // Get current user (optional — for "my rank")
+  let currentUserId: string | null = null;
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    currentUserId = user?.id ?? null;
+  } catch {
+    // not logged in — that's fine
+  }
+
+  // Parse page param
+  const pageParam = request.nextUrl.searchParams.get("page");
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
   // Get all paper accounts
-  const { data: accounts } = await supabase
+  const { data: accounts } = await admin
     .from("paper_accounts")
     .select("user_id, cash_balance");
 
   if (!accounts || accounts.length === 0) {
-    return NextResponse.json([]);
+    return NextResponse.json({
+      entries: [],
+      myRank: null,
+      totalCount: 0,
+      page: 1,
+      totalPages: 1,
+    });
   }
 
   // Get all positions (service role bypasses RLS)
-  const { data: allPositions } = await supabase
+  const { data: allPositions } = await admin
     .from("paper_positions")
     .select("user_id, ticker, shares, avg_cost, side, leverage, borrowed");
 
@@ -22,7 +45,7 @@ export async function GET() {
   const tickers = [...new Set((allPositions ?? []).map((p: { ticker: string }) => p.ticker))];
   let prices: Record<string, number> = {};
   if (tickers.length > 0) {
-    const { data: priceData } = await supabase
+    const { data: priceData } = await admin
       .from("stock_prices")
       .select("ticker, price")
       .in("ticker", tickers);
@@ -37,7 +60,6 @@ export async function GET() {
       (p: { user_id: string }) => p.user_id === acc.user_id
     );
 
-    // Calculate equity per position (same logic as portfolio API)
     const positionsEnriched = userPositions.map(
       (p: { ticker: string; shares: number; avg_cost: number; side?: string; leverage?: number; borrowed?: number }) => {
         const currentPrice = prices[p.ticker] ?? p.avg_cost;
@@ -55,10 +77,15 @@ export async function GET() {
           equity = marketValue - borrowed;
         }
 
+        // Effective leverage: marketValue / equity (dynamic, price-sensitive)
+        const effectiveLeverage = borrowed > 0 && equity > 0
+          ? Math.round((marketValue / equity) * 10) / 10
+          : 1;
+
         return {
           ticker: p.ticker,
           side: p.side ?? "long",
-          leverage: p.leverage ?? 1,
+          leverage: effectiveLeverage,
           equity,
           marketValue,
         };
@@ -66,13 +93,11 @@ export async function GET() {
     );
 
     const totalEquity = positionsEnriched.reduce(
-      (sum: number, p: { equity: number }) => sum + p.equity,
-      0
+      (sum: number, p: { equity: number }) => sum + p.equity, 0
     );
     const totalValue = acc.cash_balance + totalEquity;
     const returnPct = ((totalValue - 1000) / 1000) * 100;
 
-    // Calculate allocation % based on total portfolio value
     const positions = positionsEnriched.map(
       (p: { ticker: string; side: string; leverage: number; equity: number; marketValue: number }) => ({
         ticker: p.ticker,
@@ -98,12 +123,10 @@ export async function GET() {
     (a: { returnPct: number }, b: { returnPct: number }) => b.returnPct - a.returnPct
   );
 
-  // Add rank, limit to top 50
-  const ranked = leaderboard.slice(0, 50).map(
+  // Add ranks to all entries
+  const allRanked = leaderboard.map(
     (entry: {
-      userId: string;
-      totalValue: number;
-      returnPct: number;
+      userId: string; totalValue: number; returnPct: number;
       positionCount: number;
       positions: { ticker: string; side: string; leverage: number; allocationPct: number }[];
     }, i: number) => ({
@@ -112,7 +135,25 @@ export async function GET() {
     })
   );
 
-  return NextResponse.json(ranked, {
+  // Find current user's rank
+  const myRank = currentUserId
+    ? allRanked.find((e: { userId: string }) => e.userId === currentUserId) ?? null
+    : null;
+
+  // Paginate
+  const totalCount = allRanked.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const start = (safePage - 1) * PAGE_SIZE;
+  const entries = allRanked.slice(start, start + PAGE_SIZE);
+
+  return NextResponse.json({
+    entries,
+    myRank,
+    totalCount,
+    page: safePage,
+    totalPages,
+  }, {
     headers: { "Cache-Control": "s-maxage=30" },
   });
 }
