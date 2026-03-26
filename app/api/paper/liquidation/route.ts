@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
 /**
@@ -146,6 +147,39 @@ export async function GET() {
               total: proceeds,
             });
           }
+
+          // Snapshot portfolio to graveyard before deletion
+          const admin = createSupabaseAdmin();
+          const now = new Date();
+          const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+          const positionsSnapshot = (positions ?? []).map(
+            (pos: { ticker: string; shares: number; side?: string; avg_cost: number; borrowed?: number }) => {
+              const curPrice = prices[pos.ticker] ?? 0;
+              const borrowed = pos.borrowed ?? 0;
+              const marketValue = pos.shares * curPrice;
+              const equity = pos.side === "short"
+                ? (pos.shares * pos.avg_cost - borrowed) + (pos.avg_cost - curPrice) * pos.shares
+                : marketValue - borrowed;
+              const effectiveLeverage = borrowed > 0 && equity > 0
+                ? Math.round((marketValue / equity) * 10) / 10 : 1;
+              return {
+                ticker: pos.ticker,
+                shares: pos.shares,
+                avg_cost: pos.avg_cost,
+                side: pos.side ?? "long",
+                leverage: effectiveLeverage,
+                borrowed,
+              };
+            }
+          );
+          await admin.from("paper_graveyard").insert({
+            user_id: user.id,
+            final_value: totalValue,
+            cash_at_death: account.cash_balance,
+            positions_json: positionsSnapshot,
+            liquidated_at: now.toISOString(),
+            month,
+          });
 
           await supabase.from("paper_positions").delete().eq("user_id", user.id);
         }

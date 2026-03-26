@@ -21,10 +21,11 @@ export async function GET(request: NextRequest) {
   const pageParam = request.nextUrl.searchParams.get("page");
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  // Get all paper accounts
+  // Get active paper accounts (excluded: suspended/liquidated → they go to graveyard)
   const { data: accounts } = await admin
     .from("paper_accounts")
-    .select("user_id, cash_balance");
+    .select("user_id, cash_balance, status")
+    .in("status", ["active", "margin_call"]);
 
   if (!accounts || accounts.length === 0) {
     return NextResponse.json({
@@ -41,6 +42,25 @@ export async function GET(request: NextRequest) {
     .from("paper_positions")
     .select("user_id, ticker, shares, avg_cost, side, leverage, borrowed");
 
+  // Filter: only show users who have actually traded (have positions OR cash != $1000)
+  const usersWithPositions = new Set(
+    (allPositions ?? []).map((p: { user_id: string }) => p.user_id)
+  );
+  const activeTraders = (accounts ?? []).filter(
+    (acc: { user_id: string; cash_balance: number }) =>
+      usersWithPositions.has(acc.user_id) || acc.cash_balance !== 1000
+  );
+
+  if (activeTraders.length === 0) {
+    return NextResponse.json({
+      entries: [],
+      myRank: null,
+      totalCount: 0,
+      page: 1,
+      totalPages: 1,
+    });
+  }
+
   // Get current prices for all tickers
   const tickers = [...new Set((allPositions ?? []).map((p: { ticker: string }) => p.ticker))];
   let prices: Record<string, number> = {};
@@ -55,7 +75,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Calculate portfolio values with equity (debt subtracted)
-  const leaderboard = accounts.map((acc: { user_id: string; cash_balance: number }) => {
+  const leaderboard = activeTraders.map((acc: { user_id: string; cash_balance: number }) => {
     const userPositions = (allPositions ?? []).filter(
       (p: { user_id: string }) => p.user_id === acc.user_id
     );
