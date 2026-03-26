@@ -41,7 +41,7 @@ interface TradeResult {
   costToCover?: number;
   marginReturned?: number;
   cashBalance: number;
-  newAchievements: string[];
+
   realizedPnl?: number;
 }
 
@@ -672,9 +672,6 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
             )}
             {result.realizedPnl != null && (
               <p>P&L: {result.realizedPnl >= 0 ? "+" : ""}${result.realizedPnl.toFixed(2)}</p>
-            )}
-            {result.newAchievements.length > 0 && (
-              <p>New badge: {result.newAchievements.join(", ")}</p>
             )}
           </div>
         )}

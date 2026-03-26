@@ -1,7 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-import { grantAchievements } from "@/lib/achievement-checker";
-
 // Challenge picks are drawn from ALL tickers that have current price data in stock_prices
 
 interface Pick {
@@ -262,31 +260,7 @@ export async function POST(request: Request) {
       .update({ reward_claimed: true })
       .eq("id", challenge.id);
 
-    // Achievement checks
-    const achievementCandidates = ["challenge_done"];
 
-    const { data: recentChallenges } = await supabase
-      .from("paper_challenges")
-      .select("status, week_start")
-      .eq("user_id", user.id)
-      .eq("status", "completed")
-      .order("week_start", { ascending: false })
-      .limit(4);
-
-    if (recentChallenges && recentChallenges.length >= 4) {
-      const weeks = recentChallenges.map((c: { week_start: string }) => new Date(c.week_start).getTime());
-      const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-      let consecutive = true;
-      for (let i = 0; i < weeks.length - 1; i++) {
-        if (Math.abs(weeks[i] - weeks[i + 1] - WEEK_MS) > 2 * 24 * 60 * 60 * 1000) {
-          consecutive = false;
-          break;
-        }
-      }
-      if (consecutive) achievementCandidates.push("perfect_month");
-    }
-
-    await grantAchievements(supabase, user.id, achievementCandidates);
 
     return NextResponse.json({ ok: true, claimed: true, reward });
   }
