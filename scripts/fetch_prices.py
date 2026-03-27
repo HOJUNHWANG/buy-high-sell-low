@@ -25,8 +25,8 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 sys.path.insert(0, os.path.dirname(__file__))
 from tickers import SP500_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_crypto
 
-BATCH_SIZE = 1  # 1-by-1 for maximum stability
-CRYPTO_BATCH_SIZE = 1  # 1-by-1 for maximum stability
+BATCH_SIZE = 25  # Recommended batch size for stocks
+CRYPTO_BATCH_SIZE = 19  # Fetch all crypto in 1 batch for speed
 SLEEP_PER_TICKER = 1.2  # Seconds to wait per ticker (Grow plan: 55+ credits/min)
 
 # Configure retry strategy
@@ -69,7 +69,8 @@ def fetch_batch(tickers: list[str]) -> dict:
     # Manual URL construction to avoid potential issues with encoded '/' in crypto symbols
     url = f"https://api.twelvedata.com/quote?symbol={symbols}&apikey={TWELVE_DATA_API_KEY}"
     
-    r = http_session.get(url, timeout=20)
+    # Increased timeout to 60s for batches to handle potential server lags
+    r = http_session.get(url, timeout=60)
     r.raise_for_status()
     data = r.json()
 
@@ -182,29 +183,29 @@ def fetch_crypto_twelve_data():
     batches = [api_symbols[i:i+CRYPTO_BATCH_SIZE] for i in range(0, len(api_symbols), CRYPTO_BATCH_SIZE)]
 
     for i, batch in enumerate(batches):
-        ticker = batch[0]
         try:
-            print(f"  [{i+1}/{len(batches)}] Fetching {ticker}...")
+            print(f"  Batch {i+1}/{len(batches)}: Fetching {len(batch)} tickers...")
             results = fetch_batch(batch)
             if not results:
-                print(f"    Warning: No data for {ticker}")
-                all_failed.append(ticker)
+                print(f"    Warning: No data for batch {i+1}")
+                all_failed.extend(batch)
             else:
                 fetched, failed = upsert_prices(results, ticker_map=ticker_map)
                 total_fetched += fetched
                 all_failed.extend(failed)
             
-            # Dynamic sleep to stay within 55 credits/min
+            # Dynamic sleep based on batch size to stay within rate limits (55/min)
             if i < len(batches) - 1:
-                time.sleep(SLEEP_PER_TICKER)
+                sleep_time = len(batch) * SLEEP_PER_TICKER
+                print(f"    Waiting {sleep_time:.1f}s...")
+                time.sleep(sleep_time)
         except Exception as e:
-            # Check if it was a timeout or retry error
             err_msg = str(e)
             if "Max retries exceeded" in err_msg or "Read timed out" in err_msg:
-                print(f"    ⚠️ Timeout/Retry Error for {ticker} (Twelve Data server status: DOWN/SLOW)")
+                print(f"    ⚠️ Timeout/Retry Error for batch {i+1} (Twelve Data server status: DOWN/SLOW)")
             else:
-                print(f"    ❌ Error fetching {ticker}: {err_msg}")
-            all_failed.append(ticker)
+                print(f"    ❌ Error fetching batch {i+1}: {err_msg}")
+            all_failed.extend(batch)
 
     log_result("crypto_prices", "success" if not all_failed else "partial", total_fetched, all_failed)
     print(f"Crypto done. Fetched: {total_fetched}, Failed: {len(all_failed)}")
@@ -233,13 +234,12 @@ def main():
     batches = [stock_tickers[i:i+BATCH_SIZE] for i in range(0, len(stock_tickers), BATCH_SIZE)]
 
     for i, batch in enumerate(batches):
-        ticker = batch[0]
         try:
-            print(f"  [{i+1}/{len(batches)}] Fetching {ticker}...")
+            print(f"  Batch {i+1}/{len(batches)}: Fetching {len(batch)} tickers...")
             results = fetch_batch(batch)
             if not results:
-                print(f"    Warning: No data for {ticker}")
-                all_failed.append(ticker)
+                print(f"    Warning: No data for batch {i+1}")
+                all_failed.extend(batch)
             else:
                 fetched, failed = upsert_prices(results, force_history=post_market)
                 total_fetched += fetched
@@ -247,11 +247,15 @@ def main():
             
             # Dynamic sleep
             if i < len(batches) - 1:
-                time.sleep(SLEEP_PER_TICKER)
+                sleep_time = len(batch) * SLEEP_PER_TICKER
+                print(f"    Waiting {sleep_time:.1f}s...")
+                time.sleep(sleep_time)
         except Exception as e:
-            print(f"    Error fetching {ticker}: {e}")
-            all_failed.append(ticker)
-            print(f"  Twelve Data error: {e}")
+            err_msg = str(e)
+            if "Max retries exceeded" in err_msg or "Read timed out" in err_msg:
+                print(f"    ⚠️ Timeout/Retry Error for batch {i+1} (Twelve Data server status: DOWN/SLOW)")
+            else:
+                print(f"    ❌ Error fetching batch {i+1}: {err_msg}")
             all_failed.extend(batch)
 
     status = "success" if not all_failed else "partial"
