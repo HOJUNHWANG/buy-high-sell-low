@@ -52,10 +52,13 @@ for i in range(1, DUMMY_COUNT + 1):
         print(f"Failed to create user {email}: {e}")
         continue
 
-    # 2. Assign Nickname to paper_accounts
-    supabase.table("paper_accounts").update({
-        "nickname": nickname
-    }).eq("user_id", uid).execute()
+    # 2. Assign Nickname and initialize account to paper_accounts
+    supabase.table("paper_accounts").upsert({
+        "user_id": uid,
+        "cash_balance": 1000.0,
+        "nickname": nickname,
+        "status": "active"
+    }).execute()
 
     # 3. Randomize Strategy
     strategy = random.choice(["conservative", "growth", "crypto_degen", "degenerate", "margin_call"])

@@ -120,11 +120,18 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
             should_insert_history = len(recent.data) == 0
 
         if should_insert_history:
-            supabase.table("stock_price_history").insert({
-                "ticker": db_ticker, "price": price, "recorded_at": now,
-            }).execute()
+            try:
+                supabase.table("stock_price_history").insert({
+                    "ticker": db_ticker, "price": price, "recorded_at": now,
+                }).execute()
+            except Exception as e:
+                print(f"  Warning: failed to record to stock_price_history for {db_ticker}: {e}")
 
-        supabase.table("price_history_long").upsert(row_long, on_conflict="ticker,date").execute()
+        try:
+            supabase.table("price_history_long").upsert(row_long, on_conflict="ticker,date").execute()
+        except Exception as e:
+            # Most likely 'id' column default issue or constraint
+            print(f"  Warning: failed to record to price_history_long for {db_ticker}: {e}")
         fetched += 1
 
     return fetched, failed
@@ -166,7 +173,7 @@ def fetch_crypto_twelve_data():
             all_failed.extend(failed)
             time.sleep(BATCH_SLEEP)
         except Exception as e:
-            print(f"  Twelve Data crypto error: {e}")
+            import traceback; traceback.print_exc()
             all_failed.extend(batch)
 
     log_result("crypto_prices", "success" if not all_failed else "partial", total_fetched, all_failed)
