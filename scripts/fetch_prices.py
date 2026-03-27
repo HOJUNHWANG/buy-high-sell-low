@@ -26,13 +26,13 @@ sys.path.insert(0, os.path.dirname(__file__))
 from tickers import SP500_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_crypto
 
 BATCH_SIZE = 25  # Recommended batch size for stocks
-CRYPTO_BATCH_SIZE = 19  # Fetch all crypto in 1 batch for speed
+CRYPTO_BATCH_SIZE = 5  # <-- 수정됨: 19에서 5로 줄여서 서버 부하 완화
 SLEEP_PER_TICKER = 1.2  # Seconds to wait per ticker (Grow plan: 55+ credits/min)
 
 # Configure retry strategy
 retry_strategy = Retry(
     total=3,
-    status_forcelist=[429, 500, 502, 503, 504, 520],
+    status_forcelist=,
     allowed_methods=["HEAD", "GET", "OPTIONS"],
     backoff_factor=1  # 1s, 2s, 4s...
 )
@@ -80,7 +80,7 @@ def fetch_batch(tickers: list[str]) -> dict:
 
     # Single ticker returns flat dict, multiple returns nested
     if len(tickers) == 1:
-        return {tickers[0]: data} if "close" in data else {}
+        return {tickers: data} if "close" in data else {}
     return data
 
 
@@ -100,7 +100,7 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
 
         price = float(data["close"])
         change_pct = float(data["percent_change"]) if data.get("percent_change") not in (None, "") else None
-        volume     = int(data["volume"])            if data.get("volume")         not in (None, "") else None
+        volume     = int(data["volume"])             if data.get("volume")         not in (None, "") else None
 
         row_price = {
             "ticker":     db_ticker,
@@ -201,6 +201,7 @@ def fetch_crypto_twelve_data():
                 time.sleep(sleep_time)
         except Exception as e:
             err_msg = str(e)
+            print(f"    🚨 RAW ERROR INFO: {repr(e)}") # <-- 추가됨: 진짜 에러 메시지 출력
             if "Max retries exceeded" in err_msg or "Read timed out" in err_msg:
                 print(f"    ⚠️ Timeout/Retry Error for batch {i+1} (Twelve Data server status: DOWN/SLOW)")
             else:
@@ -252,6 +253,7 @@ def main():
                 time.sleep(sleep_time)
         except Exception as e:
             err_msg = str(e)
+            print(f"    🚨 RAW ERROR INFO: {repr(e)}") # <-- 추가됨: 주식 쪽도 진짜 에러 메시지 출력
             if "Max retries exceeded" in err_msg or "Read timed out" in err_msg:
                 print(f"    ⚠️ Timeout/Retry Error for batch {i+1} (Twelve Data server status: DOWN/SLOW)")
             else:
