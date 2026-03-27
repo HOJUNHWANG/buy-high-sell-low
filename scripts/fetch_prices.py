@@ -6,6 +6,8 @@ import os
 import sys
 import time
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import pytz
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -25,6 +27,18 @@ from tickers import SP500_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_c
 
 BATCH_SIZE = 50
 BATCH_SLEEP = 65  # seconds between batches (Grow plan: 55+ credits/min)
+
+# Configure retry strategy
+retry_strategy = Retry(
+    total=3,
+    status_forcelist=[429, 500, 502, 503, 504],
+    allowed_methods=["HEAD", "GET", "OPTIONS"],
+    backoff_factor=1  # 1s, 2s, 4s...
+)
+adapter = HTTPAdapter(max_retries=retry_strategy)
+http_session = requests.Session()
+http_session.mount("https://", adapter)
+http_session.mount("http://", adapter)
 
 
 def is_market_open() -> bool:
@@ -53,7 +67,9 @@ def fetch_batch(tickers: list[str]) -> dict:
     symbols = ",".join(tickers)
     url = "https://api.twelvedata.com/quote"
     params = {"symbol": symbols, "apikey": TWELVE_DATA_API_KEY}
-    r = requests.get(url, params=params, timeout=15)
+    
+    # Increased timeout to 30s and using session with retries
+    r = http_session.get(url, params=params, timeout=30)
     r.raise_for_status()
     data = r.json()
 
