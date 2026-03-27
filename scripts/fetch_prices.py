@@ -66,11 +66,10 @@ def is_post_market_close_window() -> bool:
 
 def fetch_batch(tickers: list[str]) -> dict:
     symbols = ",".join(tickers)
-    url = "https://api.twelvedata.com/quote"
-    params = {"symbol": symbols, "apikey": TWELVE_DATA_API_KEY}
+    # Manual URL construction to avoid potential issues with encoded '/' in crypto symbols
+    url = f"https://api.twelvedata.com/quote?symbol={symbols}&apikey={TWELVE_DATA_API_KEY}"
     
-    # Short timeout for individual symbols to avoid hanging the whole script
-    r = http_session.get(url, params=params, timeout=20)
+    r = http_session.get(url, timeout=20)
     r.raise_for_status()
     data = r.json()
 
@@ -199,10 +198,13 @@ def fetch_crypto_twelve_data():
             if i < len(batches) - 1:
                 time.sleep(SLEEP_PER_TICKER)
         except Exception as e:
-            print(f"    Error fetching {ticker}: {e}")
+            # Check if it was a timeout or retry error
+            err_msg = str(e)
+            if "Max retries exceeded" in err_msg or "Read timed out" in err_msg:
+                print(f"    ⚠️ Timeout/Retry Error for {ticker} (Twelve Data server status: DOWN/SLOW)")
+            else:
+                print(f"    ❌ Error fetching {ticker}: {err_msg}")
             all_failed.append(ticker)
-            import traceback; traceback.print_exc()
-            all_failed.extend(batch)
 
     log_result("crypto_prices", "success" if not all_failed else "partial", total_fetched, all_failed)
     print(f"Crypto done. Fetched: {total_fetched}, Failed: {len(all_failed)}")
