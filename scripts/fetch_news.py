@@ -13,6 +13,8 @@ import sys
 import json
 import time
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import feedparser
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
@@ -31,6 +33,18 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 groq     = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 sys.path.insert(0, os.path.dirname(__file__))
+
+# Configure resilient HTTP session
+retry_strategy = Retry(
+    total=3,
+    status_forcelist=[429, 500, 502, 503, 504],
+    allowed_methods=["HEAD", "GET", "OPTIONS"],
+    backoff_factor=1
+)
+adapter = HTTPAdapter(max_retries=retry_strategy)
+http_session = requests.Session()
+http_session.mount("https://", adapter)
+http_session.mount("http://", adapter)
 
 MAX_AI_PER_RUN = 200  # Groq free tier: 14,400/day, 30/min — 200/hr is safe
 
@@ -57,7 +71,8 @@ def fetch_from_newsapi() -> list[dict]:
         "pageSize": 100,
         "apiKey":   NEWSAPI_KEY,
     }
-    r = requests.get(url, params=params, timeout=15)
+    # Increased timeout and resilient session
+    r = http_session.get(url, params=params, timeout=30)
     r.raise_for_status()
     return r.json().get("articles", [])
 

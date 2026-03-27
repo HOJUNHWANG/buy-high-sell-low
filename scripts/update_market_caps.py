@@ -30,6 +30,19 @@ MANUAL_MARKET_CAPS = {
 }
 
 
+def log_result(job: str, status: str, fetched: int, failed: int, error: str = ""):
+    try:
+        supabase.table("fetch_logs").insert({
+            "job_name":        job,
+            "status":          status,
+            "records_fetched": fetched,
+            "records_failed":  failed,
+            "error_message":   error or None,
+        }).execute()
+    except Exception as e:
+        print(f"Failed to log result to Supabase: {e}")
+
+
 def main():
     print(f"Updating market caps for {len(ALL_TICKERS)} tickers...")
     updated, failed = 0, 0
@@ -59,6 +72,10 @@ def main():
         time.sleep(0.3)
 
     print(f"\nDone. Updated: {updated}, Failed: {failed}")
+    
+    # Log to Supabase
+    status = "success" if failed == 0 else "partial"
+    log_result("market_caps", status, updated, failed)
 
 
 if __name__ == "__main__":
