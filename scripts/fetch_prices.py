@@ -32,7 +32,7 @@ SLEEP_PER_TICKER = 1.2  # Seconds to wait per ticker (Grow plan: 55+ credits/min
 # Configure retry strategy
 retry_strategy = Retry(
     total=3,
-    status_forcelist=,
+    status_forcelist=[429, 500, 502, 503, 504, 520],
     allowed_methods=["HEAD", "GET", "OPTIONS"],
     backoff_factor=1  # 1s, 2s, 4s...
 )
