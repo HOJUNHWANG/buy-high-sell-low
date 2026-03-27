@@ -23,8 +23,8 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 sys.path.insert(0, os.path.dirname(__file__))
 from tickers import SP500_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_crypto
 
-BATCH_SIZE = 8
-BATCH_SLEEP = 8  # seconds between batches (free plan: 8 credits/min)
+BATCH_SIZE = 50
+BATCH_SLEEP = 65  # seconds between batches (Grow plan: 55+ credits/min)
 
 
 def is_market_open() -> bool:
@@ -71,7 +71,7 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
     """Upsert price data. ticker_map converts API symbols back to DB tickers (for crypto)."""
     fetched, failed = 0, []
     now = datetime.utcnow().isoformat()
-    cutoff = (datetime.utcnow() - timedelta(minutes=10)).isoformat()
+    cutoff = (datetime.utcnow() - timedelta(minutes=4)).isoformat()
 
     for api_ticker, data in results.items():
         if not isinstance(data, dict) or "close" not in data:
@@ -159,8 +159,8 @@ def fetch_crypto_twelve_data():
     api_symbols = [to_twelve_data_crypto(t) for t in CRYPTO_TICKERS]
     ticker_map = {to_twelve_data_crypto(t): t for t in CRYPTO_TICKERS}
 
-    # 50-min dedup guard for hourly crypto fetches
-    cutoff = (datetime.utcnow() - timedelta(minutes=50)).isoformat()
+    # 4-min dedup guard for 5-min fetches
+    cutoff = (datetime.utcnow() - timedelta(minutes=4)).isoformat()
 
     total_fetched, all_failed = 0, []
     batches = [api_symbols[i:i+BATCH_SIZE] for i in range(0, len(api_symbols), BATCH_SIZE)]
