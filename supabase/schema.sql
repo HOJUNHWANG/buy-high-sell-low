@@ -182,7 +182,6 @@ CREATE POLICY "users can read own user_profiles" ON user_profiles FOR SELECT USI
 -- Long-term price history (20Y daily OHLCV for What If feature)
 -- =========================================
 CREATE TABLE IF NOT EXISTS price_history_long (
-  id      BIGSERIAL PRIMARY KEY,
   ticker  TEXT REFERENCES stocks(ticker),
   date    DATE NOT NULL,
   open    NUMERIC,
@@ -190,7 +189,7 @@ CREATE TABLE IF NOT EXISTS price_history_long (
   low     NUMERIC,
   close   NUMERIC NOT NULL,
   volume  BIGINT,
-  UNIQUE(ticker, date)
+  PRIMARY KEY (ticker, date)
 );
 CREATE INDEX IF NOT EXISTS idx_phl_ticker_date ON price_history_long (ticker, date DESC);
 
