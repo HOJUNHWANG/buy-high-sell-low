@@ -25,13 +25,14 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 sys.path.insert(0, os.path.dirname(__file__))
 from tickers import SP500_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_crypto
 
-BATCH_SIZE = 50
-BATCH_SLEEP = 65  # seconds between batches (Grow plan: 55+ credits/min)
+BATCH_SIZE = 25  # Lowered for stability
+CRYPTO_BATCH_SIZE = 10  # Smaller batch for crypto to avoid 520 errors
+SLEEP_PER_TICKER = 1.1  # Seconds to wait per ticker (Grow plan: 55+ credits/min)
 
 # Configure retry strategy
 retry_strategy = Retry(
     total=3,
-    status_forcelist=[429, 500, 502, 503, 504],
+    status_forcelist=[429, 500, 502, 503, 504, 520],
     allowed_methods=["HEAD", "GET", "OPTIONS"],
     backoff_factor=1  # 1s, 2s, 4s...
 )
@@ -68,8 +69,8 @@ def fetch_batch(tickers: list[str]) -> dict:
     url = "https://api.twelvedata.com/quote"
     params = {"symbol": symbols, "apikey": TWELVE_DATA_API_KEY}
     
-    # Increased timeout to 30s and using session with retries
-    r = http_session.get(url, params=params, timeout=30)
+    # Increased timeout to 60s and using session with retries
+    r = http_session.get(url, params=params, timeout=60)
     r.raise_for_status()
     data = r.json()
 
@@ -179,15 +180,21 @@ def fetch_crypto_twelve_data():
     cutoff = (datetime.utcnow() - timedelta(minutes=4)).isoformat()
 
     total_fetched, all_failed = 0, []
-    batches = [api_symbols[i:i+BATCH_SIZE] for i in range(0, len(api_symbols), BATCH_SIZE)]
+    batches = [api_symbols[i:i+CRYPTO_BATCH_SIZE] for i in range(0, len(api_symbols), CRYPTO_BATCH_SIZE)]
 
-    for batch in batches:
+    for i, batch in enumerate(batches):
         try:
+            print(f"  Fetching crypto batch {i+1}/{len(batches)} ({len(batch)} tickers)...")
             results = fetch_batch(batch)
             fetched, failed = upsert_prices(results, ticker_map=ticker_map)
             total_fetched += fetched
             all_failed.extend(failed)
-            time.sleep(BATCH_SLEEP)
+            
+            # Dynamic sleep based on batch size to stay within rate limits (55/min)
+            sleep_time = len(batch) * SLEEP_PER_TICKER
+            if i < len(batches) - 1:  # Don't sleep after the last batch
+                print(f"  Waiting {sleep_time:.1f}s...")
+                time.sleep(sleep_time)
         except Exception as e:
             import traceback; traceback.print_exc()
             all_failed.extend(batch)
@@ -218,13 +225,19 @@ def main():
 
     batches = [stock_tickers[i:i+BATCH_SIZE] for i in range(0, len(stock_tickers), BATCH_SIZE)]
 
-    for batch in batches:
+    for i, batch in enumerate(batches):
         try:
+            print(f"  Fetching stock batch {i+1}/{len(batches)} ({len(batch)} tickers)...")
             results = fetch_batch(batch)
             fetched, failed = upsert_prices(results, force_history=post_market)
             total_fetched += fetched
             all_failed.extend(failed)
-            time.sleep(BATCH_SLEEP)
+            
+            # Dynamic sleep based on batch size
+            sleep_time = len(batch) * SLEEP_PER_TICKER
+            if i < len(batches) - 1:
+                print(f"  Waiting {sleep_time:.1f}s...")
+                time.sleep(sleep_time)
         except Exception as e:
             print(f"  Twelve Data error: {e}")
             all_failed.extend(batch)

@@ -2,12 +2,8 @@ name: Fetch Prices (S&P 100 + Crypto)
 
 on:
   schedule:
-    # Stocks/Crypto: every 5 min during US market hours (Mon-Fri)
-    - cron: "*/5 14-23 * * 1-5"
-    # Crypto: every 30 min outside US market hours
-    - cron: "0,30 0-13 * * 1-5"
-    # Crypto: every 30 min on weekends
-    - cron: "0,30 * * * 0,6"
+    # Everything: every 5 min, 24/7 (365 days)
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 concurrency:
