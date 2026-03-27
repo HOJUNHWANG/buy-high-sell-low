@@ -25,9 +25,9 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 sys.path.insert(0, os.path.dirname(__file__))
 from tickers import SP500_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_crypto
 
-BATCH_SIZE = 25  # Lowered for stability
-CRYPTO_BATCH_SIZE = 10  # Smaller batch for crypto to avoid 520 errors
-SLEEP_PER_TICKER = 1.1  # Seconds to wait per ticker (Grow plan: 55+ credits/min)
+BATCH_SIZE = 1  # 1-by-1 for maximum stability
+CRYPTO_BATCH_SIZE = 1  # 1-by-1 for maximum stability
+SLEEP_PER_TICKER = 1.2  # Seconds to wait per ticker (Grow plan: 55+ credits/min)
 
 # Configure retry strategy
 retry_strategy = Retry(
@@ -69,8 +69,8 @@ def fetch_batch(tickers: list[str]) -> dict:
     url = "https://api.twelvedata.com/quote"
     params = {"symbol": symbols, "apikey": TWELVE_DATA_API_KEY}
     
-    # Increased timeout to 60s and using session with retries
-    r = http_session.get(url, params=params, timeout=60)
+    # Short timeout for individual symbols to avoid hanging the whole script
+    r = http_session.get(url, params=params, timeout=20)
     r.raise_for_status()
     data = r.json()
 
@@ -183,19 +183,24 @@ def fetch_crypto_twelve_data():
     batches = [api_symbols[i:i+CRYPTO_BATCH_SIZE] for i in range(0, len(api_symbols), CRYPTO_BATCH_SIZE)]
 
     for i, batch in enumerate(batches):
+        ticker = batch[0]
         try:
-            print(f"  Fetching crypto batch {i+1}/{len(batches)} ({len(batch)} tickers)...")
+            print(f"  [{i+1}/{len(batches)}] Fetching {ticker}...")
             results = fetch_batch(batch)
-            fetched, failed = upsert_prices(results, ticker_map=ticker_map)
-            total_fetched += fetched
-            all_failed.extend(failed)
+            if not results:
+                print(f"    Warning: No data for {ticker}")
+                all_failed.append(ticker)
+            else:
+                fetched, failed = upsert_prices(results, ticker_map=ticker_map)
+                total_fetched += fetched
+                all_failed.extend(failed)
             
-            # Dynamic sleep based on batch size to stay within rate limits (55/min)
-            sleep_time = len(batch) * SLEEP_PER_TICKER
-            if i < len(batches) - 1:  # Don't sleep after the last batch
-                print(f"  Waiting {sleep_time:.1f}s...")
-                time.sleep(sleep_time)
+            # Dynamic sleep to stay within 55 credits/min
+            if i < len(batches) - 1:
+                time.sleep(SLEEP_PER_TICKER)
         except Exception as e:
+            print(f"    Error fetching {ticker}: {e}")
+            all_failed.append(ticker)
             import traceback; traceback.print_exc()
             all_failed.extend(batch)
 
@@ -226,19 +231,24 @@ def main():
     batches = [stock_tickers[i:i+BATCH_SIZE] for i in range(0, len(stock_tickers), BATCH_SIZE)]
 
     for i, batch in enumerate(batches):
+        ticker = batch[0]
         try:
-            print(f"  Fetching stock batch {i+1}/{len(batches)} ({len(batch)} tickers)...")
+            print(f"  [{i+1}/{len(batches)}] Fetching {ticker}...")
             results = fetch_batch(batch)
-            fetched, failed = upsert_prices(results, force_history=post_market)
-            total_fetched += fetched
-            all_failed.extend(failed)
+            if not results:
+                print(f"    Warning: No data for {ticker}")
+                all_failed.append(ticker)
+            else:
+                fetched, failed = upsert_prices(results, force_history=post_market)
+                total_fetched += fetched
+                all_failed.extend(failed)
             
-            # Dynamic sleep based on batch size
-            sleep_time = len(batch) * SLEEP_PER_TICKER
+            # Dynamic sleep
             if i < len(batches) - 1:
-                print(f"  Waiting {sleep_time:.1f}s...")
-                time.sleep(sleep_time)
+                time.sleep(SLEEP_PER_TICKER)
         except Exception as e:
+            print(f"    Error fetching {ticker}: {e}")
+            all_failed.append(ticker)
             print(f"  Twelve Data error: {e}")
             all_failed.extend(batch)
 
