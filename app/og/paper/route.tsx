@@ -7,9 +7,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get("user") ?? "";
 
-  const fontData = await fetch(
-    new URL("/fonts/Inter-Regular.ttf", request.url)
-  ).then((r) => r.arrayBuffer());
+  // Temporary: Disable custom font loading to prevent Edge Function crashes
+  // causing ERR_CONNECTION_RESET. Falling back to default system fonts.
 
   let totalValue = "$1,000.00";
   let returnPct = "0.00%";
@@ -111,7 +110,6 @@ export async function GET(request: Request) {
     {
       width: 1200,
       height: 630,
-      fonts: [{ name: "Inter", data: fontData, style: "normal" }],
     }
   );
 }

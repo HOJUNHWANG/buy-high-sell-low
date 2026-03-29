@@ -32,7 +32,7 @@ async function getStockData(ticker: string) {
         .from("price_history_long")
         .select("close, date")
         .eq("ticker", ticker)
-        .gte("date", new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0])
+        .gte("date", new Date(Date.now() - 20 * 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0])
         .order("date", { ascending: false }),
       supabase
         .from("news_articles")

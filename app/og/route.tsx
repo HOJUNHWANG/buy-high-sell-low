@@ -7,16 +7,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const ticker = searchParams.get("ticker") ?? "";
 
-  // Fetch font from a reliable source to avoid corrupted local headers
-  let fontData: ArrayBuffer;
-  try {
-    const fontUrl = "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZJhjpYv.woff";
-    fontData = await fetch(fontUrl).then((r) => r.arrayBuffer());
-  } catch (e) {
-    console.error("Failed to fetch font for OG image, using fallback", e);
-    // Fallback to empty buffer or similar - ImageResponse might fail but won't connection reset
-    fontData = new ArrayBuffer(0);
-  }
+  // Temporary: Disable custom font loading to prevent Edge Function crashes
+  // causing ERR_CONNECTION_RESET. Falling back to default system fonts.
 
   let name = ticker;
   let price = "N/A";
@@ -77,7 +69,6 @@ export async function GET(request: Request) {
     {
       width: 1200,
       height: 630,
-      fonts: [{ name: "Inter", data: fontData, style: "normal" }],
     }
   );
 }
