@@ -321,6 +321,11 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
       ) : (
         <div ref={chartRef} className="w-full" style={{ touchAction: "pan-y" }} />
       )}
+
+      {/* Data resolution note */}
+      <div className="px-4 py-2 text-[10px] text-center italic" style={{ borderTop: "1px solid var(--border)", color: "var(--text-3)" }}>
+        Intraday data (5m) for the last 30 days, daily close for earlier dates.
+      </div>
     </div>
   );
 }

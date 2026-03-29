@@ -31,9 +31,9 @@ def main():
     print("Running cleanup...")
     total_deleted = 0
 
-    # Delete price history older than 400 days (1Y charts + buffer)
-    cutoff_400d = (datetime.utcnow() - timedelta(days=400)).isoformat()
-    result = supabase.table("stock_price_history").delete().lt("recorded_at", cutoff_400d).execute()
+    # Delete price history older than 30 days (intraday data)
+    cutoff_30d_history = (datetime.utcnow() - timedelta(days=30)).isoformat()
+    result = supabase.table("stock_price_history").delete().lt("recorded_at", cutoff_30d_history).execute()
     deleted = len(result.data) if result.data else 0
     total_deleted += deleted
     print(f"  Price history cleanup done ({deleted} rows deleted)")

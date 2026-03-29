@@ -7,10 +7,16 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const ticker = searchParams.get("ticker") ?? "";
 
-  // Fetch font
-  const fontData = await fetch(
-    new URL("/fonts/Inter-Regular.ttf", request.url)
-  ).then((r) => r.arrayBuffer());
+  // Fetch font from a reliable source to avoid corrupted local headers
+  let fontData: ArrayBuffer;
+  try {
+    const fontUrl = "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZJhjpYv.woff";
+    fontData = await fetch(fontUrl).then((r) => r.arrayBuffer());
+  } catch (e) {
+    console.error("Failed to fetch font for OG image, using fallback", e);
+    // Fallback to empty buffer or similar - ImageResponse might fail but won't connection reset
+    fontData = new ArrayBuffer(0);
+  }
 
   let name = ticker;
   let price = "N/A";

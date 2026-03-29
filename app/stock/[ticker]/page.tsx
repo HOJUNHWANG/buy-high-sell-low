@@ -18,39 +18,65 @@ interface Props {
 
 async function getStockData(ticker: string) {
   const supabase = await createSupabaseServerClient();
-  const [stockRes, priceRes, historyRes, newsRes, affiliateRes] = await Promise.all([
-    supabase.from("stocks").select("*").eq("ticker", ticker).single(),
-    supabase.from("stock_prices").select("*").eq("ticker", ticker).single(),
-    supabase
-      .from("stock_price_history")
-      .select("price, recorded_at")
-      .eq("ticker", ticker)
-      .gte("recorded_at", new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString())
-      .order("recorded_at", { ascending: false }),  // newest first, no row cap
-    supabase
-      .from("news_articles")
-      .select("*")
-      .eq("ticker", ticker)
-      .order("published_at", { ascending: false })
-      .limit(10),
-    supabase
-      .from("affiliate_links")
-      .select("*")
-      .eq("placement", "stock_detail")
-      .eq("is_active", true)
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  try {
+    const [stockRes, priceRes, historyRes, longHistoryRes, newsRes, affiliateRes] = await Promise.all([
+      supabase.from("stocks").select("*").eq("ticker", ticker).single(),
+      supabase.from("stock_prices").select("*").eq("ticker", ticker).single(),
+      supabase
+        .from("stock_price_history")
+        .select("price, recorded_at")
+        .eq("ticker", ticker)
+        .gte("recorded_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+        .order("recorded_at", { ascending: false }),
+      supabase
+        .from("price_history_long")
+        .select("close, date")
+        .eq("ticker", ticker)
+        .gte("date", new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0])
+        .order("date", { ascending: false }),
+      supabase
+        .from("news_articles")
+        .select("*")
+        .eq("ticker", ticker)
+        .order("published_at", { ascending: false })
+        .limit(10),
+      supabase
+        .from("affiliate_links")
+        .select("*")
+        .eq("placement", "stock_detail")
+        .eq("is_active", true)
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
-  const news = (newsRes.data ?? []) as NewsArticle[];
+    const intraday = (historyRes?.data ?? []) as StockPriceHistory[];
+    const daily = (longHistoryRes?.data ?? []).map((d: any) => ({
+      price: d.close,
+      recorded_at: d.date,
+    })) as StockPriceHistory[];
 
-  return {
-    stock:     stockRes.data as Stock | null,
-    price:     priceRes.data as StockPrice | null,
-    history:   (historyRes.data ?? []) as StockPriceHistory[],
-    news,
-    affiliate: affiliateRes.data as AffiliateLink | null,
-  };
+    // Combined history logic: Intraday (most recent) + Daily fallback
+    const oldestIntraday = intraday.length > 0
+      ? new Date(intraday[intraday.length - 1].recorded_at)
+      : new Date();
+    
+    const dailyFiltered = daily.filter(d => d.recorded_at && new Date(d.recorded_at) < oldestIntraday);
+
+    const history = [...intraday, ...dailyFiltered].sort(
+      (a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
+    );
+
+    return {
+      stock:     stockRes.data as Stock | null,
+      price:     priceRes.data as StockPrice | null,
+      history,
+      news:      (newsRes.data ?? []) as NewsArticle[],
+      affiliate: affiliateRes.data as AffiliateLink | null,
+    };
+  } catch (err) {
+    console.error("Error in getStockData:", err);
+    return { stock: null, price: null, history: [], news: [], affiliate: null };
+  }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
