@@ -102,7 +102,7 @@ export async function POST(request: Request) {
 
   // Update or delete position
   const remainingShares = position.shares - shares;
-  if (remainingShares <= 0) {
+  if (remainingShares <= 0.000001) {
     await supabase
       .from("paper_positions")
       .delete()

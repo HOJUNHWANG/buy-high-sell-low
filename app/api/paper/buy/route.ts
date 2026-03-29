@@ -64,7 +64,9 @@ export async function POST(request: Request) {
     cashBalance = account.cash_balance;
   }
 
-  if (margin > cashBalance) {
+  // Use a small epsilon (0.01) to handle floating point precision issues
+  // or allow for very small rounding differences.
+  if (margin > cashBalance + 0.01) {
     return NextResponse.json({
       error: `Insufficient margin. Need $${margin.toFixed(2)} but only have $${cashBalance.toFixed(2)}`,
     }, { status: 400 });

@@ -24,7 +24,8 @@ export async function GET() {
   const { data: positions } = await supabase
     .from("paper_positions")
     .select("*")
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .gt("shares", 0);
 
   // Get current prices for held tickers
   const tickers = (positions ?? []).map((p: { ticker: string }) => p.ticker);
