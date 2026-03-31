@@ -108,12 +108,13 @@ export async function GET() {
       if (elapsed >= 24 * 60 * 60 * 1000) {
         // FORCE LIQUIDATE
         // Close all positions (sell longs, cover shorts)
+        let prices: Record<string, number> = {};
         if (tickers.length > 0) {
           const { data: priceData } = await supabase
             .from("stock_prices")
             .select("ticker, price")
             .in("ticker", tickers);
-          const prices = Object.fromEntries(
+          prices = Object.fromEntries(
             (priceData ?? []).map((p: { ticker: string; price: number }) => [p.ticker, p.price])
           );
 
@@ -143,46 +144,45 @@ export async function GET() {
             });
           }
 
-          // Snapshot portfolio to graveyard before deletion
-          const admin = createSupabaseAdmin();
-          const now = new Date();
-          const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-          const positionsSnapshot = (positions ?? []).map(
-            (pos: { ticker: string; shares: number; side?: string; avg_cost: number; borrowed?: number }) => {
-              const curPrice = prices[pos.ticker] ?? 0;
-              const borrowed = pos.borrowed ?? 0;
-              const marketValue = pos.shares * curPrice;
-              const equity = pos.side === "short"
-                ? (pos.shares * pos.avg_cost - borrowed) + (pos.avg_cost - curPrice) * pos.shares
-                : marketValue - borrowed;
-              const effectiveLeverage = borrowed > 0 && equity > 0
-                ? Math.round((marketValue / equity) * 10) / 10 : 1;
-              return {
-                ticker: pos.ticker,
-                shares: pos.shares,
-                avg_cost: pos.avg_cost,
-                side: pos.side ?? "long",
-                leverage: effectiveLeverage,
-                borrowed,
-              };
-            }
-          );
-          await admin.from("paper_graveyard").insert({
-            user_id: user.id,
-            final_value: totalValue,
-            cash_at_death: account.cash_balance,
-            positions_json: positionsSnapshot,
-            liquidated_at: now.toISOString(),
-            month,
-          });
-
           await supabase.from("paper_positions").delete().eq("user_id", user.id);
         }
 
+        // Snapshot portfolio to graveyard (even if no positions)
+        const admin = createSupabaseAdmin();
+        const now2 = new Date();
+        const month = `${now2.getFullYear()}-${String(now2.getMonth() + 1).padStart(2, "0")}`;
+        const positionsSnapshot = (positions ?? []).map(
+          (pos: { ticker: string; shares: number; side?: string; avg_cost: number; borrowed?: number }) => {
+            const curPrice = prices[pos.ticker] ?? 0;
+            const borrowed = pos.borrowed ?? 0;
+            const marketValue = pos.shares * curPrice;
+            const equity = pos.side === "short"
+              ? (pos.shares * pos.avg_cost - borrowed) + (pos.avg_cost - curPrice) * pos.shares
+              : marketValue - borrowed;
+            const effectiveLeverage = borrowed > 0 && equity > 0
+              ? Math.round((marketValue / equity) * 10) / 10 : 1;
+            return {
+              ticker: pos.ticker,
+              shares: pos.shares,
+              avg_cost: pos.avg_cost,
+              side: pos.side ?? "long",
+              leverage: effectiveLeverage,
+              borrowed,
+            };
+          }
+        );
+        await admin.from("paper_graveyard").insert({
+          user_id: user.id,
+          final_value: totalValue,
+          cash_at_death: account.cash_balance,
+          positions_json: positionsSnapshot,
+          liquidated_at: now2.toISOString(),
+          month,
+        });
+
         // Liquidation = immediately suspended until next month. No revive.
         const newLiqCount = account.liquidation_count + 1;
-        const now = new Date();
-        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const nextMonth = new Date(now2.getFullYear(), now2.getMonth() + 1, 1);
         const suspendedUntil = nextMonth.toISOString().split("T")[0];
 
         // Keep whatever cash remains (check-in rewards preserved)
@@ -190,7 +190,7 @@ export async function GET() {
           status: "suspended",
           margin_call_at: null,
           liquidation_count: newLiqCount,
-          last_liquidation_at: now.toISOString(),
+          last_liquidation_at: now2.toISOString(),
           suspended_until: suspendedUntil,
         }).eq("user_id", user.id);
 

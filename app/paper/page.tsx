@@ -225,37 +225,73 @@ export default function PaperTradingPage() {
     );
   }
 
-  // Suspended state
-  if (liqStatus?.status === "suspended") {
+  // Suspended / Liquidated state — show info but allow check-in and leaderboard access
+  if (liqStatus?.status === "suspended" || liqStatus?.status === "liquidated") {
+    const isSuspended = liqStatus?.status === "suspended";
     return (
-      <div className="max-w-2xl mx-auto px-5 py-16 text-center space-y-4 fade-up">
+      <div className="max-w-2xl mx-auto px-5 py-8 space-y-6 fade-up">
         <PaperTradeBanner />
-        <div className="text-5xl">&#x1F6AB;</div>
-        <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Account Suspended</h1>
-        <p className="text-sm" style={{ color: "var(--text-2)" }}>{liqStatus.message}</p>
-        <p className="text-xs" style={{ color: "var(--text-3)" }}>
-          You&apos;ll automatically restart with $1,000 on {liqStatus.suspendedUntil}.
-        </p>
-      </div>
-    );
-  }
+        <div className="text-center space-y-3">
+          <div className="text-5xl">{isSuspended ? "\u{1F6AB}" : "\u{1F480}"}</div>
+          <h1 className="text-2xl font-bold" style={{ color: isSuspended ? "var(--text)" : "var(--down)" }}>
+            {isSuspended ? "Account Suspended" : "LIQUIDATED"}
+          </h1>
+          <p className="text-sm" style={{ color: "var(--text-2)" }}>{liqStatus.message}</p>
+          {liqStatus.suspendedUntil && (
+            <p className="text-xs" style={{ color: "var(--text-3)" }}>
+              Trading resumes {liqStatus.suspendedUntil}. Balance topped up to $1,000 if below.
+            </p>
+          )}
+          {liqStatus.cashBalance != null && (
+            <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+              Current Balance: ${liqStatus.cashBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          )}
+        </div>
 
-  // Liquidated / suspended state
-  if (liqStatus?.status === "liquidated" || liqStatus?.status === "suspended") {
-    return (
-      <div className="max-w-2xl mx-auto px-5 py-16 text-center space-y-4 fade-up">
-        <PaperTradeBanner />
-        <div className="text-5xl">&#x1F480;</div>
-        <h1 className="text-2xl font-bold" style={{ color: "var(--down)" }}>LIQUIDATED</h1>
-        <p className="text-sm" style={{ color: "var(--text-2)" }}>{liqStatus.message}</p>
-        {liqStatus.suspendedUntil && (
-          <p className="text-xs" style={{ color: "var(--text-3)" }}>
-            Trading resumes {liqStatus.suspendedUntil}
-          </p>
-        )}
-        <p className="text-xs" style={{ color: "var(--up)" }}>
+        {/* Daily Check-in */}
+        <div className="flex justify-center">
+          {checkinDone ? (
+            <div className="px-4 py-2 rounded-lg text-xs font-medium"
+              style={{ background: "var(--surface-2)", color: "var(--text-3)" }}>
+              {checkinResult ? (
+                <span style={{ color: "var(--up)" }}>
+                  +{formatMoney(checkinResult.reward)} | &#x1F525; {checkinResult.streak}-day streak
+                  {checkinResult.bonusMessage}
+                </span>
+              ) : (
+                <span>&#x2705; Checked in today | &#x1F525; {portfolio?.streak ?? 0}-day streak</span>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={handleCheckin}
+              className="btn btn-primary btn-sm animate-pulse"
+              style={{ background: "linear-gradient(135deg, var(--accent), #4ade80)" }}
+            >
+              Daily Check-in
+            </button>
+          )}
+        </div>
+
+        <p className="text-xs text-center" style={{ color: "var(--up)" }}>
           Daily check-ins still earn cash — build up your balance for next month!
         </p>
+
+        {/* Leaderboard link */}
+        <Link
+          href="/paper/leaderboard"
+          className="card-clickable rounded-xl p-4 flex items-center justify-between mx-auto max-w-sm"
+        >
+          <div>
+            <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Leaderboard</p>
+            <p className="text-[11px]" style={{ color: "var(--text-3)" }}>See how others are doing</p>
+          </div>
+          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"
+            style={{ color: "var(--text-3)" }}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
       </div>
     );
   }

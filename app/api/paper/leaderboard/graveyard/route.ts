@@ -32,6 +32,19 @@ export async function GET(request: NextRequest) {
     .order("liquidated_at", { ascending: false })
     .range(start, start + PAGE_SIZE - 1);
 
+  // Fetch nicknames for graveyard entries
+  const userIds = (entries ?? []).map((e: { user_id: string }) => e.user_id);
+  let nicknames: Record<string, string | null> = {};
+  if (userIds.length > 0) {
+    const { data: accounts } = await admin
+      .from("paper_accounts")
+      .select("user_id, nickname")
+      .in("user_id", userIds);
+    nicknames = Object.fromEntries(
+      (accounts ?? []).map((a: { user_id: string; nickname: string | null }) => [a.user_id, a.nickname])
+    );
+  }
+
   const formatted = (entries ?? []).map((e: {
     id: number;
     user_id: string;
@@ -42,6 +55,7 @@ export async function GET(request: NextRequest) {
   }, i: number) => ({
     rank: start + i + 1,
     userId: e.user_id,
+    nickname: nicknames[e.user_id] ?? null,
     finalValue: e.final_value,
     cashAtDeath: e.cash_at_death,
     positions: e.positions_json ?? [],
