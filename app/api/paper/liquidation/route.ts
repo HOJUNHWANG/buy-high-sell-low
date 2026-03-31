@@ -26,47 +26,62 @@ export async function GET() {
 
   if (!account) return NextResponse.json({ status: "no_account" });
 
-  // Check if suspended and if suspension has expired
-  if (account.status === "suspended" && account.suspended_until) {
+  // Check if suspended/liquidated
+  if (account.status === "suspended" || account.status === "liquidated") {
+    const admin = createSupabaseAdmin();
     const now = new Date();
-    const suspendedUntil = new Date(account.suspended_until);
-    if (now >= suspendedUntil) {
-      // Auto-restart: top up to $1,000 if below (check-in cash preserved)
-      const currentCash = account.cash_balance ?? 0;
-      const newBalance = currentCash < 1000 ? 1000 : currentCash;
-      const added = newBalance - currentCash;
-      await supabase.from("paper_positions").delete().eq("user_id", user.id);
-      await supabase.from("paper_accounts").update({
-        cash_balance: newBalance,
-        status: "active",
-        margin_call_at: null,
-        suspended_until: null,
-      }).eq("user_id", user.id);
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
+    // Ensure this user has a graveyard entry for the current month
+    const { count: gyCount } = await admin
+      .from("paper_graveyard")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("month", currentMonth);
 
-      return NextResponse.json({
-        status: "restarted",
-        message: added > 0
-          ? `Suspension ended. Topped up +$${added.toFixed(0)} to $1,000!`
-          : `Suspension ended. You already have $${newBalance.toFixed(2)} — no top-up needed.`,
-        cashBalance: newBalance,
+    if ((gyCount ?? 0) === 0) {
+      // Backfill graveyard entry for users who were suspended without one
+      await admin.from("paper_graveyard").insert({
+        user_id: user.id,
+        final_value: account.cash_balance ?? 0,
+        cash_at_death: account.cash_balance ?? 0,
+        positions_json: [],
+        liquidated_at: (account.last_liquidation_at ?? now.toISOString()),
+        month: currentMonth,
       });
     }
-    return NextResponse.json({
-      status: "suspended",
-      suspendedUntil: account.suspended_until,
-      cashBalance: account.cash_balance,
-      message: `Account suspended until ${account.suspended_until}. Daily check-ins still earn cash! Balance topped up to $1,000 on revival.`,
-    });
-  }
 
-  if (account.status === "liquidated" || account.status === "suspended") {
-    // Liquidation = suspended until next month. No revive option.
+    // Check if suspension has expired
+    if (account.suspended_until) {
+      const suspendedUntil = new Date(account.suspended_until);
+      if (now >= suspendedUntil) {
+        // Auto-restart: top up to $1,000 if below (check-in cash preserved)
+        const currentCash = account.cash_balance ?? 0;
+        const newBalance = currentCash < 1000 ? 1000 : currentCash;
+        const added = newBalance - currentCash;
+        await supabase.from("paper_positions").delete().eq("user_id", user.id);
+        await supabase.from("paper_accounts").update({
+          cash_balance: newBalance,
+          status: "active",
+          margin_call_at: null,
+          suspended_until: null,
+        }).eq("user_id", user.id);
+
+        return NextResponse.json({
+          status: "restarted",
+          message: added > 0
+            ? `Suspension ended. Topped up +$${added.toFixed(0)} to $1,000!`
+            : `Suspension ended. You already have $${newBalance.toFixed(2)} — no top-up needed.`,
+          cashBalance: newBalance,
+        });
+      }
+    }
+
     return NextResponse.json({
       status: "suspended",
       suspendedUntil: account.suspended_until,
       cashBalance: account.cash_balance,
-      message: `Liquidated. Suspended until ${account.suspended_until ?? "next month"}. Daily check-ins still earn cash!`,
+      message: `Account suspended until ${account.suspended_until ?? "next month"}. Daily check-ins still earn cash! Balance topped up to $1,000 on revival.`,
     });
   }
 
