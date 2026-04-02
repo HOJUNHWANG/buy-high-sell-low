@@ -101,13 +101,38 @@ export default function PaperTradingPage() {
   const [newNickname, setNewNickname] = useState("");
   const [updatingNickname, setUpdatingNickname] = useState(false);
   const [nicknameError, setNicknameError] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminMsg, setAdminMsg] = useState("");
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) router.push("/auth/login");
-      else { setAuthed(true); setUserId(user.id); }
+      else {
+        setAuthed(true);
+        setUserId(user.id);
+        setIsAdmin(user.email === "adind96@gmail.com");
+      }
     });
   }, [supabase, router]);
+
+  async function handleAdminRevive() {
+    const res = await fetch("/api/paper/admin/revive", { method: "POST" });
+    if (res.ok) { setAdminMsg("Revived!"); loadAll(); setTimeout(() => setAdminMsg(""), 2000); }
+  }
+
+  async function handleAdminAdjust(delta: number) {
+    const res = await fetch("/api/paper/admin/adjust", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ delta }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setAdminMsg(`Balance: $${data.cashBalance.toFixed(2)}`);
+      loadAll();
+      setTimeout(() => setAdminMsg(""), 2000);
+    }
+  }
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -277,6 +302,21 @@ export default function PaperTradingPage() {
         <p className="text-xs text-center" style={{ color: "var(--up)" }}>
           Daily check-ins still earn cash — build up your balance for next month!
         </p>
+
+        {/* Admin: force revive */}
+        {isAdmin && (
+          <div className="rounded-xl p-4 space-y-2 text-center"
+            style={{ background: "rgba(124,108,252,0.08)", border: "1px dashed rgba(124,108,252,0.4)" }}>
+            <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--accent)" }}>
+              ⚡ Admin
+            </p>
+            <button onClick={handleAdminRevive} className="btn btn-sm"
+              style={{ background: "var(--accent)", color: "#fff" }}>
+              Force Revive
+            </button>
+            {adminMsg && <p className="text-xs font-medium" style={{ color: "var(--accent)" }}>{adminMsg}</p>}
+          </div>
+        )}
 
         {/* Leaderboard link */}
         <Link
@@ -717,6 +757,33 @@ export default function PaperTradingPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Admin Panel */}
+          {isAdmin && (
+            <div className="card rounded-xl p-4 space-y-3"
+              style={{ border: "1px dashed rgba(124,108,252,0.4)" }}>
+              <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--accent)" }}>
+                ⚡ Admin
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleAdminAdjust(1000)}
+                  className="btn btn-sm flex-1"
+                  style={{ background: "rgba(74,222,128,0.15)", color: "var(--up)", border: "1px solid rgba(74,222,128,0.3)" }}
+                >
+                  +$1,000
+                </button>
+                <button
+                  onClick={() => handleAdminAdjust(-1000)}
+                  className="btn btn-sm flex-1"
+                  style={{ background: "rgba(248,113,113,0.15)", color: "var(--down)", border: "1px solid rgba(248,113,113,0.3)" }}
+                >
+                  −$1,000
+                </button>
+              </div>
+              {adminMsg && <p className="text-xs font-medium text-center" style={{ color: "var(--accent)" }}>{adminMsg}</p>}
             </div>
           )}
 
