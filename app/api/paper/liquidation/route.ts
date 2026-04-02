@@ -30,14 +30,19 @@ export async function GET() {
   if (account.status === "suspended" || account.status === "liquidated") {
     const admin = createSupabaseAdmin();
     const now = new Date();
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-    // Ensure this user has a graveyard entry for the current month
+    // Backfill: use the actual liquidation date's month, not current month.
+    // Using current month would re-insert a graveyard entry every new month for old liquidations.
+    const liqDate = account.last_liquidation_at
+      ? new Date(account.last_liquidation_at)
+      : now;
+    const liqMonth = `${liqDate.getFullYear()}-${String(liqDate.getMonth() + 1).padStart(2, "0")}`;
+
     const { count: gyCount } = await admin
       .from("paper_graveyard")
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
-      .eq("month", currentMonth);
+      .eq("month", liqMonth);
 
     if ((gyCount ?? 0) === 0) {
       // Backfill graveyard entry for users who were suspended without one
@@ -46,8 +51,8 @@ export async function GET() {
         final_value: account.cash_balance ?? 0,
         cash_at_death: account.cash_balance ?? 0,
         positions_json: [],
-        liquidated_at: (account.last_liquidation_at ?? now.toISOString()),
-        month: currentMonth,
+        liquidated_at: liqDate.toISOString(),
+        month: liqMonth,
       });
     }
 
