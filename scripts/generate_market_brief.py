@@ -73,16 +73,22 @@ def fetch_recent_news(hours: int = 24) -> list[dict]:
     return result.data or []
 
 
+CRYPTO_TICKERS = [
+    "BTC-USD", "ETH-USD", "USDT-USD", "BNB-USD", "SOL-USD", "XRP-USD",
+    "ADA-USD", "DOGE-USD", "AVAX-USD", "DOT-USD",
+    "LINK-USD", "ATOM-USD", "LTC-USD", "FIL-USD",
+    "NEAR-USD", "APT-USD", "ARB-USD", "OP-USD", "AAVE-USD",
+]
+
+
 def fetch_crypto_prices() -> list[dict]:
-    crypto_tickers = [
-        "BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "XRP-USD",
-        "DOGE-USD", "ADA-USD", "AVAX-USD",
-    ]
     result = supabase.table("stock_prices") \
         .select("ticker, price, change_pct") \
-        .in_("ticker", crypto_tickers) \
+        .in_("ticker", CRYPTO_TICKERS) \
         .execute()
-    return result.data or []
+    # Return in defined order
+    price_map = {r["ticker"]: r for r in (result.data or [])}
+    return [price_map[t] for t in CRYPTO_TICKERS if t in price_map]
 
 
 def compute_sentiment_breakdown(news: list[dict]) -> dict:
@@ -109,7 +115,7 @@ def generate_brief(gainers: list[dict], losers: list[dict],
     )
     crypto_str = "\n".join(
         f"  {c['ticker']}: {'+' if (c['change_pct'] or 0) >= 0 else ''}{(c['change_pct'] or 0):.2f}% @ ${c['price']:.2f}"
-        for c in crypto
+        for c in crypto[:19]
     )
     headlines = "\n".join(f"- {n['title']}" for n in news[:20])
 
@@ -183,6 +189,7 @@ def main():
         "bullets":             brief.get("bullets", []),
         "crypto_notes":        brief.get("crypto_notes", ""),
         "sector_notes":        brief.get("sector_notes", ""),
+        "crypto_prices":       crypto,
         "top_gainers":         gainers[:5],
         "top_losers":          losers[:5],
         "sentiment_breakdown": sentiment_breakdown,

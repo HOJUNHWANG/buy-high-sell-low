@@ -14,6 +14,12 @@ interface Mover {
   change_pct: number;
 }
 
+interface CryptoPrice {
+  ticker: string;
+  price: number;
+  change_pct: number | null;
+}
+
 interface MarketBrief {
   date: string;
   headline: string;
@@ -22,6 +28,7 @@ interface MarketBrief {
   bullets: string[];
   crypto_notes: string;
   sector_notes: string;
+  crypto_prices: CryptoPrice[];
   top_gainers: Mover[];
   top_losers: Mover[];
   sentiment_breakdown: { positive: number; neutral: number; negative: number; unknown: number };
@@ -77,6 +84,45 @@ function MoverCard({ mover, isGainer }: { mover: Mover; isGainer: boolean }) {
         </span>
       </div>
     </Link>
+  );
+}
+
+function CryptoGrid({ prices }: { prices: CryptoPrice[] }) {
+  return (
+    <div className="card rounded-xl p-5 space-y-3">
+      <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#f97316" }}>
+        Crypto Prices
+      </p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {prices.map((c) => {
+          const pct = c.change_pct ?? 0;
+          const isUp = pct >= 0;
+          const color = c.ticker === "USDT-USD" ? "var(--text-3)" : isUp ? "var(--up)" : "var(--down)";
+          const bg    = c.ticker === "USDT-USD" ? "var(--surface-3)" : isUp ? "var(--up-dim)" : "var(--down-dim)";
+          const symbol = c.ticker.replace("-USD", "");
+          return (
+            <div key={c.ticker}
+              className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg"
+              style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+              <span className="text-xs font-bold" style={{ color: "var(--text)" }}>{symbol}</span>
+              <div className="text-right">
+                <p className="text-[10px] tabular-nums" style={{ color: "var(--text-2)" }}>
+                  ${c.price >= 1000
+                    ? c.price.toLocaleString("en-US", { maximumFractionDigits: 0 })
+                    : c.price < 0.01
+                    ? c.price.toFixed(5)
+                    : c.price.toFixed(2)}
+                </p>
+                <span className="text-[9px] font-bold px-1 py-0.5 rounded tabular-nums"
+                  style={{ background: bg, color }}>
+                  {isUp ? "+" : ""}{pct.toFixed(2)}%
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -213,6 +259,11 @@ export default async function MarketBriefPage() {
               </div>
             </div>
           </div>
+
+          {/* Crypto Prices Grid */}
+          {brief.crypto_prices?.length > 0 && (
+            <CryptoGrid prices={brief.crypto_prices} />
+          )}
 
           {/* Crypto Notes */}
           {brief.crypto_notes && (
