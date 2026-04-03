@@ -14,9 +14,9 @@ export async function POST(request: Request) {
   }
 
   const ticker = body.ticker as string | undefined;
-  const shares = body.shares;
+  let shares = body.shares as number;
 
-  if (!ticker || typeof shares !== "number" || !isFinite(shares) || shares <= 0) {
+  if (!ticker || !isFinite(shares) || shares <= 0) {
     return NextResponse.json({ error: "ticker and shares (> 0) are required" }, { status: 400 });
   }
 
@@ -31,21 +31,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Account suspended. Trading resumes next month." }, { status: 403 });
   }
 
-  // Get position (including margin data)
+  // Get long position only (must filter side to avoid collision with short on same ticker)
   const { data: position } = await supabase
     .from("paper_positions")
     .select("shares, avg_cost, borrowed, leverage, created_at")
     .eq("user_id", user.id)
     .eq("ticker", ticker)
+    .eq("side", "long")
     .single();
 
-  if (!position || position.shares < shares) {
+  // Allow tiny epsilon for floating-point rounding (dollar→shares conversion)
+  if (!position || position.shares < shares - 0.000001) {
     return NextResponse.json({
       error: position
         ? `Only have ${position.shares} shares of ${ticker}`
         : `No position in ${ticker}`,
     }, { status: 400 });
   }
+  if (shares > position.shares) shares = position.shares;
 
   // Get current price
   const { data: priceData } = await supabase
@@ -94,7 +97,8 @@ export async function POST(request: Request) {
       .from("paper_positions")
       .delete()
       .eq("user_id", user.id)
-      .eq("ticker", ticker);
+      .eq("ticker", ticker)
+      .eq("side", "long");
   } else {
     const remainingBorrowed = (position.borrowed ?? 0) - borrowedRepay;
     await supabase
@@ -105,7 +109,8 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString(),
       })
       .eq("user_id", user.id)
-      .eq("ticker", ticker);
+      .eq("ticker", ticker)
+      .eq("side", "long");
   }
 
   // Record transaction

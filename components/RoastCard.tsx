@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 
-interface RoastResult {
-  roast: string;
+interface AnalysisResult {
   grade: string;
   nickname: string;
+  summary: string;
+  strengths: string[];
+  risks: string[];
+  suggestion: string;
 }
 
 const GRADE_COLORS: Record<string, string> = {
@@ -17,12 +20,12 @@ const GRADE_COLORS: Record<string, string> = {
 };
 
 export function RoastCard() {
-  const [result, setResult] = useState<RoastResult | null>(null);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [used, setUsed] = useState(false);
 
-  async function getRoasted() {
+  async function analyze() {
     setLoading(true);
     setError("");
     try {
@@ -36,64 +39,111 @@ export function RoastCard() {
       setResult(data);
       setUsed(true);
     } catch {
-      setError("Failed to generate roast");
+      setError("Analysis failed. Try again.");
     } finally {
       setLoading(false);
     }
   }
 
+  const gradeColor = GRADE_COLORS[result?.grade ?? ""] ?? "var(--text-3)";
+
   return (
     <div className="card rounded-xl overflow-hidden">
-      <div className="p-4">
-        <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-3)" }}>
-          AI Portfolio Roast
-        </p>
+      <div className="p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>
+            AI Portfolio Analysis
+          </p>
+          {result && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold"
+              style={{ background: "var(--surface-3)", color: "var(--text-3)" }}>
+              1/day
+            </span>
+          )}
+        </div>
 
         {result ? (
           <div className="space-y-3">
             {/* Grade + Nickname */}
             <div className="flex items-center gap-3">
               <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-black"
+                className="w-14 h-14 rounded-xl flex items-center justify-center text-xl font-black shrink-0"
                 style={{
-                  background: `${GRADE_COLORS[result.grade] ?? "var(--text-3)"}20`,
-                  color: GRADE_COLORS[result.grade] ?? "var(--text-3)",
-                  border: `1px solid ${GRADE_COLORS[result.grade] ?? "var(--text-3)"}40`,
+                  background: `${gradeColor}18`,
+                  color: gradeColor,
+                  border: `1px solid ${gradeColor}35`,
                 }}
               >
                 {result.grade}
               </div>
               <div>
-                <p className="text-xs font-medium" style={{ color: "var(--text-2)" }}>Your trader name:</p>
+                <p className="text-[10px]" style={{ color: "var(--text-3)" }}>Trading Style</p>
                 <p className="text-sm font-bold" style={{ color: "var(--text)" }}>
                   &ldquo;{result.nickname}&rdquo;
                 </p>
               </div>
             </div>
 
-            {/* Roast text */}
-            <p className="text-xs leading-relaxed italic" style={{ color: "var(--text-2)" }}>
-              &ldquo;{result.roast}&rdquo;
+            {/* Summary */}
+            <p className="text-xs leading-relaxed" style={{ color: "var(--text-2)" }}>
+              {result.summary}
             </p>
 
+            {/* Strengths */}
+            {result.strengths.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#4ade80" }}>
+                  Strengths
+                </p>
+                {result.strengths.map((s, i) => (
+                  <div key={i} className="flex items-start gap-1.5">
+                    <span className="mt-0.5 shrink-0 text-[10px]" style={{ color: "#4ade80" }}>✓</span>
+                    <p className="text-xs" style={{ color: "var(--text-2)" }}>{s}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Risks */}
+            {result.risks.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--down)" }}>
+                  Risks
+                </p>
+                {result.risks.map((r, i) => (
+                  <div key={i} className="flex items-start gap-1.5">
+                    <span className="mt-0.5 shrink-0 text-[10px]" style={{ color: "var(--down)" }}>⚠</span>
+                    <p className="text-xs" style={{ color: "var(--text-2)" }}>{r}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Suggestion */}
+            {result.suggestion && (
+              <div className="rounded-lg p-2.5"
+                style={{ background: "var(--accent-dim)", border: "1px solid rgba(124,108,252,0.2)" }}>
+                <p className="text-[10px] font-semibold mb-0.5" style={{ color: "var(--accent)" }}>Suggestion</p>
+                <p className="text-xs" style={{ color: "var(--text-2)" }}>{result.suggestion}</p>
+              </div>
+            )}
+
             <p className="text-[9px]" style={{ color: "var(--text-3)" }}>
-              AI generated &middot; For entertainment only &middot; Next roast available tomorrow
+              AI generated · Not financial advice · Resets tomorrow
             </p>
           </div>
         ) : (
           <div className="space-y-2">
             <p className="text-xs" style={{ color: "var(--text-2)" }}>
-              Let our AI judge your trading decisions. 1 free roast per day.
+              Get an AI assessment of your portfolio — strengths, risks, and one actionable suggestion.
             </p>
-
             {error && (
               <p className="text-xs px-2 py-1.5 rounded" style={{ background: "var(--down-dim)", color: "var(--down)" }}>
                 {error}
               </p>
             )}
-
             <button
-              onClick={getRoasted}
+              onClick={analyze}
               disabled={loading || used}
               className="w-full py-2 rounded-lg text-xs font-semibold transition-opacity"
               style={{
@@ -103,7 +153,7 @@ export function RoastCard() {
                 opacity: loading || used ? 0.5 : 1,
               }}
             >
-              {loading ? "Roasting..." : used ? "Already roasted today" : "Roast My Portfolio"}
+              {loading ? "Analyzing..." : used ? "Already analyzed today" : "Analyze My Portfolio"}
             </button>
           </div>
         )}

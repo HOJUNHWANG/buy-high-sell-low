@@ -20,34 +20,15 @@ export function gateSummaries(
   tier: UserTier,
   unlockedIds: Set<number> = new Set(),
 ): NewsArticle[] {
-  if (tier === "premium") return articles;
+  // Logged-in users (free or premium) see all AI summaries — no paywall
+  if (tier === "free" || tier === "premium") return articles;
 
-  const freeCount =
-    tier === "guest" ? GUEST_FREE_SUMMARIES : FREE_USER_FREE_SUMMARIES;
-
-  // Count only articles that have a summary AND haven't been individually unlocked
+  // Guest: only GUEST_FREE_SUMMARIES articles shown unlocked
   let freeUsed = 0;
-
   return articles.map((a) => {
-    // No summary to gate
     if (!a.ai_summary) return a;
-
-    // User previously unlocked this article — always show
     if (unlockedIds.has(a.id)) return a;
-
-    // Within free quota
-    if (freeUsed < freeCount) {
-      freeUsed++;
-      return a;
-    }
-
-    // Over quota — strip AI fields and mark as locked
-    return {
-      ...a,
-      ai_summary: null,
-      ai_insight: null,
-      ai_caution: null,
-      summaryLocked: true,
-    };
+    if (freeUsed < GUEST_FREE_SUMMARIES) { freeUsed++; return a; }
+    return { ...a, ai_summary: null, ai_insight: null, ai_caution: null, summaryLocked: true };
   });
 }

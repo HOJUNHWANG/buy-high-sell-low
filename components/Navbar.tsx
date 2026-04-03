@@ -15,11 +15,12 @@ export function Navbar() {
   const adBlocked = useAdBlocked();
 
   const navLinks = [
-    { href: "/",        label: "Home" },
-    { href: "/stocks",  label: "Stocks" },
-    { href: "/news",    label: "News" },
-    { href: "/whatif",  label: "What If" },
-    { href: "/paper",   label: "Paper Trade" },
+    { href: "/",              label: "Home"          },
+    { href: "/stocks",        label: "Stocks"        },
+    { href: "/news",          label: "News"          },
+    { href: "/market-brief",  label: "Market Brief"  },
+    { href: "/whatif",        label: "What If"       },
+    { href: "/paper",         label: "Paper Trade"   },
   ];
 
   return (

@@ -23,9 +23,9 @@ export async function POST(request: Request) {
   }
 
   const ticker = body.ticker as string | undefined;
-  const shares = body.shares;
+  let shares = body.shares as number;
 
-  if (!ticker || typeof shares !== "number" || !isFinite(shares) || shares <= 0) {
+  if (!ticker || !isFinite(shares) || shares <= 0) {
     return NextResponse.json({ error: "ticker and shares (> 0) are required" }, { status: 400 });
   }
 
@@ -49,13 +49,16 @@ export async function POST(request: Request) {
     .eq("side", "short")
     .single();
 
-  if (!position || position.shares < shares) {
+  // Allow a tiny epsilon for floating-point rounding (e.g. dollar→shares conversion)
+  if (!position || position.shares < shares - 0.000001) {
     return NextResponse.json({
       error: position
         ? `Only have ${position.shares} shares shorted in ${ticker}`
         : `No short position in ${ticker}`,
     }, { status: 400 });
   }
+  // Clamp to exact position size to avoid downstream rounding artefacts
+  if (shares > position.shares) shares = position.shares;
 
   // Get current price
   const { data: priceData } = await supabase

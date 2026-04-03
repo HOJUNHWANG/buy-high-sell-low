@@ -67,19 +67,22 @@ export async function POST() {
   );
   const returnPct = ((totalValue - 1000) / 1000 * 100).toFixed(2);
 
-  const prompt = `You are a brutally honest, sarcastic financial roast comedian. Roast this paper trading portfolio. Be funny and sharp but not mean-spirited. Reference specific positions when possible. Keep it under 150 words.
+  const prompt = `You are an experienced portfolio analyst reviewing a paper trading portfolio. Give an honest, insightful analysis. Be direct and specific.
 
 Portfolio (started with $1,000):
 - Cash: $${cashBalance.toFixed(2)}
-${holdingsStr ? `- Holdings:\n${holdingsStr}` : "- No holdings (sitting in cash like a coward)"}
+${holdingsStr ? `- Holdings:\n${holdingsStr}` : "- No holdings (all cash)"}
 - Total Value: $${totalValue.toFixed(2)}
 - Overall Return: ${Number(returnPct) >= 0 ? "+" : ""}${returnPct}%
 
 Output JSON only:
 {
-  "roast": "your roast text here",
-  "grade": "letter grade A+ to F",
-  "nickname": "a funny trader nickname for this person"
+  "grade": "letter grade A+ to F based on risk-adjusted performance",
+  "nickname": "a short trader archetype label (e.g. 'The Contrarian', 'Diamond Hands')",
+  "summary": "2-3 sentence honest assessment of the overall portfolio strategy and performance",
+  "strengths": ["specific strength 1", "specific strength 2"],
+  "risks": ["specific risk or weakness 1", "specific risk or weakness 2"],
+  "suggestion": "one concrete, actionable improvement for this portfolio"
 }`;
 
   let result;
@@ -102,8 +105,11 @@ Output JSON only:
   }
 
   return NextResponse.json({
-    roast: result.roast ?? "I'm speechless. And that's saying something.",
     grade: result.grade ?? "?",
-    nickname: result.nickname ?? "The Mystery Trader",
+    nickname: result.nickname ?? "The Unknown Trader",
+    summary: result.summary ?? "Unable to generate analysis.",
+    strengths: result.strengths ?? [],
+    risks: result.risks ?? [],
+    suggestion: result.suggestion ?? "",
   });
 }

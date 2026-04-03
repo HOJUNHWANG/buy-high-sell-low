@@ -33,6 +33,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 groq     = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 sys.path.insert(0, os.path.dirname(__file__))
+from tickers import COMPANY_NAMES
 
 # Configure resilient HTTP session
 retry_strategy = Retry(
@@ -47,6 +48,17 @@ http_session.mount("https://", adapter)
 http_session.mount("http://", adapter)
 
 MAX_AI_PER_RUN = 200  # Groq free tier: 14,400/day, 30/min — 200/hr is safe
+
+ALL_KNOWN_TICKERS = set(COMPANY_NAMES.keys())
+
+
+def map_all_tickers(title: str) -> list[str]:
+    """Extract matching tickers from title via text matching (no API cost)."""
+    title_upper = title.upper()
+    return sorted(
+        ticker for ticker, name in COMPANY_NAMES.items()
+        if ticker in title_upper or name.upper() in title_upper
+    )
 
 RSS_FEEDS = [
     # Stock feeds
@@ -183,12 +195,14 @@ def main():
         source  = article.get("source", {})
         source_name = source.get("name") if isinstance(source, dict) else str(source)
         published   = article.get("publishedAt")
+        related = map_all_tickers(title)
         row = {
-            "ticker":       None,
-            "title":        title[:500],
-            "url":          url,
-            "source":       source_name,
-            "published_at": published,
+            "ticker":          None,
+            "title":           title[:500],
+            "url":             url,
+            "source":          source_name,
+            "published_at":    published,
+            "related_tickers": related if related else [],
         }
 
         try:
@@ -269,6 +283,27 @@ def main():
                 }).eq("id", article["id"]).execute()
                 backfilled += 1
             time.sleep(2.1)
+
+    # ── Phase 4: Backfill related_tickers for existing articles that don't have it ──
+    ticker_backfilled = 0
+    try:
+        old_articles = supabase.table("news_articles") \
+            .select("id, title") \
+            .is_("related_tickers", "null") \
+            .order("published_at", desc=True) \
+            .limit(300) \
+            .execute()
+        for old in (old_articles.data or []):
+            related = map_all_tickers(old["title"])
+            supabase.table("news_articles") \
+                .update({"related_tickers": related if related else []}) \
+                .eq("id", old["id"]) \
+                .execute()
+            ticker_backfilled += 1
+        if ticker_backfilled:
+            print(f"  Ticker backfill: {ticker_backfilled} articles updated")
+    except Exception as e:
+        print(f"  Ticker backfill error: {e}")
 
     supabase.table("fetch_logs").insert({
         "job_name":        "news",

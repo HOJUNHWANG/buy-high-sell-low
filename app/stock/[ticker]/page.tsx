@@ -9,6 +9,7 @@ import { WatchlistButton } from "@/components/WatchlistButton";
 import { AdSlot } from "@/components/AdSlot";
 
 import { StockNewsSection } from "@/components/StockNewsSection";
+import { WhyMoving } from "@/components/WhyMoving";
 import { gateSummaries, FREE_USER_DAILY_UNLOCKS } from "@/lib/summary-gate";
 import type { UserTier } from "@/lib/summary-gate";
 
@@ -37,7 +38,7 @@ async function getStockData(ticker: string) {
       supabase
         .from("news_articles")
         .select("*")
-        .eq("ticker", ticker)
+        .contains("related_tickers", [ticker])
         .order("published_at", { ascending: false })
         .limit(10),
       supabase
@@ -232,6 +233,9 @@ export default async function StockDetailPage({ params }: Props) {
               </a>
             </div>
           )}
+
+          {/* Why is it moving? */}
+          <WhyMoving ticker={ticker} isLoggedIn={!!user} />
 
           {/* Related News */}
           <StockNewsSection
