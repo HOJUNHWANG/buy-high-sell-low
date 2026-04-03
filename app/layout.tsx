@@ -7,6 +7,8 @@ import { Navbar } from "@/components/Navbar";
 import { Disclaimer } from "@/components/Disclaimer";
 import { CookieBanner } from "@/components/CookieBanner";
 import { AdBlockBanner } from "@/components/AdBlockBanner";
+import { AdminBanner } from "@/components/AdminBanner";
+import { PageTracker } from "@/components/PageTracker";
 
 const ADSENSE_ID = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
 
@@ -45,7 +47,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           />
         )}
         <Providers>
+          <PageTracker />
           <Navbar />
+          <AdminBanner />
           <AdBlockBanner />
           <main className="flex-1">{children}</main>
           <Disclaimer />
