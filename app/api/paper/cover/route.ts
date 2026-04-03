@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     .single();
 
   // Allow a tiny epsilon for floating-point rounding (e.g. dollar→shares conversion)
-  if (!position || position.shares < shares - 0.000001) {
+  if (!position || position.shares < shares - 0.001) {
     return NextResponse.json({
       error: position
         ? `Only have ${position.shares} shares shorted in ${ticker}`

@@ -124,9 +124,15 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
     : (side === "cover") ? shortPosition
     : null;
 
-  const shares = inputMode === "shares"
+  const rawShares = inputMode === "shares"
     ? parseFloat(inputValue) || 0
     : stock?.price ? (parseFloat(inputValue) || 0) / stock.price : 0;
+  // Clamp to exact position size to prevent floating-point overshoot on Cover All / Sell All
+  const shares = (side === "cover" && shortPosition && rawShares > shortPosition.shares)
+    ? shortPosition.shares
+    : (side === "sell" && longPosition && rawShares > longPosition.shares)
+    ? longPosition.shares
+    : rawShares;
   const showLeverage = side === "buy" || side === "short";
   const effectiveShares = showLeverage ? shares * leverage : shares;
   const estimatedTotal = stock ? shares * stock.price : 0;
