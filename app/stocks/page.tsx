@@ -39,7 +39,7 @@ export default async function StocksPage() {
             Stock Screener
           </h1>
           <p className="text-xs mt-0.5" style={{ color: "var(--text-3)" }}>
-            S&amp;P 100 + Crypto · {stocks.length} assets · Prices updated every 15 min
+            S&amp;P 100 + Crypto · {stocks.length} assets · Prices updated every 5 min
           </p>
         </div>
 
