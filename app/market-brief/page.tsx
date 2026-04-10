@@ -7,19 +7,6 @@ export const metadata: Metadata = {
   description: "AI-generated daily market summary with top movers, crypto overview, and key market drivers.",
 };
 
-interface Mover {
-  ticker: string;
-  name: string;
-  price: number;
-  change_pct: number;
-}
-
-interface CryptoPrice {
-  ticker: string;
-  price: number;
-  change_pct: number | null;
-}
-
 interface MarketBrief {
   date: string;
   headline: string;
@@ -28,9 +15,6 @@ interface MarketBrief {
   bullets: string[];
   crypto_notes: string;
   sector_notes: string;
-  crypto_prices: CryptoPrice[];
-  top_gainers: Mover[];
-  top_losers: Mover[];
   sentiment_breakdown: { positive: number; neutral: number; negative: number; unknown: number };
   news_count: number;
   generated_at: string;
@@ -61,69 +45,6 @@ async function getPastBriefs(): Promise<Pick<MarketBrief, "date" | "headline" | 
     .order("date", { ascending: false })
     .range(1, 7);
   return (data ?? []) as Pick<MarketBrief, "date" | "headline" | "overall_sentiment">[];
-}
-
-function MoverCard({ mover, isGainer }: { mover: Mover; isGainer: boolean }) {
-  const color = isGainer ? "var(--up)" : "var(--down)";
-  const bg    = isGainer ? "var(--up-dim)" : "var(--down-dim)";
-  return (
-    <Link href={`/stock/${mover.ticker}`}
-      className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg transition-colors"
-      style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
-      <div className="min-w-0">
-        <p className="text-xs font-bold" style={{ color: "var(--text)" }}>{mover.ticker}</p>
-        <p className="text-[10px] truncate" style={{ color: "var(--text-3)" }}>{mover.name}</p>
-      </div>
-      <div className="text-right shrink-0">
-        <p className="text-xs font-semibold tabular-nums" style={{ color: "var(--text)" }}>
-          ${mover.price.toFixed(2)}
-        </p>
-        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded tabular-nums"
-          style={{ background: bg, color }}>
-          {mover.change_pct >= 0 ? "+" : ""}{mover.change_pct.toFixed(2)}%
-        </span>
-      </div>
-    </Link>
-  );
-}
-
-function CryptoGrid({ prices }: { prices: CryptoPrice[] }) {
-  return (
-    <div className="card rounded-xl p-5 space-y-3">
-      <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#f97316" }}>
-        Crypto Prices
-      </p>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {prices.map((c) => {
-          const pct = c.change_pct ?? 0;
-          const isUp = pct >= 0;
-          const color = c.ticker === "USDT-USD" ? "var(--text-3)" : isUp ? "var(--up)" : "var(--down)";
-          const bg    = c.ticker === "USDT-USD" ? "var(--surface-3)" : isUp ? "var(--up-dim)" : "var(--down-dim)";
-          const symbol = c.ticker.replace("-USD", "");
-          return (
-            <div key={c.ticker}
-              className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg"
-              style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
-              <span className="text-xs font-bold" style={{ color: "var(--text)" }}>{symbol}</span>
-              <div className="text-right">
-                <p className="text-[10px] tabular-nums" style={{ color: "var(--text-2)" }}>
-                  ${c.price >= 1000
-                    ? c.price.toLocaleString("en-US", { maximumFractionDigits: 0 })
-                    : c.price < 0.01
-                    ? c.price.toFixed(5)
-                    : c.price.toFixed(2)}
-                </p>
-                <span className="text-[9px] font-bold px-1 py-0.5 rounded tabular-nums"
-                  style={{ background: bg, color }}>
-                  {isUp ? "+" : ""}{pct.toFixed(2)}%
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
 }
 
 function SentimentBar({ breakdown }: { breakdown: MarketBrief["sentiment_breakdown"] }) {
@@ -165,7 +86,9 @@ export default async function MarketBriefPage() {
   }
 
   const sentStyle = SENTIMENT_STYLE[brief.overall_sentiment] ?? SENTIMENT_STYLE.neutral;
-  const genDate = new Date(brief.generated_at);
+  const genTimeET = new Date(brief.generated_at).toLocaleTimeString("en-US", {
+    hour: "2-digit", minute: "2-digit", timeZone: "America/New_York",
+  });
   const dateLabel = new Date(brief.date).toLocaleDateString("en-US", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
@@ -188,7 +111,7 @@ export default async function MarketBriefPage() {
           {brief.headline}
         </h1>
         <p className="text-[10px]" style={{ color: "var(--text-3)" }}>
-          Generated {genDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })} ·{" "}
+          Generated {genTimeET} ET ·{" "}
           Based on {brief.news_count} articles · AI generated · Not financial advice
         </p>
       </div>
@@ -225,44 +148,6 @@ export default async function MarketBriefPage() {
                 ))}
               </div>
             </div>
-          )}
-
-          {/* Top Movers */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Gainers */}
-            <div className="card rounded-xl p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full" style={{ background: "var(--up)" }} />
-                <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--up)" }}>
-                  Top Gainers
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                {(brief.top_gainers ?? []).map(m => (
-                  <MoverCard key={m.ticker} mover={m} isGainer={true} />
-                ))}
-              </div>
-            </div>
-
-            {/* Losers */}
-            <div className="card rounded-xl p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full" style={{ background: "var(--down)" }} />
-                <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--down)" }}>
-                  Top Losers
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                {(brief.top_losers ?? []).map(m => (
-                  <MoverCard key={m.ticker} mover={m} isGainer={false} />
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Crypto Prices Grid */}
-          {brief.crypto_prices?.length > 0 && (
-            <CryptoGrid prices={brief.crypto_prices} />
           )}
 
           {/* Crypto Notes */}
