@@ -5,7 +5,6 @@ import type { NewsArticle } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
 import { SentimentBadge } from "@/components/SentimentBadge";
 import { LockedSummary } from "@/components/LockedSummary";
-import { useAdBlocked } from "@/components/AdBlockDetector";
 interface StockNewsSectionProps {
   news: NewsArticle[];
   ticker: string;
@@ -19,7 +18,6 @@ export function StockNewsSection({
   isLoggedIn,
   initialRemainingUnlocks,
 }: StockNewsSectionProps) {
-  const adBlocked = useAdBlocked();
   const [remaining, setRemaining] = useState(initialRemainingUnlocks);
   const [unlockedMap, setUnlockedMap] = useState<
     Record<number, { summary: string; insight: string | null; sentiment: string | null; caution: string | null }>
@@ -76,7 +74,6 @@ export function StockNewsSection({
                         articleId={article.id}
                         isLoggedIn={isLoggedIn}
                         remainingUnlocks={remaining}
-                        adBlocked={adBlocked}
                         onUnlock={(data) => {
                           setUnlockedMap((prev) => ({ ...prev, [article.id]: data }));
                           setRemaining((r) => Math.max(0, r - 1));

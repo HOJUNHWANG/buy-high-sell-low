@@ -25,7 +25,7 @@ export default function PrivacyPage() {
           <li>Cookies and similar tracking technologies (see Section 5)</li>
           <li>
             Device and browser information collected automatically by third-party services
-            (Google AdSense, Supabase)
+            (Supabase)
           </li>
         </ul>
         <p className="text-sm">
@@ -40,7 +40,6 @@ export default function PrivacyPage() {
           <li>To authenticate your account and secure your session</li>
           <li>To send transactional emails (account confirmation, password reset)</li>
           <li>To enforce usage limits (AI summary: 30 requests/user/day)</li>
-          <li>To serve relevant advertisements via Google AdSense</li>
           <li>To detect and prevent abuse, spam, or unauthorized access</li>
         </ul>
         <p className="text-sm">
@@ -78,13 +77,6 @@ export default function PrivacyPage() {
             watchlist, and usage data. Hosted in the EU (Ireland).{" "}
             <a href="https://supabase.com/privacy" className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">
               Supabase Privacy Policy
-            </a>
-          </li>
-          <li>
-            <strong>Google AdSense</strong>: Serves advertisements and may use cookies to show
-            personalized ads based on your browsing behaviour.{" "}
-            <a href="https://policies.google.com/technologies/ads" className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">
-              Google Advertising Policies
             </a>
           </li>
           <li>
@@ -149,18 +141,7 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">7. Affiliate Disclosure</h2>
-        <p className="text-sm">
-          Buy High Sell Low participates in affiliate programmes. Some links on this site (clearly
-          labelled &quot;Sponsored&quot;) are affiliate links. If you click and open an account, we may
-          receive a commission at no additional cost to you. We only include affiliate links
-          for services we believe may be of genuine interest. Affiliate relationships do not
-          influence editorial content or AI analysis results.
-        </p>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">8. Your Rights (GDPR)</h2>
+        <h2 className="text-xl font-semibold text-white">7. Your Rights (GDPR)</h2>
         <p className="text-sm">
           If you are located in the European Economic Area (EEA) or United Kingdom, you have
           the following rights under the General Data Protection Regulation (GDPR):

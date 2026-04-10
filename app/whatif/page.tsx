@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import type { WhatIfScenario } from "@/lib/types";
-import { useAdBlocked } from "@/components/AdBlockDetector";
 
 interface SearchResult {
   ticker: string;
@@ -51,7 +50,6 @@ function formatMoney(n: number): string {
 export default function WhatIfPage() {
   const router = useRouter();
   const supabase = createSupabaseBrowserClient();
-  const adBlocked = useAdBlocked();
   const chartRef = useRef<HTMLDivElement>(null);
 
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -228,28 +226,6 @@ export default function WhatIfPage() {
       <div className="max-w-2xl mx-auto px-5 py-20 text-center">
         <div className="skeleton h-8 w-48 mx-auto mb-4" />
         <div className="skeleton h-4 w-64 mx-auto" />
-      </div>
-    );
-  }
-
-  if (adBlocked) {
-    return (
-      <div className="max-w-md mx-auto px-5 py-24 text-center fade-up">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-          className="mx-auto mb-4" style={{ color: "var(--text-3)" }}>
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-        </svg>
-        <h1 className="text-xl font-bold mb-2" style={{ color: "var(--text)" }}>
-          What If Calculator Locked
-        </h1>
-        <p className="text-sm mb-1" style={{ color: "var(--text-2)" }}>
-          This feature requires ads to stay free.
-        </p>
-        <p className="text-xs" style={{ color: "var(--text-3)" }}>
-          Please disable your ad blocker and refresh to access the What If calculator.
-        </p>
       </div>
     );
   }

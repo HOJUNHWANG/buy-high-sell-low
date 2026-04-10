@@ -7,10 +7,7 @@ import { SentimentBadge } from "@/components/SentimentBadge";
 interface LockedSummaryProps {
   articleId: number;
   isLoggedIn: boolean;
-  /** Remaining daily unlocks (only relevant for logged-in free users) */
   remainingUnlocks: number;
-  /** When true, ad blocker is detected — unlocks disabled */
-  adBlocked?: boolean;
   onUnlock?: (data: {
     summary: string;
     insight: string | null;
@@ -23,7 +20,6 @@ export function LockedSummary({
   articleId,
   isLoggedIn,
   remainingUnlocks,
-  adBlocked = false,
   onUnlock,
 }: LockedSummaryProps) {
   const [loading, setLoading] = useState(false);
@@ -111,10 +107,6 @@ export function LockedSummary({
               Sign up free to unlock
             </Link>
           </>
-        ) : adBlocked ? (
-          <p className="text-[11px] font-medium text-center px-3" style={{ color: "var(--text-2)" }}>
-            Disable ad blocker to unlock AI summaries
-          </p>
         ) : remainingUnlocks <= 0 ? (
           <p className="text-[11px] font-medium text-center px-3" style={{ color: "var(--text-2)" }}>
             Daily limit reached — resets tomorrow

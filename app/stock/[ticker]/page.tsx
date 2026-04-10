@@ -1,12 +1,11 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import type { Stock, StockPrice, StockPriceHistory, NewsArticle, AffiliateLink } from "@/lib/types";
+import type { Stock, StockPrice, StockPriceHistory, NewsArticle } from "@/lib/types";
 import Image from "next/image";
 import Link from "next/link";
 import { StockChart } from "@/components/StockChart";
 import { WatchlistButton } from "@/components/WatchlistButton";
-import { AdSlot } from "@/components/AdSlot";
 
 import { StockNewsSection } from "@/components/StockNewsSection";
 import { WhyMoving } from "@/components/WhyMoving";
@@ -20,7 +19,7 @@ interface Props {
 async function getStockData(ticker: string) {
   const supabase = await createSupabaseServerClient();
   try {
-    const [stockRes, priceRes, historyRes, longHistoryRes, newsRes, affiliateRes] = await Promise.all([
+    const [stockRes, priceRes, historyRes, longHistoryRes, newsRes] = await Promise.all([
       supabase.from("stocks").select("*").eq("ticker", ticker).single(),
       supabase.from("stock_prices").select("*").eq("ticker", ticker).single(),
       supabase
@@ -41,13 +40,6 @@ async function getStockData(ticker: string) {
         .contains("related_tickers", [ticker])
         .order("published_at", { ascending: false })
         .limit(10),
-      supabase
-        .from("affiliate_links")
-        .select("*")
-        .eq("placement", "stock_detail")
-        .eq("is_active", true)
-        .limit(1)
-        .maybeSingle(),
     ]);
 
     const intraday = (historyRes?.data ?? []) as StockPriceHistory[];
@@ -72,11 +64,10 @@ async function getStockData(ticker: string) {
       price:     priceRes.data as StockPrice | null,
       history,
       news:      (newsRes.data ?? []) as NewsArticle[],
-      affiliate: affiliateRes.data as AffiliateLink | null,
     };
   } catch (err) {
     console.error("Error in getStockData:", err);
-    return { stock: null, price: null, history: [], news: [], affiliate: null };
+    return { stock: null, price: null, history: [], news: [] };
   }
 }
 
@@ -101,7 +92,7 @@ export default async function StockDetailPage({ params }: Props) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { stock, price, history, news: rawNews, affiliate } = await getStockData(ticker.toUpperCase());
+  const { stock, price, history, news: rawNews } = await getStockData(ticker.toUpperCase());
   if (!stock) notFound();
 
   // Summary gating
@@ -205,34 +196,6 @@ export default async function StockDetailPage({ params }: Props) {
             isCrypto={stock.sector === "Cryptocurrency"}
             currentPrice={price ? { price: price.price, fetched_at: price.fetched_at } : null}
           />
-
-          {/* Ad: below chart */}
-          <AdSlot slot="stock-below-chart" format="horizontal" />
-
-          {/* Affiliate CTA (from DB) */}
-          {affiliate && affiliate.url && (
-            <div className="card-accent rounded-xl p-4 flex items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <p className="text-sm font-medium" style={{ color: "var(--text)" }}>Trade {ticker}</p>
-                  <span
-                    className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
-                    style={{ background: "var(--surface-3)", color: "var(--text-3)" }}
-                  >
-                    Sponsored
-                  </span>
-                </div>
-                <p className="text-xs" style={{ color: "var(--text-2)" }}>
-                  {affiliate.label}
-                </p>
-              </div>
-              <a href={affiliate.url} target="_blank" rel="noopener noreferrer nofollow sponsored"
-                className="shrink-0 text-xs font-semibold px-4 py-2 rounded-lg"
-                style={{ background: "var(--accent)", color: "#fff" }}>
-                Open account →
-              </a>
-            </div>
-          )}
 
           {/* Why is it moving? */}
           <WhyMoving ticker={ticker} isLoggedIn={!!user} />
@@ -349,9 +312,6 @@ export default async function StockDetailPage({ params }: Props) {
               </div>
             );
           })()}
-
-          {/* Ad: sidebar rectangle */}
-          <AdSlot slot="stock-sidebar" format="rectangle" />
 
           {/* Paper Trade CTA — not available for ETFs */}
           {stock.sector === "ETF" ? (

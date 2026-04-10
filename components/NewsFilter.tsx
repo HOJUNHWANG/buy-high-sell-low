@@ -5,9 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import type { NewsArticle } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
 import { SentimentBadge } from "@/components/SentimentBadge";
-import { AdSlot } from "@/components/AdSlot";
 import { LockedSummary } from "@/components/LockedSummary";
-import { useAdBlocked } from "@/components/AdBlockDetector";
 type Tab = "all" | "positive" | "neutral" | "negative";
 
 export function NewsFilter({
@@ -22,7 +20,6 @@ export function NewsFilter({
   initialRemainingUnlocks?: number;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
-  const adBlocked = useAdBlocked();
   const [remaining, setRemaining] = useState(initialRemainingUnlocks);
   const [unlockedMap, setUnlockedMap] = useState<
     Record<number, { summary: string; insight: string | null; sentiment: string | null; caution: string | null }>
@@ -44,18 +41,13 @@ export function NewsFilter({
     { id: "negative", label: "Negative", color: "var(--down)" },
   ];
 
-  const AD_BLOCK_NEWS_LIMIT = 10;
-
-  const filteredAll = tab === "all"
+  const filtered = tab === "all"
     ? articles
     : articles.filter((a) => {
         const unlocked = unlockedMap[a.id];
         const sentiment = unlocked?.sentiment ?? a.ai_sentiment;
         return sentiment === tab;
       });
-
-  const filtered = adBlocked ? filteredAll.slice(0, AD_BLOCK_NEWS_LIMIT) : filteredAll;
-  const hiddenByAdBlock = adBlocked ? Math.max(0, filteredAll.length - AD_BLOCK_NEWS_LIMIT) : 0;
 
   const counts: Record<Tab, number> = {
     all:      articles.length,
@@ -113,9 +105,6 @@ export function NewsFilter({
 
             return (
               <div key={article.id}>
-              {idx > 0 && idx % 5 === 0 && (
-                <AdSlot slot="news-feed" format="horizontal" className="my-2" />
-              )}
               <article className="card rounded-xl p-4">
                 <div className="flex items-start gap-3">
                   <div
@@ -152,7 +141,6 @@ export function NewsFilter({
                         articleId={article.id}
                         isLoggedIn={isLoggedIn}
                         remainingUnlocks={remaining}
-                        adBlocked={adBlocked}
                         onUnlock={(data) => {
                           setUnlockedMap((prev) => ({ ...prev, [article.id]: data }));
                           setRemaining((r) => Math.max(0, r - 1));
@@ -192,35 +180,6 @@ export function NewsFilter({
             );
           })}
 
-          {/* Ad blocker limit notice */}
-          {hiddenByAdBlock > 0 && (
-            <div
-              className="rounded-xl px-5 py-6 text-center mt-3"
-              style={{ border: "1px dashed var(--border-md)" }}
-            >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mx-auto mb-2"
-                style={{ color: "var(--text-3)" }}
-              >
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
-              <p className="text-xs font-medium mb-1" style={{ color: "var(--text-2)" }}>
-                {hiddenByAdBlock} more article{hiddenByAdBlock > 1 ? "s" : ""} hidden
-              </p>
-              <p className="text-[11px]" style={{ color: "var(--text-3)" }}>
-                Disable your ad blocker to see the full news feed
-              </p>
-            </div>
-          )}
         </div>
       )}
     </>

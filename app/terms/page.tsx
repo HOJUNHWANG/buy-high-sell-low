@@ -123,18 +123,7 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">7. Affiliate Links &amp; Third-Party Sites</h2>
-        <p className="text-sm leading-relaxed">
-          Buy High Sell Low may display links to third-party websites, including affiliate partners
-          (clearly labelled &quot;Sponsored&quot;). We may earn a commission if you sign up or make a
-          purchase through such links. We are not responsible for the content, privacy practices,
-          or services of any third-party sites. Following an affiliate link and signing up with
-          a partner is entirely at your own risk.
-        </p>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-white">8. Intellectual Property</h2>
+        <h2 className="text-xl font-semibold text-white">7. Intellectual Property</h2>
         <p className="text-sm leading-relaxed">
           The Buy High Sell Low brand, logo, and original content (excluding third-party news and
           financial data) are owned by or licensed to Buy High Sell Low. You may not reproduce,

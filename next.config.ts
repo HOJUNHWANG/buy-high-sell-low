@@ -17,12 +17,12 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://pagead2.googlesyndication.com https://adservice.google.com https://www.googletagservices.com https://tpc.googlesyndication.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https://financialmodelingprep.com https://raw.githubusercontent.com https://assets.coingecko.com https://*.gstatic.com https://icons.duckduckgo.com https://m.media-amazon.com https://pagead2.googlesyndication.com https://*.doubleclick.net",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://pagead2.googlesyndication.com https://*.google.com",
-      "frame-src https://googleads.g.doubleclick.net https://tpc.googlesyndication.com",
+      "img-src 'self' data: blob: https://financialmodelingprep.com https://raw.githubusercontent.com https://assets.coingecko.com https://*.gstatic.com https://icons.duckduckgo.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+      "frame-src 'none'",
       "frame-ancestors 'self'", // Changed from 'none' to 'self' for better compatibility
     ].join("; "),
   },

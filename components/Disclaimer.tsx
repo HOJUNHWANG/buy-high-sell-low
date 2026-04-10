@@ -19,13 +19,6 @@ export function Disclaimer() {
           making any investment decisions.
         </p>
 
-        {/* Affiliate disclosure */}
-        <p className="text-[10px] text-center" style={{ color: "var(--text-3)" }}>
-          <strong style={{ color: "var(--text-3)" }}>Affiliate Disclosure:</strong>{" "}
-          Some links on this site are affiliate or sponsored links. We may earn a commission
-          at no extra cost to you. This does not influence our content.
-        </p>
-
         {/* AI disclaimer */}
         <p className="text-[10px] text-center" style={{ color: "var(--text-3)" }}>
           AI-generated summaries are produced by Groq (Llama 3.3) and are provided for
