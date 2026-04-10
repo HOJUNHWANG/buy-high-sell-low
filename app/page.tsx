@@ -13,6 +13,7 @@ import { timeAgo } from "@/lib/utils";
 import { AdSlot } from "@/components/AdSlot";
 import { gateSummaries } from "@/lib/summary-gate";
 import type { UserTier } from "@/lib/summary-gate";
+import { getAllStockPrices } from "@/lib/cached-data";
 
 async function getMovers(): Promise<{
   stockGainers: (StockPrice & { stocks: Stock })[];
@@ -21,12 +22,7 @@ async function getMovers(): Promise<{
   cryptoLosers:  (StockPrice & { stocks: Stock })[];
 }> {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase
-      .from("stock_prices")
-      .select("*, stocks(*)")
-      .not("change_pct", "is", null);
-    const all = (data as (StockPrice & { stocks: Stock })[]) ?? [];
+    const all = (await getAllStockPrices()).filter((s) => s.change_pct != null);
 
     const stocks = all.filter((s) => !s.ticker.includes("-USD"));
     const crypto = all.filter((s) => s.ticker.includes("-USD"));

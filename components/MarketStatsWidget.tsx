@@ -1,16 +1,12 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { getAllStockPrices } from "@/lib/cached-data";
 
 export async function MarketStatsWidget() {
-  const supabase = await createSupabaseServerClient();
-
-  const { data } = await supabase
-    .from("stock_prices")
-    .select("change_pct");
+  const data = await getAllStockPrices();
 
   let up = 0, down = 0, flat = 0;
-  for (const row of data ?? []) {
-    const pct = row.change_pct as number | null;
+  for (const row of data) {
+    const pct = row.change_pct;
     if (pct == null) { flat++; continue; }
     if (pct > 0.05) up++;
     else if (pct < -0.05) down++;

@@ -1,20 +1,16 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { getAllStockPrices } from "@/lib/cached-data";
 
 export async function SectorWidget() {
-  const supabase = await createSupabaseServerClient();
-
-  const { data } = await supabase
-    .from("stock_prices")
-    .select("change_pct, stocks(sector)");
+  const data = await getAllStockPrices();
 
   // Group by sector → avg change_pct
   const map = new Map<string, number[]>();
-  for (const row of data ?? []) {
-    const sector = (row.stocks as unknown as { sector: string | null } | null)?.sector;
+  for (const row of data) {
+    const sector = row.stocks?.sector;
     if (!sector || row.change_pct == null) continue;
     if (!map.has(sector)) map.set(sector, []);
-    map.get(sector)!.push(row.change_pct as number);
+    map.get(sector)!.push(row.change_pct);
   }
 
   const sectors = Array.from(map.entries())

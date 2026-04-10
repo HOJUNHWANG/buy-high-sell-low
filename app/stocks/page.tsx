@@ -5,6 +5,8 @@ import { StockTable } from "@/components/StockTable";
 import { MarketStatusWidget } from "@/components/MarketStatusWidget";
 import { AdSlot } from "@/components/AdSlot";
 
+export const revalidate = 300; // 5 min — matches price cron interval
+
 export const metadata: Metadata = {
   title: "Screener — Stocks, ETFs & Crypto",
   description:

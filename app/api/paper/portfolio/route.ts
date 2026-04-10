@@ -20,39 +20,16 @@ export async function GET() {
     cashBalance = account.cash_balance;
   }
 
-  // Get positions with current prices
+  // Single query: positions joined with current prices and stock info
   const { data: positions } = await supabase
     .from("paper_positions")
-    .select("*")
+    .select("*, stock_prices(price), stocks(name, logo_url)")
     .eq("user_id", user.id)
     .gt("shares", 0);
 
-  // Get current prices for held tickers
-  const tickers = (positions ?? []).map((p: { ticker: string }) => p.ticker);
-  let prices: Record<string, number> = {};
-  if (tickers.length > 0) {
-    const { data: priceData } = await supabase
-      .from("stock_prices")
-      .select("ticker, price")
-      .in("ticker", tickers);
-    prices = Object.fromEntries((priceData ?? []).map((p: { ticker: string; price: number }) => [p.ticker, p.price]));
-  }
-
-  // Get stock names/logos
-  let stockInfo: Record<string, { name: string; logo_url: string | null }> = {};
-  if (tickers.length > 0) {
-    const { data: stocks } = await supabase
-      .from("stocks")
-      .select("ticker, name, logo_url")
-      .in("ticker", tickers);
-    stockInfo = Object.fromEntries(
-      (stocks ?? []).map((s: { ticker: string; name: string; logo_url: string | null }) => [s.ticker, { name: s.name, logo_url: s.logo_url }])
-    );
-  }
-
   // Build enriched positions
-  const enrichedPositions = (positions ?? []).map((p: { ticker: string; shares: number; avg_cost: number; borrowed?: number; leverage?: number; side?: string; created_at: string; updated_at: string }) => {
-    const currentPrice = prices[p.ticker] ?? p.avg_cost;
+  const enrichedPositions = (positions ?? []).map((p: any) => {
+    const currentPrice = p.stock_prices?.price ?? p.avg_cost;
     const isShort = p.side === "short";
     const marketValue = p.shares * currentPrice;
     const costBasis = p.shares * p.avg_cost;
@@ -62,12 +39,9 @@ export async function GET() {
     let equity: number;
     let pnl: number;
     if (isShort) {
-      // Short: profit when price drops
-      // pnl = (avg_cost - currentPrice) × shares
       pnl = (p.avg_cost - currentPrice) * p.shares;
-      equity = marginUsed + pnl; // margin back + unrealized P&L
+      equity = marginUsed + pnl;
     } else {
-      // Long: profit when price rises
       equity = marketValue - borrowed;
       pnl = equity - marginUsed;
     }
@@ -75,9 +49,11 @@ export async function GET() {
 
     return {
       ...p,
+      stock_prices: undefined,
+      stocks: undefined,
       side: p.side ?? "long",
-      name: stockInfo[p.ticker]?.name ?? p.ticker,
-      logo_url: stockInfo[p.ticker]?.logo_url ?? null,
+      name: p.stocks?.name ?? p.ticker,
+      logo_url: p.stocks?.logo_url ?? null,
       currentPrice,
       marketValue,
       costBasis,
