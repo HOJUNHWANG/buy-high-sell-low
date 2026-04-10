@@ -50,10 +50,12 @@ export default async function StocksPage() {
   const stocks = ((data as StockRow[] | null) ?? []).map((s) => {
     const currentPrice = s.stock_prices?.price;
     const oldPrice = price30dMap.get(s.ticker)?.close;
-    const change_30d =
+    const raw30d =
       currentPrice != null && oldPrice != null && oldPrice !== 0
         ? ((currentPrice - oldPrice) / oldPrice) * 100
         : null;
+    // Discard absurd values (bad historical data)
+    const change_30d = raw30d != null && Math.abs(raw30d) < 500 ? raw30d : null;
     return {
       ...s,
       price: s.stock_prices ?? undefined,
