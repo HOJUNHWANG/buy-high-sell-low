@@ -16,15 +16,49 @@ type StockRow = Stock & { stock_prices: StockPrice | null };
 export default async function StocksPage() {
   const supabase = await createSupabaseServerClient();
 
-  const { data } = await supabase
-    .from("stocks")
-    .select("*, stock_prices(*)")
-    .order("ticker");
+  // Target date: ~30 days ago, with ±3 day window for weekends/holidays
+  const d30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const dMin = new Date(d30.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const dMax = new Date(d30.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
-  const stocks = ((data as StockRow[] | null) ?? []).map((s) => ({
-    ...s,
-    price: s.stock_prices ?? undefined,
-  }));
+  const [{ data }, { data: hist30 }] = await Promise.all([
+    supabase.from("stocks").select("*, stock_prices(*)").order("ticker"),
+    supabase
+      .from("price_history_long")
+      .select("ticker, close, date")
+      .gte("date", dMin)
+      .lte("date", dMax),
+  ]);
+
+  // For each ticker, pick the entry closest to 30 days ago
+  const targetTs = d30.getTime();
+  const price30dMap = new Map<string, { close: number; date: string }>();
+  for (const row of (hist30 ?? []) as { ticker: string; close: number; date: string }[]) {
+    const existing = price30dMap.get(row.ticker);
+    if (!existing) {
+      price30dMap.set(row.ticker, { close: row.close, date: row.date });
+    } else {
+      const rowDiff = Math.abs(new Date(row.date).getTime() - targetTs);
+      const existDiff = Math.abs(new Date(existing.date).getTime() - targetTs);
+      if (rowDiff < existDiff) {
+        price30dMap.set(row.ticker, { close: row.close, date: row.date });
+      }
+    }
+  }
+
+  const stocks = ((data as StockRow[] | null) ?? []).map((s) => {
+    const currentPrice = s.stock_prices?.price;
+    const oldPrice = price30dMap.get(s.ticker)?.close;
+    const change_30d =
+      currentPrice != null && oldPrice != null && oldPrice !== 0
+        ? ((currentPrice - oldPrice) / oldPrice) * 100
+        : null;
+    return {
+      ...s,
+      price: s.stock_prices ?? undefined,
+      change_30d,
+    };
+  });
 
   const withPrice = stocks.filter((s) => s.price).length;
   const totalUp   = stocks.filter((s) => (s.price?.change_pct ?? 0) > 0.05).length;

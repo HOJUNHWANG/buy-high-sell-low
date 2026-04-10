@@ -7,8 +7,8 @@ import Image from "next/image";
 import type { Stock, StockPrice } from "@/lib/types";
 import { fmtVol } from "@/lib/utils";
 
-type StockRow = Stock & { price?: StockPrice };
-type SortKey = "ticker" | "name" | "market_cap" | "price" | "change_pct" | "volume";
+type StockRow = Stock & { price?: StockPrice; change_30d?: number | null };
+type SortKey = "ticker" | "name" | "market_cap" | "price" | "change_pct" | "change_30d" | "volume";
 type SortDir = "asc" | "desc";
 
 function fmtMarketCap(val: number | null | undefined): string {
@@ -86,6 +86,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
           case "market_cap": return ((a.market_cap ?? 0) - (b.market_cap ?? 0)) * dir;
           case "price":      return ((a.price?.price ?? 0) - (b.price?.price ?? 0)) * dir;
           case "change_pct": return ((a.price?.change_pct ?? -999) - (b.price?.change_pct ?? -999)) * dir;
+          case "change_30d": return ((a.change_30d ?? -999) - (b.change_30d ?? -999)) * dir;
           case "volume":     return ((a.price?.volume ?? 0) - (b.price?.volume ?? 0)) * dir;
           default:           return 0;
         }
@@ -272,7 +273,8 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                   </th>
                   {th("market_cap", "Mkt Cap", "right")}
                   {th("price",      "Price",   "right")}
-                  {th("change_pct", "Change%", "right")}
+                  {th("change_pct", "Today",   "right")}
+                  {th("change_30d", "30D %",   "right")}
                   {th("volume",     "Volume",  "right")}
                 </tr>
               </thead>
@@ -345,6 +347,20 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                           <span style={{ color: "var(--text-3)" }}>—</span>
                         )}
                       </td>
+                      <td className="px-4 py-3 text-right">
+                        {stock.change_30d != null ? (
+                          <span
+                            className="font-semibold tabular-nums"
+                            style={{
+                              color: stock.change_30d >= 0 ? "var(--up)" : "var(--down)",
+                            }}
+                          >
+                            {stock.change_30d >= 0 ? "+" : ""}{stock.change_30d.toFixed(1)}%
+                          </span>
+                        ) : (
+                          <span style={{ color: "var(--text-3)" }}>—</span>
+                        )}
+                      </td>
                       <td
                         className="px-4 py-3 text-right tabular-nums"
                         style={{ color: "var(--text-3)" }}
@@ -357,7 +373,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                 {filtered.length === 0 && (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-4 py-10 text-center text-sm"
                       style={{ color: "var(--text-3)" }}
                     >
@@ -417,14 +433,24 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                   <div className="text-sm font-bold tabular-nums" style={{ color: "var(--text)" }}>
                     {stock.price ? `$${stock.price.price.toFixed(2)}` : "—"}
                   </div>
-                  {pct !== null && (
-                    <div
-                      className="text-[11px] font-semibold mt-0.5 tabular-nums"
-                      style={{ color: isUp ? "var(--up)" : "var(--down)" }}
-                    >
-                      {isUp ? "+" : ""}{pct.toFixed(2)}%
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {pct !== null && (
+                      <span
+                        className="text-[11px] font-semibold tabular-nums"
+                        style={{ color: isUp ? "var(--up)" : "var(--down)" }}
+                      >
+                        {isUp ? "+" : ""}{pct.toFixed(2)}%
+                      </span>
+                    )}
+                    {stock.change_30d != null && (
+                      <span
+                        className="text-[10px] tabular-nums"
+                        style={{ color: stock.change_30d >= 0 ? "var(--up)" : "var(--down)", opacity: 0.7 }}
+                      >
+                        30d {stock.change_30d >= 0 ? "+" : ""}{stock.change_30d.toFixed(1)}%
+                      </span>
+                    )}
+                  </div>
                 </div>
               </Link>
             );
