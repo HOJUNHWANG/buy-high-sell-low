@@ -127,13 +127,13 @@ export async function POST(request: Request) {
     .single();
 
   const newBalance = (account?.cash_balance ?? 0) + netProceeds;
-  await supabase
+  const { error: balErr } = await supabase
     .from("paper_accounts")
     .update({ cash_balance: Math.max(0, newBalance) })
     .eq("user_id", user.id);
 
-  // Record transaction
-  await supabase.from("paper_transactions").insert({
+  // Record transaction (non-fatal — position already updated)
+  const { error: txErr } = await supabase.from("paper_transactions").insert({
     user_id: user.id,
     ticker,
     side: "cover",
@@ -143,8 +143,8 @@ export async function POST(request: Request) {
     leverage: position.leverage ?? 1,
   });
 
-
   return NextResponse.json({
+    ...(balErr || txErr ? { warning: "Trade succeeded but some updates failed" } : {}),
     ok: true,
     ticker,
     side: "cover",

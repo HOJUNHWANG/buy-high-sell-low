@@ -239,20 +239,21 @@ CREATE TABLE IF NOT EXISTS paper_positions (
   id          BIGSERIAL PRIMARY KEY,
   user_id     UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   ticker      TEXT REFERENCES stocks(ticker),
+  side        TEXT NOT NULL DEFAULT 'long' CHECK (side IN ('long', 'short')),
   shares      NUMERIC NOT NULL,
   avg_cost    NUMERIC NOT NULL,
   leverage    INT NOT NULL DEFAULT 1,
   borrowed    NUMERIC NOT NULL DEFAULT 0,
   created_at  TIMESTAMPTZ DEFAULT NOW(),
   updated_at  TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(user_id, ticker)
+  UNIQUE(user_id, ticker, side)
 );
 
 CREATE TABLE IF NOT EXISTS paper_transactions (
   id           BIGSERIAL PRIMARY KEY,
   user_id      UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   ticker       TEXT REFERENCES stocks(ticker),
-  side         TEXT NOT NULL CHECK (side IN ('buy', 'sell')),
+  side         TEXT NOT NULL CHECK (side IN ('buy', 'sell', 'short', 'cover')),
   shares       NUMERIC NOT NULL,
   price        NUMERIC NOT NULL,
   total        NUMERIC NOT NULL,

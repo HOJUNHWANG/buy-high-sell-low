@@ -72,15 +72,16 @@ export async function POST(request: Request) {
     }, { status: 400 });
   }
 
-  // Deduct margin from cash
+  // Deduct margin from cash (optimistic: also check balance hasn't changed to prevent overdraft)
   const newBalance = cashBalance - margin;
-  const { error: updateErr } = await supabase
+  const { error: updateErr, count: updateCount } = await supabase
     .from("paper_accounts")
-    .update({ cash_balance: newBalance })
-    .eq("user_id", user.id);
+    .update({ cash_balance: newBalance }, { count: "exact" })
+    .eq("user_id", user.id)
+    .gte("cash_balance", margin - 0.01);
 
-  if (updateErr) {
-    return NextResponse.json({ error: "Failed to update balance" }, { status: 500 });
+  if (updateErr || updateCount === 0) {
+    return NextResponse.json({ error: "Insufficient funds — try again" }, { status: 409 });
   }
 
   // Upsert position (weighted average cost + accumulated borrowed)
@@ -128,8 +129,8 @@ export async function POST(request: Request) {
     }
   }
 
-  // Record transaction
-  await supabase.from("paper_transactions").insert({
+  // Record transaction (non-fatal — position already created)
+  const { error: txErr } = await supabase.from("paper_transactions").insert({
     user_id: user.id,
     ticker,
     side: "buy",
@@ -140,6 +141,7 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json({
+    ...(txErr ? { warning: "Trade succeeded but transaction log failed" } : {}),
     ok: true,
     ticker,
     side: "buy",

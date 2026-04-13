@@ -56,7 +56,7 @@ export async function POST() {
   const newBalance = account.cash_balance + reward;
 
   // Update account
-  await supabase
+  const { error: updateErr } = await supabase
     .from("paper_accounts")
     .update({
       cash_balance: newBalance,
@@ -64,6 +64,10 @@ export async function POST() {
       streak: newStreak,
     })
     .eq("user_id", user.id);
+
+  if (updateErr) {
+    return NextResponse.json({ error: "Failed to update check-in" }, { status: 500 });
+  }
 
   return NextResponse.json({
     reward,
