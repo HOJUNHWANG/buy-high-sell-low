@@ -89,6 +89,7 @@ export async function POST(request: Request) {
     .select("shares, avg_cost, borrowed")
     .eq("user_id", user.id)
     .eq("ticker", ticker)
+    .eq("side", "long")
     .single();
 
   if (existingPos) {

@@ -90,6 +90,35 @@ export async function POST(request: Request) {
   // Realized P&L (same as shortPnl)
   const realizedPnl = shortPnl;
 
+  // Update or delete position FIRST (before updating balance)
+  const remainingShares = position.shares - shares;
+  if (remainingShares <= 0.000001) {
+    const { error: posErr } = await supabase
+      .from("paper_positions")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("ticker", ticker)
+      .eq("side", "short");
+    if (posErr) {
+      return NextResponse.json({ error: "Failed to close position" }, { status: 500 });
+    }
+  } else {
+    const remainingBorrowed = (position.borrowed ?? 0) - borrowedRepay;
+    const { error: posErr } = await supabase
+      .from("paper_positions")
+      .update({
+        shares: remainingShares,
+        borrowed: Math.max(0, remainingBorrowed),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.id)
+      .eq("ticker", ticker)
+      .eq("side", "short");
+    if (posErr) {
+      return NextResponse.json({ error: "Failed to update position" }, { status: 500 });
+    }
+  }
+
   // Update cash balance (netProceeds can be negative if price spiked — unlimited loss!)
   const { data: account } = await supabase
     .from("paper_accounts")
@@ -102,29 +131,6 @@ export async function POST(request: Request) {
     .from("paper_accounts")
     .update({ cash_balance: Math.max(0, newBalance) })
     .eq("user_id", user.id);
-
-  // Update or delete position
-  const remainingShares = position.shares - shares;
-  if (remainingShares <= 0.000001) {
-    await supabase
-      .from("paper_positions")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("ticker", ticker)
-      .eq("side", "short");
-  } else {
-    const remainingBorrowed = (position.borrowed ?? 0) - borrowedRepay;
-    await supabase
-      .from("paper_positions")
-      .update({
-        shares: remainingShares,
-        borrowed: Math.max(0, remainingBorrowed),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("user_id", user.id)
-      .eq("ticker", ticker)
-      .eq("side", "short");
-  }
 
   // Record transaction
   await supabase.from("paper_transactions").insert({
