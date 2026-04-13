@@ -20,16 +20,30 @@ export async function GET() {
     cashBalance = account.cash_balance;
   }
 
-  // Single query: positions joined with current prices and stock info
+  // Fetch positions with stock info (direct FK)
   const { data: positions } = await supabase
     .from("paper_positions")
-    .select("*, stock_prices(price), stocks(name, logo_url)")
+    .select("*, stocks(name, logo_url)")
     .eq("user_id", user.id)
     .gt("shares", 0);
 
+  // Fetch current prices separately to avoid ambiguous join issues
+  const tickers = (positions ?? []).map((p: any) => p.ticker as string);
+  let priceMap: Record<string, number> = {};
+  if (tickers.length > 0) {
+    const { data: prices } = await supabase
+      .from("stock_prices")
+      .select("ticker, price")
+      .in("ticker", tickers);
+    priceMap = (prices ?? []).reduce((acc: Record<string, number>, row: any) => {
+      acc[row.ticker] = row.price;
+      return acc;
+    }, {});
+  }
+
   // Build enriched positions
   const enrichedPositions = (positions ?? []).map((p: any) => {
-    const currentPrice = p.stock_prices?.price ?? p.avg_cost;
+    const currentPrice = priceMap[p.ticker] ?? p.avg_cost;
     const isShort = p.side === "short";
     const marketValue = p.shares * currentPrice;
     const costBasis = p.shares * p.avg_cost;
@@ -49,7 +63,6 @@ export async function GET() {
 
     return {
       ...p,
-      stock_prices: undefined,
       stocks: undefined,
       side: p.side ?? "long",
       name: p.stocks?.name ?? p.ticker,
