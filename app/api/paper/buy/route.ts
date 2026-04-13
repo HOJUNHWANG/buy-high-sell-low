@@ -95,7 +95,7 @@ export async function POST(request: Request) {
     const newShares = existingPos.shares + effectiveShares;
     const newAvgCost = (existingPos.shares * existingPos.avg_cost + effectiveShares * price) / newShares;
     const newBorrowed = (existingPos.borrowed ?? 0) + borrowed;
-    await supabase
+    const { error: posErr } = await supabase
       .from("paper_positions")
       .update({
         shares: newShares,
@@ -106,8 +106,13 @@ export async function POST(request: Request) {
       })
       .eq("user_id", user.id)
       .eq("ticker", ticker);
+
+    if (posErr) {
+      await supabase.from("paper_accounts").update({ cash_balance: cashBalance }).eq("user_id", user.id);
+      return NextResponse.json({ error: "Failed to update position" }, { status: 500 });
+    }
   } else {
-    await supabase.from("paper_positions").insert({
+    const { error: posErr } = await supabase.from("paper_positions").insert({
       user_id: user.id,
       ticker,
       shares: effectiveShares,
@@ -115,6 +120,11 @@ export async function POST(request: Request) {
       leverage,
       borrowed,
     });
+
+    if (posErr) {
+      await supabase.from("paper_accounts").update({ cash_balance: cashBalance }).eq("user_id", user.id);
+      return NextResponse.json({ error: "Failed to create position" }, { status: 500 });
+    }
   }
 
   // Record transaction
