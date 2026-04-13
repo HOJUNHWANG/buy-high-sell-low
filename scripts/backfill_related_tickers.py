@@ -1,7 +1,9 @@
 """
-backfill_related_tickers.py — Retroactively populate related_tickers for existing news articles.
-Uses Groq (Llama 3.3) to analyze each article and extract related tickers.
-Run once: python scripts/backfill_related_tickers.py
+backfill_related_tickers.py — Re-tag related_tickers for existing news articles using AI.
+
+Modes:
+  python scripts/backfill_related_tickers.py           # backfill articles with empty/null related_tickers
+  python scripts/backfill_related_tickers.py --all      # re-tag ALL articles (fix old text-matched ones)
 """
 import os
 import sys
@@ -19,107 +21,101 @@ SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-groq = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 sys.path.insert(0, os.path.dirname(__file__))
 from tickers import COMPANY_NAMES
 
-
-def map_all_tickers(title: str) -> list[str]:
-    """Extract ALL matching tickers from a title."""
-    title_upper = title.upper()
-    found = []
-    for ticker, name in COMPANY_NAMES.items():
-        if ticker in title_upper or name.upper() in title_upper:
-            found.append(ticker)
-    return found
+ALL_KNOWN_TICKERS = sorted(COMPANY_NAMES.keys())
+TICKER_LIST_STR = ", ".join(ALL_KNOWN_TICKERS)
+KNOWN_SET = set(ALL_KNOWN_TICKERS)
 
 
-def ai_related_tickers(title: str) -> list[str]:
+def ai_related_tickers(title: str) -> list[str] | str:
     """Use Groq to detect related tickers from news title."""
-    if not groq:
+    if not groq_client:
         return []
-    ticker_list = ", ".join(sorted(COMPANY_NAMES.keys()))
     prompt = f"""Given the following financial news headline, identify ALL stock/crypto tickers from the known list that are directly mentioned, affected by, or closely related to this news.
 
 [KNOWN TICKERS]
-{ticker_list}
+{TICKER_LIST_STR}
 
 [RULES]
 - Only use tickers from the known list above
 - Include competitors and sector peers when the news clearly impacts them
+- Do NOT match just because a word looks like a ticker (e.g. "now" is not ServiceNow, "ford" in "affordable" is not Ford)
 - Return JSON only: {{"related_tickers": ["TICKER1", "TICKER2"]}}
 - Return empty array if none apply
 
 Title: {title}"""
 
     try:
-        msg = groq.chat.completions.create(
+        msg = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             max_tokens=256,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
         )
         result = json.loads(msg.choices[0].message.content or "{}")
-        return result.get("related_tickers", [])
+        raw = result.get("related_tickers", [])
+        return sorted(t for t in raw if isinstance(t, str) and t in KNOWN_SET)
     except Exception as e:
+        if "429" in str(e):
+            return "RATE_LIMITED"
         print(f"  AI error: {e}")
         return []
 
 
 def main():
-    # Fetch all articles that don't have related_tickers yet
-    result = supabase.table("news_articles") \
-        .select("id, title, ticker") \
-        .is_("related_tickers", "null") \
-        .order("id", desc=False) \
-        .limit(500) \
-        .execute()
+    retag_all = "--all" in sys.argv
+
+    if retag_all:
+        print("Mode: re-tag ALL articles (replacing old text-matched tickers)")
+        # Process in batches, newest first
+        result = supabase.table("news_articles") \
+            .select("id, title") \
+            .order("published_at", desc=True) \
+            .limit(500) \
+            .execute()
+    else:
+        print("Mode: backfill articles with empty/null related_tickers")
+        result = supabase.table("news_articles") \
+            .select("id, title") \
+            .or_("related_tickers.is.null,related_tickers.eq.[]") \
+            .order("published_at", desc=True) \
+            .limit(500) \
+            .execute()
 
     articles = result.data
-    print(f"Found {len(articles)} articles without related_tickers")
+    print(f"Found {len(articles)} articles to process")
 
-    all_known = set(COMPANY_NAMES.keys())
     updated = 0
-    skipped = 0
+    empty = 0
 
     for i, article in enumerate(articles):
         title = article["title"]
-        primary = article["ticker"]
         article_id = article["id"]
 
-        # Get tickers from title matching
-        title_tickers = map_all_tickers(title)
+        related = ai_related_tickers(title)
+        if related == "RATE_LIMITED":
+            print(f"  Rate limited at article {i+1} — stopping")
+            break
 
-        # Get tickers from AI
-        ai_tickers = ai_related_tickers(title)
-
-        # Merge, deduplicate, filter to known, exclude primary
-        related = sorted(set(
-            t for t in (ai_tickers + title_tickers)
-            if t in all_known and t != primary
-        ))
+        supabase.table("news_articles") \
+            .update({"related_tickers": related}) \
+            .eq("id", article_id) \
+            .execute()
 
         if related:
-            supabase.table("news_articles") \
-                .update({"related_tickers": related}) \
-                .eq("id", article_id) \
-                .execute()
             updated += 1
             print(f"  [{i+1}/{len(articles)}] id={article_id}: {related}")
         else:
-            # Set empty array so we don't re-process
-            supabase.table("news_articles") \
-                .update({"related_tickers": []}) \
-                .eq("id", article_id) \
-                .execute()
-            skipped += 1
-            print(f"  [{i+1}/{len(articles)}] id={article_id}: (no related tickers)")
+            empty += 1
+            print(f"  [{i+1}/{len(articles)}] id={article_id}: (none)")
 
-        # Rate limit: Groq free tier = 30 req/min
-        time.sleep(2.5)
+        time.sleep(2.1)  # rate limit
 
-    print(f"\nDone. Updated: {updated}, No related: {skipped}")
+    print(f"\nDone. Tagged: {updated}, No related: {empty}")
 
 
 if __name__ == "__main__":

@@ -35,6 +35,9 @@ groq     = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 sys.path.insert(0, os.path.dirname(__file__))
 from tickers import COMPANY_NAMES
 
+ALL_KNOWN_TICKERS = sorted(COMPANY_NAMES.keys())
+TICKER_LIST_STR = ", ".join(ALL_KNOWN_TICKERS)
+
 # Configure resilient HTTP session
 retry_strategy = Retry(
     total=3,
@@ -47,18 +50,7 @@ http_session = requests.Session()
 http_session.mount("https://", adapter)
 http_session.mount("http://", adapter)
 
-MAX_AI_PER_RUN = 200  # Groq free tier: 14,400/day, 30/min — 200/hr is safe
-
-ALL_KNOWN_TICKERS = set(COMPANY_NAMES.keys())
-
-
-def map_all_tickers(title: str) -> list[str]:
-    """Extract matching tickers from title via text matching (no API cost)."""
-    title_upper = title.upper()
-    return sorted(
-        ticker for ticker, name in COMPANY_NAMES.items()
-        if ticker in title_upper or name.upper() in title_upper
-    )
+MAX_AI_PER_RUN = 200  # Groq paid tier — 200/hr is safe with 2.1s sleep
 
 RSS_FEEDS = [
     # Stock feeds
@@ -108,14 +100,27 @@ def fetch_from_rss() -> list[dict]:
 
 
 def generate_ai_summary(title: str, content: str) -> dict | None:
-    """Generate AI summary. Prompt optimized to minimize tokens (~300 input vs ~1800 before)."""
-    prompt = f"""Summarize this financial news in JSON. No investment advice.
+    """Generate AI summary + related tickers in one call."""
+    prompt = f"""Analyze this financial news. Return JSON only. No investment advice.
+
+[KNOWN TICKERS]
+{TICKER_LIST_STR}
+
+[OUTPUT FORMAT]
 {{
   "summary": "2-3 sentence summary",
   "impact": "1 sentence market effect",
   "sentiment": "positive|neutral|negative",
-  "caution": "1 overlooked risk or null"
+  "caution": "1 overlooked risk or null",
+  "related_tickers": ["TICKER1", "TICKER2"]
 }}
+
+[RULES for related_tickers]
+- Only use tickers from the known list above
+- Include tickers that are directly mentioned, affected by, or closely related
+- Include sector peers only when the news clearly impacts the whole sector
+- Do NOT match just because a word in the headline looks like a ticker (e.g. "now" is not ServiceNow, "ford" in "affordable" is not Ford)
+- Return empty array if none apply
 
 {title}
 {content[:500]}"""
@@ -125,11 +130,18 @@ def generate_ai_summary(title: str, content: str) -> dict | None:
     try:
         msg = groq.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            max_tokens=300,
+            max_tokens=400,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
         )
-        return json.loads(msg.choices[0].message.content or "{}")
+        result = json.loads(msg.choices[0].message.content or "{}")
+        # Filter related_tickers to only known tickers
+        known_set = set(ALL_KNOWN_TICKERS)
+        raw_tickers = result.get("related_tickers", [])
+        result["related_tickers"] = sorted(
+            t for t in raw_tickers if isinstance(t, str) and t in known_set
+        )
+        return result
     except Exception as e:
         err_str = str(e)
         if "429" in err_str:
@@ -195,14 +207,13 @@ def main():
         source  = article.get("source", {})
         source_name = source.get("name") if isinstance(source, dict) else str(source)
         published   = article.get("publishedAt")
-        related = map_all_tickers(title)
         row = {
             "ticker":          None,
             "title":           title[:500],
             "url":             url,
             "source":          source_name,
             "published_at":    published,
-            "related_tickers": related if related else [],
+            "related_tickers": [],  # populated by AI in Phase 2
         }
 
         try:
@@ -247,9 +258,10 @@ def main():
             "ai_sentiment":     ai.get("sentiment"),
             "ai_caution":       ai.get("caution"),
             "ai_generated_at":  datetime.utcnow().isoformat(),
+            "related_tickers":  ai.get("related_tickers", []),
         }).eq("id", article["id"]).execute()
 
-        time.sleep(2.1)  # ~28 req/min — stay under Groq's 30 req/min limit
+        time.sleep(2.1)  # ~28 req/min — stay under Groq rate limit
 
     print(f"  Summarized: {summarized}/{len(inserted)}{' (rate limited)' if rate_limited else ''}")
 
@@ -280,30 +292,10 @@ def main():
                     "ai_sentiment":     ai.get("sentiment"),
                     "ai_caution":       ai.get("caution"),
                     "ai_generated_at":  datetime.utcnow().isoformat(),
+                    "related_tickers":  ai.get("related_tickers", []),
                 }).eq("id", article["id"]).execute()
                 backfilled += 1
             time.sleep(2.1)
-
-    # ── Phase 4: Backfill related_tickers for existing articles that don't have it ──
-    ticker_backfilled = 0
-    try:
-        old_articles = supabase.table("news_articles") \
-            .select("id, title") \
-            .is_("related_tickers", "null") \
-            .order("published_at", desc=True) \
-            .limit(300) \
-            .execute()
-        for old in (old_articles.data or []):
-            related = map_all_tickers(old["title"])
-            supabase.table("news_articles") \
-                .update({"related_tickers": related if related else []}) \
-                .eq("id", old["id"]) \
-                .execute()
-            ticker_backfilled += 1
-        if ticker_backfilled:
-            print(f"  Ticker backfill: {ticker_backfilled} articles updated")
-    except Exception as e:
-        print(f"  Ticker backfill error: {e}")
 
     supabase.table("fetch_logs").insert({
         "job_name":        "news",
@@ -314,6 +306,7 @@ def main():
     }).execute()
 
     print(f"Done. Inserted: {len(inserted)}, Summarized: {summarized}, Backfilled: {backfilled}")
+    print("  (related_tickers now AI-powered — no more text matching)")
 
 
 if __name__ == "__main__":
