@@ -5,6 +5,7 @@ import { Providers } from "@/components/Providers";
 import { Navbar } from "@/components/Navbar";
 import { Disclaimer } from "@/components/Disclaimer";
 import { CookieBanner } from "@/components/CookieBanner";
+import { Analytics } from "@vercel/analytics/react";
 
 const geist = Geist({ subsets: ["latin"] });
 
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Disclaimer />
           <CookieBanner />
         </Providers>
+        <Analytics />
       </body>
     </html>
   );
