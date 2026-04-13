@@ -5,8 +5,6 @@ import { Providers } from "@/components/Providers";
 import { Navbar } from "@/components/Navbar";
 import { Disclaimer } from "@/components/Disclaimer";
 import { CookieBanner } from "@/components/CookieBanner";
-import { AdminBanner } from "@/components/AdminBanner";
-import { PageTracker } from "@/components/PageTracker";
 
 const geist = Geist({ subsets: ["latin"] });
 
@@ -35,9 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={geist.className}>
       <body className="min-h-screen flex flex-col" style={{ background: "var(--bg)", color: "var(--text)" }}>
         <Providers>
-          <PageTracker />
           <Navbar />
-          <AdminBanner />
           <main className="flex-1">{children}</main>
           <Disclaimer />
           <CookieBanner />
