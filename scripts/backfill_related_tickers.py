@@ -42,7 +42,8 @@ def ai_related_tickers(title: str) -> list[str] | str:
 
 [RULES]
 - Only use tickers from the known list above
-- Include competitors and sector peers when the news clearly impacts them
+- Only include tickers that are directly mentioned or directly affected by this specific news
+- Do NOT include competitors, sector peers, or loosely related tickers
 - Do NOT match just because a word looks like a ticker (e.g. "now" is not ServiceNow, "ford" in "affordable" is not Ford)
 - Return JSON only: {{"related_tickers": ["TICKER1", "TICKER2"]}}
 - Return empty array if none apply

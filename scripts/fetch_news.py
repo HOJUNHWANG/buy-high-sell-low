@@ -117,8 +117,8 @@ def generate_ai_summary(title: str, content: str) -> dict | None:
 
 [RULES for related_tickers]
 - Only use tickers from the known list above
-- Include tickers that are directly mentioned, affected by, or closely related
-- Include sector peers only when the news clearly impacts the whole sector
+- Only include tickers that are directly mentioned or directly affected by this specific news
+- Do NOT include competitors, sector peers, or loosely related tickers
 - Do NOT match just because a word in the headline looks like a ticker (e.g. "now" is not ServiceNow, "ford" in "affordable" is not Ford)
 - Return empty array if none apply
 
