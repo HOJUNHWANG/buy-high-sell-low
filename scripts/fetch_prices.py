@@ -27,7 +27,7 @@ from tickers import SP500_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_c
 
 BATCH_SIZE = 25  # Recommended batch size for stocks
 CRYPTO_BATCH_SIZE = 5  # <-- 수정됨: 19에서 5로 줄여서 서버 부하 완화
-SLEEP_PER_TICKER = 2.0  # Seconds to wait per ticker (55 credits/min plan, ~4min total)
+SLEEP_PER_TICKER = 2.2  # Seconds to wait per ticker (55 credits/min plan, ~4min total)
 
 # Configure retry strategy
 retry_strategy = Retry(
