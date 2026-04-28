@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { NewsArticle, StockPrice, Stock } from "@/lib/types";
 import Link from "next/link";
-import Image from "next/image";
+import { LogoImage } from "@/components/LogoImage";
 import { Suspense } from "react";
 import { WatchlistSection } from "@/components/WatchlistSection";
 import { MarketStatusWidget } from "@/components/MarketStatusWidget";
@@ -376,12 +376,14 @@ function MoverRow({ m }: { m: StockPrice & { stocks: Stock } }) {
     >
       <div className="flex items-center gap-2 min-w-0">
         {m.stocks?.logo_url ? (
-          <Image
+          <LogoImage
             src={m.stocks.logo_url}
-            alt={m.ticker}
+            ticker={m.ticker}
             width={18}
             height={18}
             className="rounded object-contain bg-white p-0.5 shrink-0"
+            fallbackTextSize="text-[8px]"
+            fallbackStyle={{ width: 18, height: 18, background: "var(--surface-3)", color: "var(--text-2)" }}
           />
         ) : (
           <div

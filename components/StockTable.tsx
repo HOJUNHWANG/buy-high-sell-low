@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import { LogoImage } from "./LogoImage";
 import type { Stock, StockPrice } from "@/lib/types";
 import { fmtVol } from "@/lib/utils";
 
@@ -297,9 +297,9 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                           className="flex items-center gap-2 group-hover:opacity-80 transition-opacity"
                         >
                           {stock.logo_url ? (
-                            <Image
+                            <LogoImage
                               src={stock.logo_url}
-                              alt={stock.ticker}
+                              ticker={stock.ticker}
                               width={20}
                               height={20}
                               className="rounded object-contain bg-white p-0.5 shrink-0"
@@ -401,12 +401,14 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
               >
                 <div className="flex items-center gap-2">
                   {stock.logo_url ? (
-                    <Image
+                    <LogoImage
                       src={stock.logo_url}
-                      alt={stock.ticker}
+                      ticker={stock.ticker}
                       width={18}
                       height={18}
                       className="rounded object-contain bg-white p-0.5 shrink-0"
+                      fallbackTextSize="text-[8px]"
+                      fallbackStyle={{ width: 18, height: 18, background: "var(--surface-3)", color: "var(--text-2)" }}
                     />
                   ) : (
                     <div

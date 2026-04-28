@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { LogoImage } from "./LogoImage";
 import type { Stock } from "@/lib/types";
 
 export function SearchBar() {
@@ -96,12 +96,14 @@ export function SearchBar() {
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
                 {stock.logo_url ? (
-                  <Image
+                  <LogoImage
                     src={stock.logo_url}
-                    alt={stock.name}
+                    ticker={stock.ticker}
                     width={18}
                     height={18}
                     className="rounded object-contain bg-white shrink-0"
+                    fallbackClassName="w-4 h-4 rounded flex items-center justify-center text-[9px] font-bold shrink-0"
+                    fallbackStyle={{ background: "var(--accent-dim)", color: "var(--accent)" }}
                   />
                 ) : (
                   <div

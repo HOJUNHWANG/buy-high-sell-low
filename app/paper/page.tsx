@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import { LogoImage } from "@/components/LogoImage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PaperTradeBanner } from "@/components/PaperTradeBanner";
 import { RoastCard } from "@/components/RoastCard";
@@ -662,8 +662,10 @@ export default function PaperTradingPage() {
                 >
                   <div className="flex items-center gap-3 w-full">
                     {p.logo_url && (
-                      <Image src={p.logo_url} alt={p.ticker} width={32} height={32}
-                        className="rounded-lg object-contain bg-white p-0.5 shrink-0" />
+                      <LogoImage src={p.logo_url} ticker={p.ticker} width={32} height={32}
+                        className="rounded-lg object-contain bg-white p-0.5 shrink-0"
+                        fallbackStyle={{ width: 32, height: 32, background: "var(--surface-3)", color: "var(--text-2)" }}
+                      />
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">

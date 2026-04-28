@@ -2,7 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import type { Stock, StockPrice, StockPriceHistory, NewsArticle } from "@/lib/types";
-import Image from "next/image";
+import { LogoImage } from "@/components/LogoImage";
 import Link from "next/link";
 import { StockChart } from "@/components/StockChart";
 import { WatchlistButton } from "@/components/WatchlistButton";
@@ -142,8 +142,11 @@ export default async function StockDetailPage({ params }: Props) {
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               {stock.logo_url && (
-                <Image src={stock.logo_url} alt={stock.name} width={40} height={40}
-                  className="rounded-xl object-contain bg-white p-0.5 shrink-0" />
+                <LogoImage src={stock.logo_url} ticker={stock.ticker} width={40} height={40}
+                  className="rounded-xl object-contain bg-white p-0.5 shrink-0"
+                  fallbackStyle={{ width: 40, height: 40, background: "var(--surface-3)", color: "var(--text-2)" }}
+                  fallbackTextSize="text-sm"
+                />
               )}
               <div>
                 <h1 className="text-xl font-semibold" style={{ color: "var(--text)" }}>

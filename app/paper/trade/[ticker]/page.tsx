@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
+import { LogoImage } from "@/components/LogoImage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PaperTradeBanner } from "@/components/PaperTradeBanner";
 
@@ -240,8 +240,11 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
       {/* Stock header */}
       <div className="flex items-center gap-3">
         {stock.logo_url && (
-          <Image src={stock.logo_url} alt={stock.name} width={40} height={40}
-            className="rounded-xl object-contain bg-white p-0.5" />
+          <LogoImage src={stock.logo_url} ticker={stock.ticker} width={40} height={40}
+            className="rounded-xl object-contain bg-white p-0.5"
+            fallbackStyle={{ width: 40, height: 40, background: "var(--surface-3)", color: "var(--text-2)" }}
+            fallbackTextSize="text-sm"
+          />
         )}
         <div>
           <div className="flex items-center gap-2">
