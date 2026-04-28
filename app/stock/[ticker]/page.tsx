@@ -5,17 +5,12 @@ import type { Metadata } from "next";
 import type { Stock, StockPrice, StockPriceHistory, NewsArticle } from "@/lib/types";
 import { LogoImage } from "@/components/LogoImage";
 import Link from "next/link";
-import dynamic from "next/dynamic";
+import { StockChart } from "@/components/StockChart";
 import { WatchlistButton } from "@/components/WatchlistButton";
 import { StockNewsSection } from "@/components/StockNewsSection";
 import { WhyMoving } from "@/components/WhyMoving";
 import { gateSummaries, FREE_USER_DAILY_UNLOCKS } from "@/lib/summary-gate";
 import type { UserTier } from "@/lib/summary-gate";
-
-const StockChart = dynamic(
-  () => import("@/components/StockChart").then((m) => ({ default: m.StockChart })),
-  { ssr: false }
-);
 
 interface Props {
   params: Promise<{ ticker: string }>;
