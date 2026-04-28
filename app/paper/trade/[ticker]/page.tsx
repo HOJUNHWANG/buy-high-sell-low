@@ -238,24 +238,24 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
       <PaperTradeBanner />
 
       {/* Stock header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 min-w-0">
         {stock.logo_url && (
           <LogoImage src={stock.logo_url} ticker={stock.ticker} width={40} height={40}
-            className="rounded-xl object-contain bg-white p-0.5"
+            className="rounded-xl object-contain bg-white p-0.5 shrink-0"
             fallbackStyle={{ width: 40, height: 40, background: "var(--surface-3)", color: "var(--text-2)" }}
             fallbackTextSize="text-sm"
           />
         )}
-        <div>
-          <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold" style={{ color: "var(--text)" }}>{stock.ticker}</h1>
             <Link href={`/stock/${stock.ticker}`} className="text-[10px]" style={{ color: "var(--accent)" }}>
               View details
             </Link>
           </div>
-          <p className="text-xs" style={{ color: "var(--text-2)" }}>{stock.name}</p>
+          <p className="text-xs truncate" style={{ color: "var(--text-2)" }}>{stock.name}</p>
         </div>
-        <div className="ml-auto text-right">
+        <div className="shrink-0 text-right">
           <p className="text-xl font-bold tabular-nums" style={{ color: "var(--text)" }}>
             ${stock.price.toFixed(2)}
           </p>

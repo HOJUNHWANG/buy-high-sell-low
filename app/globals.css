@@ -39,6 +39,15 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
   min-height: 100%;
   letter-spacing: -0.011em;
+  /* Prevent horizontal scroll on mobile */
+  overflow-x: hidden;
+}
+
+/* Prevent iOS input zoom (iOS zooms when input font-size < 16px) */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
 }
 
 * { box-sizing: border-box; }

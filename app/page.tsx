@@ -108,28 +108,28 @@ export default async function HomePage() {
               Live market data
             </div>
 
-            <h1 className="text-5xl sm:text-6xl font-extrabold leading-[1.1] mb-5 max-w-3xl mx-auto tracking-tight fade-up">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] mb-5 max-w-3xl mx-auto tracking-tight fade-up">
               <span className="gradient-text">Track. Analyze.</span>
               <br />
               <span style={{ color: "var(--text)" }}>Paper Trade.</span>
             </h1>
 
             <p
-              className="text-base sm:text-lg max-w-xl mx-auto mb-10 leading-relaxed"
+              className="text-sm sm:text-lg max-w-xl mx-auto mb-8 sm:mb-10 leading-relaxed px-2 sm:px-0"
               style={{ color: "var(--text-2)" }}
             >
               Real-time S&amp;P 100 &amp; crypto prices, AI-powered news analysis,
               and a full paper trading simulator — completely free.
             </p>
 
-            <div className="flex items-center justify-center gap-3 flex-wrap stagger">
-              <Link href="/auth/login" className="btn btn-primary btn-xl">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 stagger px-4 sm:px-0">
+              <Link href="/auth/login" className="btn btn-primary btn-xl w-full sm:w-auto">
                 Get started free
                 <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
               </Link>
-              <Link href="#markets" className="btn btn-secondary btn-xl">
+              <Link href="#markets" className="btn btn-secondary btn-xl w-full sm:w-auto">
                 View markets
               </Link>
             </div>

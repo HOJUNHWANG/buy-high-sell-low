@@ -374,11 +374,11 @@ export default function PaperTradingPage() {
       )}
 
       {/* Header + Check-in */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Paper Trading</h1>
-            <button 
+            <button
               onClick={() => { setShowSettings(true); setNewNickname(portfolio.nickname || ""); setNicknameError(""); }}
               className="text-[10px] font-semibold px-2 py-1 rounded"
               style={{ background: "var(--surface-2)", color: "var(--text-2)" }}
@@ -390,7 +390,7 @@ export default function PaperTradingPage() {
             For those too cowardly to risk real money...
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Daily Check-in */}
           {checkinDone ? (
             <div className="px-3 py-2 rounded-lg text-xs font-medium"

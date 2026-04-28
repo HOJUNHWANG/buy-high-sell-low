@@ -271,11 +271,32 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                       Name <SortIcon active={sort.key === "name"} dir={sort.dir} />
                     </div>
                   </th>
-                  {th("market_cap", "Mkt Cap", "right")}
+                  <th className="text-right px-4 py-2.5 font-medium hidden md:table-cell"
+                    style={{ color: sort.key === "market_cap" ? "var(--text)" : "var(--text-3)", cursor: "pointer", userSelect: "none" }}
+                    onClick={() => toggleSort("market_cap")}>
+                    <div className="flex items-center gap-1 justify-end">
+                      <SortIcon active={sort.key === "market_cap"} dir={sort.dir} />
+                      <span>Mkt Cap</span>
+                    </div>
+                  </th>
                   {th("price",      "Price",   "right")}
                   {th("change_pct", "Today",   "right")}
-                  {th("change_30d", "30D %",   "right")}
-                  {th("volume",     "Volume",  "right")}
+                  <th className="text-right px-4 py-2.5 font-medium hidden sm:table-cell"
+                    style={{ color: sort.key === "change_30d" ? "var(--text)" : "var(--text-3)", cursor: "pointer", userSelect: "none" }}
+                    onClick={() => toggleSort("change_30d")}>
+                    <div className="flex items-center gap-1 justify-end">
+                      <SortIcon active={sort.key === "change_30d"} dir={sort.dir} />
+                      <span>30D %</span>
+                    </div>
+                  </th>
+                  <th className="text-right px-4 py-2.5 font-medium hidden sm:table-cell"
+                    style={{ color: sort.key === "volume" ? "var(--text)" : "var(--text-3)", cursor: "pointer", userSelect: "none" }}
+                    onClick={() => toggleSort("volume")}>
+                    <div className="flex items-center gap-1 justify-end">
+                      <SortIcon active={sort.key === "volume"} dir={sort.dir} />
+                      <span>Volume</span>
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -347,7 +368,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                           <span style={{ color: "var(--text-3)" }}>—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right hidden sm:table-cell">
                         {stock.change_30d != null ? (
                           <span
                             className="font-semibold tabular-nums"
@@ -362,7 +383,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                         )}
                       </td>
                       <td
-                        className="px-4 py-3 text-right tabular-nums"
+                        className="px-4 py-3 text-right hidden sm:table-cell tabular-nums"
                         style={{ color: "var(--text-3)" }}
                       >
                         {fmtVol(stock.price?.volume)}
