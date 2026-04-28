@@ -9,7 +9,7 @@ export async function WatchlistSection({ userId }: { userId: string }) {
 
   const { data: wl } = await supabase
     .from("watchlist")
-    .select("ticker, stock_prices(*, stocks(*))")
+    .select("ticker")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(12);
@@ -37,9 +37,18 @@ export async function WatchlistSection({ userId }: { userId: string }) {
     );
   }
 
-  type WatchlistJoin = { ticker: string; stock_prices: (StockPrice & { stocks: Stock })[] };
-  const ordered = (wl as unknown as WatchlistJoin[])
-    .map((w) => w.stock_prices?.[0])
+  const tickers = wl.map((w) => w.ticker);
+
+  const { data: prices } = await supabase
+    .from("stock_prices")
+    .select("*, stocks(*)")
+    .in("ticker", tickers);
+
+  const priceMap = new Map<string, StockPrice & { stocks: Stock }>(
+    (prices ?? []).map((p) => [p.ticker, p as StockPrice & { stocks: Stock }])
+  );
+  const ordered = tickers
+    .map((t) => priceMap.get(t))
     .filter((p): p is StockPrice & { stocks: Stock } => !!p);
 
   return (
@@ -49,7 +58,7 @@ export async function WatchlistSection({ userId }: { userId: string }) {
           My Watchlist
         </p>
         <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
-          {ordered.length} stock{ordered.length !== 1 ? "s" : ""}
+          {tickers.length} stock{tickers.length !== 1 ? "s" : ""}
         </span>
       </div>
 
