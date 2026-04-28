@@ -12,6 +12,7 @@ interface LogoImageProps {
   fallbackClassName?: string;
   fallbackStyle?: React.CSSProperties;
   fallbackTextSize?: string;
+  sizes?: string;
 }
 
 export function LogoImage({
@@ -23,6 +24,7 @@ export function LogoImage({
   fallbackClassName,
   fallbackStyle,
   fallbackTextSize = "text-[9px]",
+  sizes,
 }: LogoImageProps) {
   const [error, setError] = useState(false);
 
@@ -56,6 +58,7 @@ export function LogoImage({
       width={width}
       height={height}
       className={className}
+      sizes={sizes ?? `${width}px`}
       onError={() => setError(true)}
     />
   );

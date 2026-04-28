@@ -294,7 +294,7 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
           )}
         </div>
       ) : (
-        <div ref={chartRef} className="w-full" style={{ touchAction: "pan-y" }} />
+        <div ref={chartRef} className="w-full" style={{ touchAction: "pan-y", height: 280 }} />
       )}
 
       {/* Data resolution note */}

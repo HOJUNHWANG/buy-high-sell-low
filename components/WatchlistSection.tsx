@@ -3,18 +3,13 @@ import type { Stock, StockPrice } from "@/lib/types";
 import { LogoImage } from "./LogoImage";
 import Link from "next/link";
 
-interface WatchlistRow {
-  ticker: string;
-  stock_prices: StockPrice | null;
-  stocks: Stock | null;
-}
 
 export async function WatchlistSection({ userId }: { userId: string }) {
   const supabase = await createSupabaseServerClient();
 
   const { data: wl } = await supabase
     .from("watchlist")
-    .select("ticker")
+    .select("ticker, stock_prices(*, stocks(*))")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(12);
@@ -42,19 +37,9 @@ export async function WatchlistSection({ userId }: { userId: string }) {
     );
   }
 
-  const tickers = wl.map((w) => w.ticker);
-
-  const { data: prices } = await supabase
-    .from("stock_prices")
-    .select("*, stocks(*)")
-    .in("ticker", tickers);
-
-  // Sort back to watchlist order
-  const priceMap = new Map<string, (StockPrice & { stocks: Stock })>(
-    (prices ?? []).map((p) => [p.ticker, p as StockPrice & { stocks: Stock }])
-  );
-  const ordered = tickers
-    .map((t) => priceMap.get(t))
+  type WatchlistJoin = { ticker: string; stock_prices: (StockPrice & { stocks: Stock })[] };
+  const ordered = (wl as unknown as WatchlistJoin[])
+    .map((w) => w.stock_prices?.[0])
     .filter((p): p is StockPrice & { stocks: Stock } => !!p);
 
   return (
@@ -64,7 +49,7 @@ export async function WatchlistSection({ userId }: { userId: string }) {
           My Watchlist
         </p>
         <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
-          {tickers.length} stock{tickers.length !== 1 ? "s" : ""}
+          {ordered.length} stock{ordered.length !== 1 ? "s" : ""}
         </span>
       </div>
 

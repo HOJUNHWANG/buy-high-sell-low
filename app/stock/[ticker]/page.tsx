@@ -1,10 +1,23 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import type { Metadata } from "next";
 import type { Stock, StockPrice, StockPriceHistory, NewsArticle } from "@/lib/types";
 import { LogoImage } from "@/components/LogoImage";
 import Link from "next/link";
-import { StockChart } from "@/components/StockChart";
+import dynamic from "next/dynamic";
+const StockChart = dynamic(
+  () => import("@/components/StockChart").then((m) => ({ default: m.StockChart })),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="rounded-xl"
+        style={{ height: 320, background: "var(--surface)", border: "1px solid var(--border)" }}
+      />
+    ),
+  }
+);
 import { WatchlistButton } from "@/components/WatchlistButton";
 
 import { StockNewsSection } from "@/components/StockNewsSection";
@@ -16,7 +29,7 @@ interface Props {
   params: Promise<{ ticker: string }>;
 }
 
-async function getStockData(ticker: string) {
+const getStockData = cache(async function getStockData(ticker: string) {
   const supabase = await createSupabaseServerClient();
   try {
     const [stockRes, priceRes, historyRes, longHistoryRes, newsRes] = await Promise.all([
@@ -69,13 +82,11 @@ async function getStockData(ticker: string) {
     console.error("Error in getStockData:", err);
     return { stock: null, price: null, history: [], news: [] };
   }
-}
+});
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { ticker } = await params;
-  const supabase   = await createSupabaseServerClient();
-  const { data: stock } = await supabase.from("stocks").select("name").eq("ticker", ticker).single();
-  const { data: price } = await supabase.from("stock_prices").select("price, change_pct").eq("ticker", ticker).single();
+  const { stock, price } = await getStockData(ticker.toUpperCase());
   if (!stock) return { title: ticker };
   const pctStr = price?.change_pct != null
     ? ` (${price.change_pct >= 0 ? "+" : ""}${price.change_pct.toFixed(2)}%)`

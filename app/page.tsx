@@ -68,28 +68,25 @@ export default async function HomePage() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Determine user tier
+  // Kick off data fetches immediately in parallel with user profile/unlocks
+  const movingDataPromise = getMovers();
+  const newsPromise = getLatestNews(user ? 20 : 6);
+
+  // Determine user tier (parallel fetches)
   let tier: UserTier = "guest";
   let unlockedIds = new Set<number>();
   if (user) {
-    const { data: profile } = await supabase
-      .from("user_profiles")
-      .select("tier")
-      .eq("user_id", user.id)
-      .single();
+    const [{ data: profile }, { data: unlocks }] = await Promise.all([
+      supabase.from("user_profiles").select("tier").eq("user_id", user.id).single(),
+      supabase.from("summary_unlocks").select("article_id").eq("user_id", user.id),
+    ]);
     tier = (profile?.tier as UserTier) ?? "free";
-
-    // Fetch user's permanently unlocked articles
-    const { data: unlocks } = await supabase
-      .from("summary_unlocks")
-      .select("article_id")
-      .eq("user_id", user.id);
     unlockedIds = new Set((unlocks ?? []).map((u: { article_id: number }) => u.article_id));
   }
 
   const [{ stockGainers, stockLosers, cryptoGainers, cryptoLosers }, rawNews] = await Promise.all([
-    getMovers(),
-    getLatestNews(user ? 20 : 6),
+    movingDataPromise,
+    newsPromise,
   ]);
   const news = gateSummaries(rawNews, tier, unlockedIds);
 
@@ -189,7 +186,20 @@ export default async function HomePage() {
           <div className="flex-1 min-w-0">
 
             {/* Watchlist (logged-in only) */}
-            {user && <WatchlistSection userId={user.id} />}
+            {user && (
+              <Suspense fallback={
+                <section className="mb-8">
+                  <div className="skeleton h-3 w-20 rounded mb-3" />
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="skeleton rounded-xl h-[72px]" />
+                    ))}
+                  </div>
+                </section>
+              }>
+                <WatchlistSection userId={user.id} />
+              </Suspense>
+            )}
 
             {/* Movers */}
             <section className="mb-10">
