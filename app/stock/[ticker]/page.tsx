@@ -14,15 +14,7 @@ import type { UserTier } from "@/lib/summary-gate";
 
 const StockChart = dynamic(
   () => import("@/components/StockChart").then((m) => ({ default: m.StockChart })),
-  {
-    ssr: false,
-    loading: () => (
-      <div
-        className="rounded-xl"
-        style={{ height: 320, background: "var(--surface)", border: "1px solid var(--border)" }}
-      />
-    ),
-  }
+  { ssr: false }
 );
 
 interface Props {
