@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 
 interface LogoImageProps {
@@ -24,7 +23,6 @@ export function LogoImage({
   fallbackClassName,
   fallbackStyle,
   fallbackTextSize = "text-[9px]",
-  sizes,
 }: LogoImageProps) {
   const [error, setError] = useState(false);
 
@@ -51,14 +49,16 @@ export function LogoImage({
     );
   }
 
+  // eslint-disable-next-line @next/next/no-img-element
   return (
-    <Image
+    <img
       src={src}
       alt={ticker}
       width={width}
       height={height}
       className={className}
-      sizes={sizes ?? `${width}px`}
+      loading="lazy"
+      decoding="async"
       onError={() => setError(true)}
     />
   );
