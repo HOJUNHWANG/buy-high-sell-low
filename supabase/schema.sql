@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS stock_prices (
   fetched_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Price history for charts (90-day retention)
+-- Intraday price history for charts (30-day retention)
 CREATE TABLE IF NOT EXISTS stock_price_history (
   id          BIGSERIAL PRIMARY KEY,
   ticker      TEXT REFERENCES stocks(ticker),
@@ -179,7 +179,7 @@ ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "users can read own user_profiles" ON user_profiles FOR SELECT USING (auth.uid() = user_id);
 
 -- =========================================
--- Long-term price history (20Y daily OHLCV for What If feature)
+-- Daily chart history (1Y rolling OHLCV)
 -- =========================================
 CREATE TABLE IF NOT EXISTS price_history_long (
   ticker  TEXT REFERENCES stocks(ticker),
@@ -196,28 +196,6 @@ CREATE INDEX IF NOT EXISTS idx_phl_ticker_date ON price_history_long (ticker, da
 DROP POLICY IF EXISTS "public read price_history_long" ON price_history_long;
 ALTER TABLE price_history_long ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "public read price_history_long" ON price_history_long FOR SELECT USING (true);
-
--- =========================================
--- What If scenarios (user-saved regret calculations)
--- =========================================
-CREATE TABLE IF NOT EXISTS whatif_scenarios (
-  id          BIGSERIAL PRIMARY KEY,
-  user_id     UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  ticker      TEXT REFERENCES stocks(ticker),
-  buy_date    DATE NOT NULL,
-  sell_date   DATE,
-  amount_usd  NUMERIC NOT NULL,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_whatif_user ON whatif_scenarios (user_id, created_at DESC);
-
-DROP POLICY IF EXISTS "users can read own whatif"   ON whatif_scenarios;
-DROP POLICY IF EXISTS "users can insert own whatif"  ON whatif_scenarios;
-DROP POLICY IF EXISTS "users can delete own whatif"  ON whatif_scenarios;
-ALTER TABLE whatif_scenarios ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users can read own whatif"   ON whatif_scenarios FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "users can insert own whatif"  ON whatif_scenarios FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "users can delete own whatif"  ON whatif_scenarios FOR DELETE USING (auth.uid() = user_id);
 
 -- =========================================
 -- Paper Trading

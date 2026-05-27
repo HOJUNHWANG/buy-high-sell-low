@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: "%s — Buy High Sell Low",
   },
   description:
-    "Real-time S&P 100 & crypto prices, AI-powered news analysis, paper trading simulator, and What If calculator — completely free.",
+    "Real-time S&P 100 & crypto prices, AI-powered news analysis, and a paper trading simulator — completely free.",
   openGraph: {
     type: "website",
     siteName: "Buy High Sell Low",

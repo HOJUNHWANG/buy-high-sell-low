@@ -16,6 +16,11 @@ interface Props {
   params: Promise<{ ticker: string }>;
 }
 
+type DailyHistoryRow = {
+  close: number;
+  date: string;
+};
+
 const getStockData = cache(async function getStockData(ticker: string) {
   const supabase = await createSupabaseServerClient();
   try {
@@ -32,7 +37,7 @@ const getStockData = cache(async function getStockData(ticker: string) {
         .from("price_history_long")
         .select("close, date")
         .eq("ticker", ticker)
-        .gte("date", new Date(Date.now() - 20 * 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0])
+        .gte("date", new Date(Date.now() - 366 * 24 * 60 * 60 * 1000).toISOString().split("T")[0])
         .order("date", { ascending: false }),
       supabase
         .from("news_articles")
@@ -43,7 +48,7 @@ const getStockData = cache(async function getStockData(ticker: string) {
     ]);
 
     const intraday = (historyRes?.data ?? []) as StockPriceHistory[];
-    const daily = (longHistoryRes?.data ?? []).map((d: any) => ({
+    const daily = ((longHistoryRes?.data ?? []) as DailyHistoryRow[]).map((d) => ({
       price: d.close,
       recorded_at: d.date,
     })) as StockPriceHistory[];
@@ -320,7 +325,7 @@ export default async function StockDetailPage({ params }: Props) {
               className="text-[11px] text-center px-3 py-2.5 rounded-lg"
               style={{ background: "var(--surface-2)", color: "var(--text-3)", border: "1px solid var(--border)" }}
             >
-              ETFs are view-only — paper trading and What If are not available for ETFs.
+              ETFs are view-only — paper trading is not available for ETFs.
             </div>
           ) : (
             <Link

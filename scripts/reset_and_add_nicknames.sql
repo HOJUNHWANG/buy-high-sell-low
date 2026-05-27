@@ -1,10 +1,9 @@
 -- 실행 전 주의: 기존 모의투자 거래 기록, 포트폴리오, 챌린지가 모두 삭제되고 초기화됩니다.
 
--- 1. 모든 모의투자(Paper Trading) 및 계산기 데이터 대청소
+-- 1. 모든 모의투자(Paper Trading) 데이터 대청소
 TRUNCATE TABLE paper_transactions RESTART IDENTITY CASCADE;
 TRUNCATE TABLE paper_positions RESTART IDENTITY CASCADE;
 TRUNCATE TABLE paper_challenges RESTART IDENTITY CASCADE;
-TRUNCATE TABLE whatif_scenarios RESTART IDENTITY CASCADE;
 
 -- 2. 유저 테이블(paper_accounts)에 닉네임 기능 추가
 ALTER TABLE paper_accounts ADD COLUMN IF NOT EXISTS nickname TEXT UNIQUE;

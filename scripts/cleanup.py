@@ -38,6 +38,13 @@ def main():
     total_deleted += deleted
     print(f"  Price history cleanup done ({deleted} rows deleted)")
 
+    # Delete daily chart history older than 1 year.
+    cutoff_1y_daily = (datetime.utcnow() - timedelta(days=366)).date().isoformat()
+    result = supabase.table("price_history_long").delete().lt("date", cutoff_1y_daily).execute()
+    deleted = len(result.data) if result.data else 0
+    total_deleted += deleted
+    print(f"  Daily chart history cleanup done ({deleted} rows deleted)")
+
     # Delete fetch logs older than 30 days
     cutoff_30d = (datetime.utcnow() - timedelta(days=30)).isoformat()
     result = supabase.table("fetch_logs").delete().lt("executed_at", cutoff_30d).execute()

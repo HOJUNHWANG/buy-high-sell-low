@@ -48,7 +48,7 @@ export default function TermsPage() {
           (Twelve Data, NewsAPI) and is provided &quot;as-is&quot; without warranty of accuracy,
           completeness, or timeliness. Buy High Sell Low covers S&amp;P 100 stocks and
           cryptocurrencies. ETFs are available for data viewing only and are excluded from paper
-          trading and the What If calculator. Buy High Sell Low makes no guarantees about the reliability of market
+          trading. Buy High Sell Low makes no guarantees about the reliability of market
           data and is not liable for decisions made based on information displayed on this site.
         </p>
       </section>

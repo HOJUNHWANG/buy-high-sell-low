@@ -61,7 +61,7 @@ export interface StockWithPrice extends Stock {
   price?: StockPrice;
 }
 
-// 20-year daily OHLCV for What If feature
+// 1-year daily OHLCV for chart history.
 export interface PriceHistoryLong {
   id: number;
   ticker: string;
@@ -71,17 +71,6 @@ export interface PriceHistoryLong {
   low: number | null;
   close: number;
   volume: number | null;
-}
-
-// What If scenarios
-export interface WhatIfScenario {
-  id: number;
-  user_id: string;
-  ticker: string;
-  buy_date: string;
-  sell_date: string | null;
-  amount_usd: number;
-  created_at: string;
 }
 
 // Paper Trading

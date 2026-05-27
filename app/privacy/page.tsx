@@ -53,7 +53,7 @@ export default function PrivacyPage() {
         <ul className="list-disc list-inside space-y-1 text-sm">
           <li>Account data: retained while your account is active</li>
           <li>Watchlist data: deleted when you remove items or delete your account</li>
-          <li>Stock price history: 90 days rolling retention (intraday), long-term daily history retained indefinitely</li>
+          <li>Stock price history: 30 days rolling retention (intraday), one year rolling retention (daily)</li>
           <li>Paper trading data: retained while your account is active</li>
           <li>News articles: 90 days rolling retention (older articles are automatically deleted)</li>
           <li>AI usage logs: 12 months</li>

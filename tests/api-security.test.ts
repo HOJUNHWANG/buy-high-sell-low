@@ -255,22 +255,6 @@ describe("Security: Cross-user data isolation", () => {
     clearMockData();
   });
 
-  it("whatif DELETE only deletes own scenarios (user_id filter)", async () => {
-    setMockUser({ id: "attacker" });
-    // The route filters by user_id — even if attacker passes another user's scenario ID,
-    // the .eq("user_id", user.id) ensures only their own gets deleted
-    setMockData("whatif_scenarios", [
-      { id: 1, user_id: "victim" }, // belongs to another user
-    ]);
-
-    const mod = await import("@/app/api/whatif/route");
-    const req = new Request("http://localhost:3000/api/whatif?id=1", { method: "DELETE" });
-    const res = await mod.DELETE(req);
-    // The route returns ok: true regardless (Supabase silent on no match),
-    // but the actual delete is filtered by user_id
-    expect(res.status).toBe(200);
-  });
-
   it("portfolio only returns own positions", async () => {
     setMockUser({ id: "user-a" });
     setMockData("paper_accounts", [

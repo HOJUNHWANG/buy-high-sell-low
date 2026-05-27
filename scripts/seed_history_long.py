@@ -1,10 +1,10 @@
 """
-seed_history_long.py — Seed 20+ years of daily OHLCV data via yfinance.
+seed_history_long.py — Legacy alias for seeding 1 year of daily OHLCV data via yfinance.
 Inserts into price_history_long. Safe to re-run (skips existing dates via UNIQUE constraint).
 
 Usage:
   python scripts/seed_history_long.py            # all tickers
-  python scripts/seed_history_long.py --stocks    # S&P 500 only
+  python scripts/seed_history_long.py --stocks    # S&P 100 only
   python scripts/seed_history_long.py --crypto    # crypto only
   python scripts/seed_history_long.py AAPL MSFT   # specific tickers
 """
@@ -22,22 +22,22 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABAS
 supabase = create_client(SUPABASE_URL, os.environ["SUPABASE_SERVICE_ROLE_KEY"])
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import SP500_TICKERS, CRYPTO_TICKERS, ALL_TICKERS, to_yf
+from tickers import SP100_TICKERS, CRYPTO_TICKERS, ALL_TICKERS, to_yf
 
-BATCH_SIZE = 10  # smaller batches for 20Y data (larger payloads)
+BATCH_SIZE = 20
 CHUNK_INSERT = 500
 
 
 def seed_ticker_history(tickers: list[str]):
-    """Download max available daily OHLCV data and insert into price_history_long."""
-    print(f"Downloading max daily data for {len(tickers)} tickers...")
+    """Download 1 year of daily OHLCV data and insert into price_history_long."""
+    print(f"Downloading 1Y daily data for {len(tickers)} tickers...")
     yf_tickers = [to_yf(t) for t in tickers]
     tickers_str = " ".join(yf_tickers)
 
     try:
         data = yf.download(
             tickers_str,
-            period="max",
+            period="1y",
             interval="1d",
             group_by="ticker",
             progress=True,
@@ -121,19 +121,19 @@ def main():
         arg = sys.argv[1]
         if arg == "--crypto":
             tickers = CRYPTO_TICKERS
-            print(f"Seeding {len(tickers)} crypto tickers (max history)")
+            print(f"Seeding {len(tickers)} crypto tickers (1Y history)")
         elif arg == "--stocks":
-            tickers = SP500_TICKERS
-            print(f"Seeding {len(tickers)} S&P 100 tickers (max history)")
+            tickers = SP100_TICKERS
+            print(f"Seeding {len(tickers)} S&P 100 tickers (1Y history)")
         elif arg == "--all":
             tickers = ALL_TICKERS
-            print(f"Seeding all {len(tickers)} tickers (max history)")
+            print(f"Seeding all {len(tickers)} tickers (1Y history)")
         else:
             tickers = [t.upper() for t in sys.argv[1:]]
             print(f"Seeding specific tickers: {tickers}")
     else:
         tickers = ALL_TICKERS
-        print(f"Seeding all {len(tickers)} tickers (max history)")
+        print(f"Seeding all {len(tickers)} tickers (1Y history)")
 
     start = time.time()
     for i in range(0, len(tickers), BATCH_SIZE):

@@ -139,7 +139,6 @@ export default async function HomePage() {
                 { label: "S&P 100 + Crypto" },
                 { label: "AI News Analysis" },
                 { label: "Paper Trading" },
-                { label: "What If Calculator" },
               ].map(({ label }) => (
                 <div
                   key={label}
@@ -354,7 +353,6 @@ export default async function HomePage() {
               {[
                 { href: "/stocks", label: "📊 Stock Screener" },
                 { href: "/news",   label: "📰 News Feed"      },
-                { href: "/whatif", label: "🔮 What If?" },
                 { href: "/paper",  label: "💰 Paper Trading" },
                 { href: "/auth/login", label: "⭐ My Watchlist" },
               ].map(({ href, label }) => (

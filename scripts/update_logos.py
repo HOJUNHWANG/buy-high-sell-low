@@ -21,7 +21,7 @@ SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import SP500_TICKERS, CRYPTO_TICKERS, ETF_TICKERS
+from tickers import CRYPTO_TICKERS, ETF_TICKERS
 
 # ── Crypto logos ──
 CRYPTO_ICON_BASE = "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color"

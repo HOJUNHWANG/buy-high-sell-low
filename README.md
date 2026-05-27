@@ -26,7 +26,7 @@
 
 ## What is this?
 
-A free, real-time US stock market intelligence platform covering **S&P 100 + 19 Cryptocurrencies** — with AI-powered news analysis, paper trading, and a "What If" time machine.
+A free, real-time US stock market intelligence platform covering **S&P 100 + 19 Cryptocurrencies** — with AI-powered news analysis and paper trading.
 
 > All data is delayed. Nothing here is investment advice. You will probably lose fake money.
 
@@ -35,9 +35,10 @@ A free, real-time US stock market intelligence platform covering **S&P 100 + 19 
 ## Features
 
 ### Market Intelligence
-- **120+ tickers** with interactive candlestick charts (1D / 1W / 1M / 3M / 6M / 1Y)
+- **120+ tickers** with interactive charts (1D / 1W / 1M / 3M / 6M / 1Y)
 - Screener with market cap sorting, sector tabs, and Top Movers
 - Real-time price updates via Twelve Data API
+- One year of daily chart history seeded via yfinance
 
 ### AI News Analysis
 - Aggregated from RSS feeds (CoinTelegraph, CoinDesk, Decrypt) + NewsAPI
@@ -54,10 +55,6 @@ A free, real-time US stock market intelligence platform covering **S&P 100 + 19 
 - Daily AI portfolio roast & check-in rewards
 - Full transaction history with pagination
 
-### What If Calculator
-- "What if I bought AAPL in 2005?" — 20+ years of price history
-- Save & compare multiple scenarios
-
 ### Auth & Access
 - Google OAuth via Supabase Auth
 - Tiered access: Guest → Free → Premium
@@ -73,9 +70,9 @@ A free, real-time US stock market intelligence platform covering **S&P 100 + 19 
 | **Auth** | Supabase Auth (Google OAuth) |
 | **AI** | Groq (Llama 3.3 70B) |
 | **Charts** | lightweight-charts v5 |
-| **Market Data** | Twelve Data API |
+| **Market Data** | Twelve Data API + yfinance seeding |
 | **Styling** | Tailwind CSS (dark theme) |
-| **Testing** | Vitest (207 tests) |
+| **Testing** | Vitest |
 | **Deployment** | Vercel + GitHub Actions |
 | **Scripts** | Python (data pipeline, seed, backfill) |
 
@@ -124,10 +121,11 @@ Automated via GitHub Actions cron jobs:
 
 | Script | Schedule | Purpose |
 |:-------|:---------|:--------|
-| `fetch_prices.py` | Every 15 min (market hours) | Stock + crypto prices |
+| `fetch_prices.py` | Every 5-15 min (market hours) | Stock + crypto prices |
 | `fetch_news.py` | Every 30 min | News aggregation + AI summarization |
 | `update_market_caps.py` | Daily | Market cap refresh |
-| `cleanup.py` | Daily | Data retention (400d prices, 90d news) |
+| `seed_history.py` | Manual/bootstrap | 1Y daily chart history via yfinance |
+| `cleanup.py` | Daily | Data retention (30d intraday, 1Y daily, 90d news) |
 
 ---
 
@@ -143,13 +141,12 @@ app/
 │   ├── trade/[ticker]/         #   Buy / Sell / Short / Cover
 │   ├── history/                #   Transaction history
 │   └── leaderboard/            #   Leaderboard
-├── whatif/                     # What If calculator
-└── api/                        # 17 API routes
+└── api/                        # API routes
 components/                     # Reusable UI components
 lib/                            # Utilities, types, Supabase clients
 scripts/                        # Python data pipeline (13 scripts)
 supabase/                       # Schema + RLS policies + migrations
-tests/                          # Vitest (12 test suites, 207 tests)
+tests/                          # Vitest suites
 ```
 
 ---

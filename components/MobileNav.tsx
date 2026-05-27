@@ -11,7 +11,6 @@ const navLinks = [
   { href: "/stocks",       label: "Stocks"       },
   { href: "/news",         label: "News"         },
   { href: "/market-brief", label: "Market Brief" },
-  { href: "/whatif",       label: "What If"      },
   { href: "/paper",        label: "Paper Trade"  },
 ];
 

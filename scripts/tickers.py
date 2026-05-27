@@ -24,20 +24,20 @@ def to_twelve_data_crypto(ticker: str) -> str:
     return ticker.replace("-USD", "/USD")
 
 
-# S&P 100 (OEX) — top 100 large-cap US companies
+# S&P 100 (OEX) as tracked by OEF holdings, refreshed May 2026.
 SP100_TICKERS = [
-    "AAPL", "ABBV", "ABT", "ACN", "ADBE", "AIG", "AMAT", "AMD", "AMGN", "AMZN",
-    "AVGO", "AXP", "BA", "BAC", "BK", "BKNG", "BLK", "BMY", "BRK.B", "C",
-    "CAT", "CHTR", "CI", "CL", "CMCSA", "COF", "COP", "CRM", "CSCO", "COST",
-    "CVS", "CVX", "DE", "DHR", "DIS", "DUK", "EMR", "EXC", "F", "FDX",
-    "GD", "GE", "GILD", "GM", "GOOG", "GOOGL", "GS", "HD", "HON", "IBM",
-    "INTC", "INTU", "ISRG", "JNJ", "JPM", "KHC", "KO", "LIN", "LLY", "LMT",
-    "LOW", "MA", "MCD", "MDLZ", "MDT", "MET", "META", "MO", "MRK", "MS",
-    "MSFT", "NEE", "NFLX", "NKE", "NOW", "NVDA", "ORCL", "PEP", "PFE", "PG",
-    "PGR", "PM", "PYPL", "QCOM", "RTX", "SBUX", "SCHW", "SLB", "SO", "SPG",
-    "T", "TGT", "TMO", "TMUS", "TSLA", "TXN", "UNH", "UNP", "UPS", "USB",
-    "V", "VZ", "WFC", "WMT", "XOM",
-]  # 105 tickers (S&P 100 + a few share classes)
+    "NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "AVGO", "GOOG", "META", "TSLA", "BRK.B",
+    "MU", "JPM", "LLY", "AMD", "XOM", "WMT", "JNJ", "INTC", "V", "COST",
+    "CSCO", "CAT", "MA", "LRCX", "ABBV", "NFLX", "UNH", "CVX", "AMAT", "ORCL",
+    "PG", "BAC", "KO", "GE", "PLTR", "HD", "PM", "GEV", "GS", "MRK",
+    "TXN", "LIN", "RTX", "MS", "WFC", "C", "QCOM", "IBM", "PEP", "NEE",
+    "VZ", "MCD", "DIS", "AMGN", "BA", "T", "TMO", "AXP", "GILD", "UNP",
+    "BLK", "CRM", "UBER", "ISRG", "SCHW", "ABT", "PFE", "COP", "DE", "HON",
+    "LOW", "BKNG", "CVS", "MO", "SBUX", "COF", "BMY", "LMT", "INTU", "DHR",
+    "SO", "ACN", "MDT", "ADBE", "DUK", "NOW", "BK", "CMCSA", "TMUS", "GD",
+    "USB", "FDX", "AMT", "MDLZ", "EMR", "MMM", "UPS", "CL", "GM", "SPG",
+    "NKE",
+]  # 101 equity tickers; dual share classes make the count differ from 100 companies.
 
 # Backward compatibility alias
 SP500_TICKERS = SP100_TICKERS
@@ -60,35 +60,38 @@ ALL_TICKERS = SP100_TICKERS + CRYPTO_TICKERS + ETF_TICKERS
 COMPANY_NAMES = {
     # S&P 100
     "AAPL": "Apple", "ABBV": "AbbVie", "ABT": "Abbott", "ACN": "Accenture",
-    "ADBE": "Adobe", "AIG": "AIG", "AMAT": "Applied Materials", "AMD": "AMD",
+    "ADBE": "Adobe", "AMAT": "Applied Materials", "AMD": "AMD",
     "AMGN": "Amgen", "AMZN": "Amazon", "AVGO": "Broadcom", "AXP": "American Express",
     "BA": "Boeing", "BAC": "Bank of America", "BK": "BNY Mellon",
     "BKNG": "Booking Holdings", "BLK": "BlackRock", "BMY": "Bristol Myers Squibb",
     "BRK.B": "Berkshire Hathaway", "C": "Citigroup", "CAT": "Caterpillar",
-    "CHTR": "Charter Communications", "CI": "Cigna", "CL": "Colgate-Palmolive",
+    "CL": "Colgate-Palmolive",
     "CMCSA": "Comcast", "COF": "Capital One", "COP": "ConocoPhillips",
     "CRM": "Salesforce", "CSCO": "Cisco", "COST": "Costco",
     "CVS": "CVS Health", "CVX": "Chevron", "DE": "Deere", "DHR": "Danaher",
     "DIS": "Walt Disney", "DUK": "Duke Energy", "EMR": "Emerson Electric",
-    "EXC": "Exelon", "F": "Ford", "FDX": "FedEx", "GD": "General Dynamics",
+    "FDX": "FedEx", "GD": "General Dynamics",
     "GE": "GE Aerospace", "GILD": "Gilead Sciences", "GM": "General Motors",
+    "GEV": "GE Vernova",
     "GOOG": "Alphabet C", "GOOGL": "Alphabet A", "GS": "Goldman Sachs",
     "HD": "Home Depot", "HON": "Honeywell", "IBM": "IBM", "INTC": "Intel",
     "INTU": "Intuit", "ISRG": "Intuitive Surgical", "JNJ": "Johnson & Johnson",
-    "JPM": "JPMorgan Chase", "KHC": "Kraft Heinz", "KO": "Coca-Cola",
+    "JPM": "JPMorgan Chase", "KO": "Coca-Cola",
     "LIN": "Linde", "LLY": "Eli Lilly", "LMT": "Lockheed Martin", "LOW": "Lowe's",
+    "LRCX": "Lam Research",
     "MA": "Mastercard", "MCD": "McDonald's", "MDLZ": "Mondelez",
-    "MDT": "Medtronic", "MET": "MetLife", "META": "Meta Platforms",
+    "MDT": "Medtronic", "META": "Meta Platforms", "MMM": "3M", "MU": "Micron Technology",
     "MO": "Altria", "MRK": "Merck", "MS": "Morgan Stanley", "MSFT": "Microsoft",
     "NEE": "NextEra Energy", "NFLX": "Netflix", "NKE": "Nike",
     "NOW": "ServiceNow", "NVDA": "Nvidia", "ORCL": "Oracle", "PEP": "PepsiCo",
-    "PFE": "Pfizer", "PG": "Procter & Gamble", "PGR": "Progressive",
-    "PM": "Philip Morris", "PYPL": "PayPal", "QCOM": "Qualcomm", "RTX": "RTX",
-    "SBUX": "Starbucks", "SCHW": "Charles Schwab", "SLB": "Schlumberger",
+    "PFE": "Pfizer", "PG": "Procter & Gamble", "PLTR": "Palantir",
+    "PM": "Philip Morris", "QCOM": "Qualcomm", "RTX": "RTX",
+    "SBUX": "Starbucks", "SCHW": "Charles Schwab",
     "SO": "Southern Company", "SPG": "Simon Property", "T": "AT&T",
-    "TGT": "Target", "TMO": "Thermo Fisher", "TMUS": "T-Mobile",
+    "TMO": "Thermo Fisher", "TMUS": "T-Mobile",
     "TSLA": "Tesla", "TXN": "Texas Instruments", "UNH": "UnitedHealth",
-    "UNP": "Union Pacific", "UPS": "UPS", "USB": "U.S. Bancorp", "V": "Visa",
+    "UNP": "Union Pacific", "UPS": "UPS", "USB": "U.S. Bancorp", "UBER": "Uber",
+    "V": "Visa",
     "VZ": "Verizon", "WFC": "Wells Fargo", "WMT": "Walmart", "XOM": "ExxonMobil",
     # Crypto
     "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "USDT-USD": "Tether",
