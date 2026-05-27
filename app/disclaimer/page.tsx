@@ -83,10 +83,8 @@ export default function DisclaimerPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-white">Contact</h2>
         <p className="text-sm">
-          If you have questions about this disclaimer, contact:{" "}
-          <a href="mailto:adind96@gmail.com" className="text-blue-400 hover:underline">
-            adind96@gmail.com
-          </a>
+          If you have questions about this disclaimer, contact the site operator through the
+          support channel configured for this service.
         </p>
       </section>
     </div>

@@ -201,7 +201,7 @@ def fetch_crypto_twelve_data():
                 time.sleep(sleep_time)
         except Exception as e:
             err_msg = str(e)
-            print(f"    🚨 RAW ERROR INFO: {repr(e)}") # <-- 추가됨: 진짜 에러 메시지 출력
+            print(f"    Error details: {repr(e)}")
             if "Max retries exceeded" in err_msg or "Read timed out" in err_msg:
                 print(f"    ⚠️ Timeout/Retry Error for batch {i+1} (Twelve Data server status: DOWN/SLOW)")
             else:
@@ -253,7 +253,7 @@ def main():
                 time.sleep(sleep_time)
         except Exception as e:
             err_msg = str(e)
-            print(f"    🚨 RAW ERROR INFO: {repr(e)}") # <-- 추가됨: 주식 쪽도 진짜 에러 메시지 출력
+            print(f"    Error details: {repr(e)}")
             if "Max retries exceeded" in err_msg or "Read timed out" in err_msg:
                 print(f"    ⚠️ Timeout/Retry Error for batch {i+1} (Twelve Data server status: DOWN/SLOW)")
             else:

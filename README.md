@@ -5,13 +5,11 @@
 <h1 align="center">Buy High Sell Low</h1>
 
 <p align="center">
-  <strong>The stock market app for people who like to learn the hard way.</strong>
+  <strong>A market dashboard for tracking stocks, crypto, news, and paper trading.</strong>
 </p>
 
 <p align="center">
-  <a href="https://buyhighselllow.vercel.app">
-    <img src="https://img.shields.io/badge/Live-buyhighselllow.vercel.app-black?style=for-the-badge&logo=vercel" alt="Live Demo" />
-  </a>
+  <img src="https://img.shields.io/badge/Deployment-Vercel-black?style=for-the-badge&logo=vercel" alt="Deployment" />
 </p>
 
 <p align="center">
@@ -47,7 +45,7 @@ A free, real-time US stock market intelligence platform covering **S&P 100 + 19 
 - Tiered access with per-article unlock system
 
 ### Paper Trading
-- **$1,000** starting balance — see how fast you can blow it up
+- **$1,000** starting balance for simulated trading
 - Long & Short positions with **1-100x leverage**
 - Margin trading with real-time liquidation checks
 - Weekly Prediction Challenge (5 random picks, up/down bets)
@@ -158,5 +156,5 @@ All market data is delayed. AI-generated content is not investment advice. Paper
 ---
 
 <p align="center">
-  <sub>Built with caffeine and questionable financial decisions.</sub>
+  <sub>Educational project. Not investment advice.</sub>
 </p>

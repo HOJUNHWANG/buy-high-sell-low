@@ -110,7 +110,10 @@ export default function PaperTradingPage() {
       else {
         setAuthed(true);
         setUserId(user.id);
-        setIsAdmin(user.email === "adind96@gmail.com");
+        fetch("/api/paper/admin/status")
+          .then((res) => res.json())
+          .then((data) => setIsAdmin(Boolean(data.isAdmin)))
+          .catch(() => setIsAdmin(false));
       }
     });
   }, [supabase, router]);

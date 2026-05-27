@@ -60,11 +60,9 @@ export default function PrivacyPage() {
           <li>Fetch/error logs: 90 days</li>
         </ul>
         <p className="text-sm">
-          To request deletion of your account and associated data, contact us at{" "}
-          <a href="mailto:adind96@gmail.com" className="text-blue-400 hover:underline">
-            adind96@gmail.com
-          </a>
-          . We will process deletion requests within 30 days.
+          To request deletion of your account and associated data, contact the site operator
+          through the support channel configured for this service. We will process deletion
+          requests within 30 days.
         </p>
       </section>
 
@@ -155,11 +153,8 @@ export default function PrivacyPage() {
           <li><strong>Right to object</strong>: Object to processing based on legitimate interests</li>
         </ul>
         <p className="text-sm">
-          To exercise any of these rights, email{" "}
-          <a href="mailto:adind96@gmail.com" className="text-blue-400 hover:underline">
-            adind96@gmail.com
-          </a>{" "}
-          with your request. We will respond within 30 days.
+          To exercise any of these rights, contact the site operator through the support channel
+          configured for this service. We will respond within 30 days.
         </p>
       </section>
 
@@ -176,11 +171,8 @@ export default function PrivacyPage() {
           <li>The right to non-discrimination for exercising your privacy rights</li>
         </ul>
         <p className="text-sm">
-          To submit a CCPA request, contact{" "}
-          <a href="mailto:adind96@gmail.com" className="text-blue-400 hover:underline">
-            adind96@gmail.com
-          </a>
-          .
+          To submit a CCPA request, contact the site operator through the support channel
+          configured for this service.
         </p>
       </section>
 
@@ -221,10 +213,7 @@ export default function PrivacyPage() {
         <p className="text-sm">
           <strong className="text-white">Buy High Sell Low</strong>
           <br />
-          Email:{" "}
-          <a href="mailto:adind96@gmail.com" className="text-blue-400 hover:underline">
-            adind96@gmail.com
-          </a>
+          Contact: Support channel configured for this service
         </p>
       </section>
     </div>

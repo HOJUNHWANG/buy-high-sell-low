@@ -109,11 +109,8 @@ export default function TermsPage() {
         <h2 className="text-xl font-semibold text-white">6. User Accounts</h2>
         <p className="text-sm leading-relaxed">
           You are responsible for maintaining the security of your account credentials. You agree
-          to notify us immediately at{" "}
-          <a href="mailto:adind96@gmail.com" className="text-blue-400 hover:underline">
-            adind96@gmail.com
-          </a>{" "}
-          if you suspect unauthorised access to your account. Buy High Sell Low is not liable for any
+          to notify us immediately through the support channel configured for this service if you
+          suspect unauthorised access to your account. Buy High Sell Low is not liable for any
           losses resulting from unauthorised account use.
         </p>
         <p className="text-sm">
@@ -185,10 +182,8 @@ export default function TermsPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-white">13. Contact</h2>
         <p className="text-sm">
-          For questions about these Terms, contact:{" "}
-          <a href="mailto:adind96@gmail.com" className="text-blue-400 hover:underline">
-            adind96@gmail.com
-          </a>
+          For questions about these Terms, contact the site operator through the support channel
+          configured for this service.
         </p>
       </section>
     </div>
