@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isDustPosition, PAPER_POSITION_DUST_VALUE_USD } from "@/lib/paper-trading";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -62,6 +63,11 @@ export async function POST(request: Request) {
   }
 
   const price = priceData.price;
+  const wouldLeaveShares = position.shares - shares;
+  if (wouldLeaveShares > 0 && wouldLeaveShares * price < PAPER_POSITION_DUST_VALUE_USD) {
+    shares = position.shares;
+  }
+
   const grossProceeds = shares * price;
 
   // Calculate proportional borrowed amount to repay
@@ -79,7 +85,7 @@ export async function POST(request: Request) {
 
   // Update or delete position FIRST (before updating balance)
   const remainingShares = position.shares - shares;
-  if (remainingShares <= 0.000001) {
+  if (isDustPosition(remainingShares, price)) {
     const { error: posErr } = await supabase
       .from("paper_positions")
       .delete()

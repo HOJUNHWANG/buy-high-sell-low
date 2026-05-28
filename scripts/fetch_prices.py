@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from tickers import SP100_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_crypto
 
 BATCH_SIZE = 25  # Recommended batch size for stocks
-CRYPTO_BATCH_SIZE = 5  # <-- 수정됨: 19에서 5로 줄여서 서버 부하 완화
+CRYPTO_BATCH_SIZE = 5  # Keep crypto requests small to reduce provider timeouts
 SLEEP_PER_TICKER = 2.2  # Seconds to wait per ticker (55 credits/min plan, ~4min total)
 
 # Configure retry strategy
@@ -80,7 +80,7 @@ def fetch_batch(tickers: list[str]) -> dict:
 
     # Single ticker returns flat dict, multiple returns nested
     if len(tickers) == 1:
-        return {tickers: data} if "close" in data else {}
+        return {tickers[0]: data} if "close" in data else {}
     return data
 
 

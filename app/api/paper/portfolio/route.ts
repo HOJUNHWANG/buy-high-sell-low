@@ -1,5 +1,18 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isDustPosition } from "@/lib/paper-trading";
 import { NextResponse } from "next/server";
+
+type PaperPositionRow = {
+  ticker: string;
+  shares: number;
+  avg_cost: number;
+  borrowed?: number | null;
+  side?: string | null;
+  stocks?: {
+    name?: string | null;
+    logo_url?: string | null;
+  } | null;
+};
 
 export async function GET() {
   const supabase = await createSupabaseServerClient();
@@ -28,21 +41,22 @@ export async function GET() {
     .gt("shares", 0);
 
   // Fetch current prices separately to avoid ambiguous join issues
-  const tickers = (positions ?? []).map((p: any) => p.ticker as string);
+  const typedPositions = (positions ?? []) as PaperPositionRow[];
+  const tickers = typedPositions.map((p) => p.ticker);
   let priceMap: Record<string, number> = {};
   if (tickers.length > 0) {
     const { data: prices } = await supabase
       .from("stock_prices")
       .select("ticker, price")
       .in("ticker", tickers);
-    priceMap = (prices ?? []).reduce((acc: Record<string, number>, row: any) => {
+    priceMap = ((prices ?? []) as { ticker: string; price: number }[]).reduce((acc: Record<string, number>, row) => {
       acc[row.ticker] = row.price;
       return acc;
     }, {});
   }
 
   // Build enriched positions
-  const enrichedPositions = (positions ?? []).map((p: any) => {
+  const enrichedPositions = typedPositions.map((p) => {
     const currentPrice = priceMap[p.ticker] ?? p.avg_cost;
     const isShort = p.side === "short";
     const marketValue = p.shares * currentPrice;
@@ -78,7 +92,7 @@ export async function GET() {
         ? Math.round((marketValue / equity) * 10) / 10
         : 1,
     };
-  });
+  }).filter((p: { shares: number; currentPrice: number }) => !isDustPosition(p.shares, p.currentPrice));
 
   // Calculate totals — equity differs for long vs short positions
   const totalMarketValue = enrichedPositions.reduce((sum: number, p: { marketValue: number }) => sum + p.marketValue, 0);

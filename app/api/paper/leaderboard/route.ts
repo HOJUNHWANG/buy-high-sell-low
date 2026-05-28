@@ -1,5 +1,6 @@
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isDustPosition } from "@/lib/paper-trading";
 import { NextResponse, type NextRequest } from "next/server";
 
 const PAGE_SIZE = 20;
@@ -24,10 +25,13 @@ export async function GET(request: NextRequest) {
   // Get active paper accounts (excluded: suspended/liquidated → they go to graveyard)
   const { data: accounts } = await admin
     .from("paper_accounts")
-    .select("user_id, cash_balance, status, nickname")
-    .in("status", ["active", "margin_call"]);
+    .select("user_id, cash_balance, status, nickname");
 
-  if (!accounts || accounts.length === 0) {
+  const eligibleAccounts = (accounts ?? []).filter(
+    (acc: { status?: string | null }) => ["active", "margin_call"].includes(acc.status ?? "active")
+  );
+
+  if (eligibleAccounts.length === 0) {
     return NextResponse.json({
       entries: [],
       myRank: null,
@@ -42,25 +46,6 @@ export async function GET(request: NextRequest) {
     .from("paper_positions")
     .select("user_id, ticker, shares, avg_cost, side, leverage, borrowed");
 
-  // Filter: only show users who have actually traded (have positions OR cash != $1000)
-  const usersWithPositions = new Set(
-    (allPositions ?? []).map((p: { user_id: string }) => p.user_id)
-  );
-  const activeTraders = (accounts ?? []).filter(
-    (acc: { user_id: string; cash_balance: number; status: string; nickname: string | null }) =>
-      usersWithPositions.has(acc.user_id) || acc.cash_balance !== 1000
-  );
-
-  if (activeTraders.length === 0) {
-    return NextResponse.json({
-      entries: [],
-      myRank: null,
-      totalCount: 0,
-      page: 1,
-      totalPages: 1,
-    });
-  }
-
   // Get current prices for all tickers
   const tickers = [...new Set((allPositions ?? []).map((p: { ticker: string }) => p.ticker))];
   let prices: Record<string, number> = {};
@@ -74,9 +59,33 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const activePositions = (allPositions ?? []).filter(
+    (p: { ticker: string; shares: number; avg_cost: number }) =>
+      !isDustPosition(p.shares, prices[p.ticker] ?? p.avg_cost)
+  );
+
+  // Filter: only show users who have actually traded (have positions OR cash != $1000)
+  const usersWithPositions = new Set(
+    activePositions.map((p: { user_id: string }) => p.user_id)
+  );
+  const activeTraders = eligibleAccounts.filter(
+    (acc: { user_id: string; cash_balance: number; status?: string | null; nickname: string | null }) =>
+      usersWithPositions.has(acc.user_id) || acc.cash_balance !== 1000
+  );
+
+  if (activeTraders.length === 0) {
+    return NextResponse.json({
+      entries: [],
+      myRank: null,
+      totalCount: 0,
+      page: 1,
+      totalPages: 1,
+    });
+  }
+
   // Calculate portfolio values with equity (debt subtracted)
   const leaderboard = activeTraders.map((acc: { user_id: string; cash_balance: number; status: string; nickname: string | null }) => {
-    const userPositions = (allPositions ?? []).filter(
+    const userPositions = activePositions.filter(
       (p: { user_id: string }) => p.user_id === acc.user_id
     );
 

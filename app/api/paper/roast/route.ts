@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isDustPosition } from "@/lib/paper-trading";
 import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
 
@@ -55,13 +56,17 @@ export async function POST() {
   }
 
   const cashBalance = account?.cash_balance ?? 1000;
-  const holdingsStr = (positions ?? []).map((p: { ticker: string; shares: number; avg_cost: number }) => {
+  const activePositions = (positions ?? []).filter(
+    (p: { ticker: string; shares: number; avg_cost: number }) =>
+      !isDustPosition(p.shares, prices[p.ticker] ?? p.avg_cost)
+  );
+  const holdingsStr = activePositions.map((p: { ticker: string; shares: number; avg_cost: number }) => {
     const current = prices[p.ticker] ?? p.avg_cost;
     const pnl = ((current - p.avg_cost) / p.avg_cost * 100).toFixed(1);
     return `${p.ticker}: ${p.shares.toFixed(2)} shares @ $${p.avg_cost.toFixed(2)} avg, now $${current.toFixed(2)} (${Number(pnl) >= 0 ? "+" : ""}${pnl}%)`;
   }).join("\n");
 
-  const totalValue = cashBalance + (positions ?? []).reduce(
+  const totalValue = cashBalance + activePositions.reduce(
     (sum: number, p: { ticker: string; shares: number }) => sum + p.shares * (prices[p.ticker] ?? 0),
     0
   );
@@ -105,6 +110,7 @@ Output JSON only:
   }
 
   return NextResponse.json({
+    roast: result.roast ?? result.summary ?? "",
     grade: result.grade ?? "?",
     nickname: result.nickname ?? "The Unknown Trader",
     summary: result.summary ?? "Unable to generate analysis.",
