@@ -4,7 +4,7 @@ import type { Stock, StockPrice } from "@/lib/types";
 import { StockTable } from "@/components/StockTable";
 import { MarketStatusWidget } from "@/components/MarketStatusWidget";
 
-export const revalidate = 300; // 5 min — matches price cron interval
+export const revalidate = 300; // 5 min cache so UI picks up the 10-min price cron shortly after completion
 
 export const metadata: Metadata = {
   title: "Screener — Stocks, ETFs & Crypto",
@@ -76,7 +76,7 @@ export default async function StocksPage() {
             Stock Screener
           </h1>
           <p className="text-xs mt-0.5" style={{ color: "var(--text-3)" }}>
-            S&amp;P 100 + Crypto · {stocks.length} assets · Prices updated every 5 min
+            S&amp;P 100 + Crypto · {stocks.length} assets · Prices updated every 10 min
           </p>
         </div>
 

@@ -115,11 +115,11 @@ npm test
 
 ## Data Pipeline
 
-Automated via GitHub Actions cron jobs:
+Automated via scheduled cron jobs:
 
 | Script | Schedule | Purpose |
 |:-------|:---------|:--------|
-| `fetch_prices.py` | Every 5-15 min (market hours) | Stock + crypto prices |
+| `fetch_prices.py` | Every 10 min (market hours; script skips closed stock market) | Stock + crypto prices |
 | `fetch_news.py` | Every 30 min | News aggregation + AI summarization |
 | `update_market_caps.py` | Daily | Market cap refresh |
 | `seed_history.py` | Manual/bootstrap | 1Y daily chart history via yfinance |
