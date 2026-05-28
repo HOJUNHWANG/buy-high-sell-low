@@ -52,16 +52,41 @@ def is_market_open() -> bool:
     return market_open <= now_et <= market_close
 
 
-def is_post_market_close_window() -> bool:
-    """True if within 30 minutes after market close (4:00-4:30 PM ET).
-    Used to do one final fetch for closing prices."""
+def get_post_market_stock_fetch_mode() -> str | None:
+    """Return the after-hours stock fetch window, if any.
+
+    regular_close catches the first closing print, while settlement_close runs
+    once later after providers have had time to settle final OHLC values.
+    """
     et = pytz.timezone("America/New_York")
     now_et = datetime.now(et)
     if now_et.weekday() >= 5:
-        return False
+        return None
     close_time = now_et.replace(hour=16, minute=0,  second=0, microsecond=0)
     final_time = now_et.replace(hour=16, minute=30, second=0, microsecond=0)
-    return close_time < now_et <= final_time
+    settlement_start = now_et.replace(hour=16, minute=45, second=0, microsecond=0)
+    settlement_end = now_et.replace(hour=17, minute=15, second=0, microsecond=0)
+    if close_time < now_et <= final_time:
+        return "regular_close"
+    if settlement_start <= now_et <= settlement_end:
+        return "settlement_close"
+    return None
+
+
+def already_ran_settlement_close_today() -> bool:
+    """Avoid repeated stock close-correction fetches while cron runs every few minutes."""
+    et = pytz.timezone("America/New_York")
+    now_et = datetime.now(et)
+    settlement_start_utc = now_et.replace(
+        hour=16, minute=45, second=0, microsecond=0
+    ).astimezone(pytz.utc).isoformat()
+    result = supabase.table("fetch_logs") \
+        .select("id") \
+        .eq("job_name", "prices_close_settlement") \
+        .gte("executed_at", settlement_start_utc) \
+        .limit(1) \
+        .execute()
+    return len(result.data or []) > 0
 
 
 def fetch_batch(tickers: list[str]) -> dict:
@@ -219,14 +244,21 @@ def main():
     except Exception as e:
         print(f"Crypto fetch error: {e}")
 
-    # Stocks: during market hours OR post-market-close final fetch
-    post_market = is_post_market_close_window()
+    # Stocks: during market hours OR post-market-close final/settlement fetches.
+    post_market_mode = get_post_market_stock_fetch_mode()
+    if post_market_mode == "settlement_close" and already_ran_settlement_close_today():
+        print("Settlement close stock fetch already ran today — skipping stocks.")
+        return
+
+    post_market = post_market_mode is not None
     if not is_market_open() and not post_market:
         print("Stock market closed — skipping stocks.")
         return
 
-    if post_market:
+    if post_market_mode == "regular_close":
         print("Post-market close window — fetching final closing prices...")
+    elif post_market_mode == "settlement_close":
+        print("Settlement close window — refreshing final closing prices once more...")
 
     stock_tickers = SP100_TICKERS + ETF_TICKERS
     print(f"Fetching prices for {len(stock_tickers)} stock tickers...")
@@ -261,7 +293,8 @@ def main():
             all_failed.extend(batch)
 
     status = "success" if not all_failed else "partial"
-    log_result("prices", status, total_fetched, all_failed)
+    log_job = "prices_close_settlement" if post_market_mode == "settlement_close" else "prices"
+    log_result(log_job, status, total_fetched, all_failed)
     print(f"Done. Fetched: {total_fetched}, Failed: {len(all_failed)}")
 
 
