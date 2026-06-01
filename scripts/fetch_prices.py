@@ -74,8 +74,8 @@ def get_post_market_stock_fetch_mode() -> str | None:
     return None
 
 
-def already_ran_settlement_close_today() -> bool:
-    """Avoid repeated stock close-correction fetches while cron runs every 10 minutes."""
+def already_completed_settlement_close_today() -> bool:
+    """Avoid repeating a settlement refresh after at least one stock was updated."""
     et = pytz.timezone("America/New_York")
     now_et = datetime.now(et)
     settlement_start_utc = now_et.replace(
@@ -84,6 +84,7 @@ def already_ran_settlement_close_today() -> bool:
     result = supabase.table("fetch_logs") \
         .select("id") \
         .eq("job_name", "prices_close_settlement") \
+        .gt("records_fetched", 0) \
         .gte("executed_at", settlement_start_utc) \
         .limit(1) \
         .execute()
@@ -243,9 +244,9 @@ def main():
         print(f"Crypto fetch error: {e}")
 
     # Stocks: during market hours OR post-market-close final/settlement fetches.
-    # Keep the later settlement-close refresh; fetch_logs limits it to once per day.
+    # Keep the later settlement-close refresh; fetch_logs limits completed runs to once per day.
     post_market_mode = get_post_market_stock_fetch_mode()
-    if post_market_mode == "settlement_close" and already_ran_settlement_close_today():
+    if post_market_mode == "settlement_close" and already_completed_settlement_close_today():
         print("Settlement close stock fetch already ran today — skipping stocks.")
         return
 
