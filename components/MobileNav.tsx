@@ -14,8 +14,11 @@ const navLinks = [
   { href: "/paper",        label: "Paper Trade"  },
 ];
 
-export function MobileNav() {
+export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const links = isAdmin
+    ? [...navLinks, { href: "/admin/data-health", label: "Data Health" }]
+    : navLinks;
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Close on route change
@@ -67,7 +70,7 @@ export function MobileNav() {
           >
             <SearchBar />
             <nav className="flex flex-col gap-0.5">
-              {navLinks.map(({ href, label }) => {
+              {links.map(({ href, label }) => {
                 const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
                 return (
                   <Link
@@ -86,7 +89,7 @@ export function MobileNav() {
               })}
             </nav>
             <div className="pt-2" style={{ borderTop: "1px solid var(--border)" }}>
-              <UserMenu />
+              <UserMenu isAdmin={isAdmin} />
             </div>
           </div>
         </>

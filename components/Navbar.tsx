@@ -3,8 +3,13 @@ import { NavLinks } from "@/components/NavLinks";
 import { MobileNav } from "@/components/MobileNav";
 import { SearchBar } from "@/components/SearchBar";
 import { UserMenu } from "@/components/UserMenu";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export function Navbar() {
+export async function Navbar() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const isAdmin = Boolean(process.env.ADMIN_EMAIL && user?.email === process.env.ADMIN_EMAIL);
+
   return (
     <header
       className="sticky top-0 z-50"
@@ -27,7 +32,7 @@ export function Navbar() {
         </Link>
 
         {/* Desktop nav (client island — needs usePathname) */}
-        <NavLinks />
+        <NavLinks isAdmin={isAdmin} />
 
         <div className="flex-1" />
 
@@ -38,11 +43,11 @@ export function Navbar() {
 
         {/* User menu */}
         <div className="hidden sm:block">
-          <UserMenu />
+          <UserMenu isAdmin={isAdmin} />
         </div>
 
         {/* Mobile hamburger + menu (client island — needs useState/usePathname) */}
-        <MobileNav />
+        <MobileNav isAdmin={isAdmin} />
       </div>
     </header>
   );

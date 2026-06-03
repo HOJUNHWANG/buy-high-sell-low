@@ -5,7 +5,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-export function UserMenu() {
+export function UserMenu({ isAdmin = false }: { isAdmin?: boolean }) {
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
@@ -109,6 +109,15 @@ export function UserMenu() {
               </svg>
               News Feed
             </Link>
+            {isAdmin && (
+              <Link href="/admin/data-health" onClick={() => setOpen(false)} className="dropdown-item">
+                <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M3 13.5h4l2-7 4 12 2-5h6" />
+                </svg>
+                Data Health
+              </Link>
+            )}
           </div>
 
           <div className="border-t py-1" style={{ borderColor: "var(--border)" }}>
