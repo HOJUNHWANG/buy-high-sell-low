@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Stock, StockPrice } from "@/lib/types";
 import { LogoImage } from "./LogoImage";
+import { PriceFreshnessBadge } from "./PriceFreshnessBadge";
+import { WatchlistRemoveButton } from "./WatchlistRemoveButton";
 import Link from "next/link";
 
 
@@ -58,7 +60,7 @@ export async function WatchlistSection({ userId }: { userId: string }) {
           My Watchlist
         </p>
         <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
-          {tickers.length} stock{tickers.length !== 1 ? "s" : ""}
+          {tickers.length} asset{tickers.length !== 1 ? "s" : ""}
         </span>
       </div>
 
@@ -68,11 +70,12 @@ export async function WatchlistSection({ userId }: { userId: string }) {
           const isUp = pct >= 0;
           const sign = isUp ? "+" : "";
           return (
-            <Link
+            <div
               key={item.ticker}
-              href={`/stock/${item.ticker}`}
-              className="card-clickable rounded-xl p-3 flex flex-col gap-2"
+              className="card-clickable relative rounded-xl p-3 flex flex-col gap-2"
             >
+              <WatchlistRemoveButton ticker={item.ticker} userId={userId} />
+              <Link href={`/stock/${item.ticker}`} className="flex flex-col gap-2 pr-5">
               <div className="flex items-center gap-2">
                 {item.stocks?.logo_url ? (
                   <LogoImage
@@ -108,7 +111,9 @@ export async function WatchlistSection({ userId }: { userId: string }) {
                   {sign}{pct.toFixed(2)}%
                 </div>
               </div>
-            </Link>
+              {item.fetched_at && <PriceFreshnessBadge fetchedAt={item.fetched_at} compact />}
+              </Link>
+            </div>
           );
         })}
       </div>

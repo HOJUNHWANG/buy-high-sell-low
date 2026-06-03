@@ -6,6 +6,7 @@ import Link from "next/link";
 import { LogoImage } from "./LogoImage";
 import type { Stock, StockPrice } from "@/lib/types";
 import { fmtVol } from "@/lib/utils";
+import { PriceFreshnessBadge } from "./PriceFreshnessBadge";
 
 type StockRow = Stock & { price?: StockPrice; change_30d?: number | null };
 type SortKey = "ticker" | "name" | "market_cap" | "price" | "change_pct" | "change_30d" | "volume";
@@ -45,17 +46,19 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
   });
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const initialTab = tabParam === "crypto" ? "crypto" : "stocks";
-  const [assetType, setAssetType] = useState<"stocks" | "crypto">(initialTab);
+  const initialTab = tabParam === "crypto" ? "crypto" : tabParam === "etfs" ? "etfs" : "stocks";
+  const [assetType, setAssetType] = useState<"stocks" | "etfs" | "crypto">(initialTab);
   const [sector, setSector] = useState("All");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"table" | "grid">("table");
 
   const isCrypto = (s: StockRow) => s.sector === "Cryptocurrency";
+  const isEtf = (s: StockRow) => s.sector === "ETF";
 
   const filterByTab = (s: StockRow) => {
     if (assetType === "crypto") return isCrypto(s);
-    return !isCrypto(s);
+    if (assetType === "etfs") return isEtf(s);
+    return !isCrypto(s) && !isEtf(s);
   };
 
   const sectors = useMemo(() => {
@@ -63,7 +66,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
     stocks
       .filter(filterByTab)
       .forEach((st) => { if (st.sector) s.add(st.sector); });
-    return assetType === "crypto" ? ["All"] : ["All", ...Array.from(s).sort()];
+    return assetType === "crypto" || assetType === "etfs" ? ["All"] : ["All", ...Array.from(s).sort()];
   }, [stocks, assetType]);
 
   const filtered = useMemo(() => {
@@ -122,7 +125,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
         className="flex rounded-lg overflow-hidden w-fit"
         style={{ border: "1px solid var(--border-md)", background: "var(--surface)" }}
       >
-        {(["stocks", "crypto"] as const).map((t) => (
+        {(["stocks", "etfs", "crypto"] as const).map((t) => (
           <button
             key={t}
             onClick={() => { setAssetType(t); setSector("All"); }}
@@ -132,7 +135,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
               color: assetType === t ? "#fff" : "var(--text-2)",
             }}
           >
-            {t === "stocks" ? "Stocks" : "Crypto"}
+            {t === "stocks" ? "Stocks" : t === "etfs" ? "ETFs" : "Crypto"}
           </button>
         ))}
       </div>
@@ -351,7 +354,8 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                         {fmtMarketCap(stock.market_cap)}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold tabular-nums" style={{ color: "var(--text)" }}>
-                        {stock.price ? `$${stock.price.price.toFixed(2)}` : "—"}
+                        <div>{stock.price ? `$${stock.price.price.toFixed(2)}` : "—"}</div>
+                        {stock.price?.fetched_at && <div className="mt-1"><PriceFreshnessBadge fetchedAt={stock.price.fetched_at} compact /></div>}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {pct !== null ? (
@@ -398,7 +402,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                       className="px-4 py-10 text-center text-sm"
                       style={{ color: "var(--text-3)" }}
                     >
-                      No stocks match your filters
+                      No assets match your filters
                     </td>
                   </tr>
                 )}
@@ -465,6 +469,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                         {isUp ? "+" : ""}{pct.toFixed(2)}%
                       </span>
                     )}
+                    {stock.price?.fetched_at && <PriceFreshnessBadge fetchedAt={stock.price.fetched_at} compact />}
                     {stock.change_30d != null && (
                       <span
                         className="text-[10px] tabular-nums"
@@ -483,7 +488,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
               className="col-span-full py-10 text-center text-sm"
               style={{ color: "var(--text-3)" }}
             >
-              No stocks match your filters
+              No assets match your filters
             </div>
           )}
         </div>

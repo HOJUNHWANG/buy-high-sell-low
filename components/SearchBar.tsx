@@ -63,7 +63,7 @@ export function SearchBar() {
           onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
           onFocus={(e) => { e.target.style.borderColor = "var(--border-md)"; setOpen(true); }}
           onBlur={(e) => { e.target.style.borderColor = "var(--border)"; }}
-          placeholder="Search stocks..."
+          placeholder="Search assets..."
           className="w-full pl-8 pr-7 py-1.5 text-xs rounded-md outline-none transition-all"
           style={{
             background: "var(--surface-2)",
