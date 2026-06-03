@@ -40,10 +40,12 @@ def fetch_movers(limit: int = 8) -> tuple[list[dict], list[dict]]:
         key=lambda x: x["change_pct"],
     )
 
-    # Get stock names
+    # Get asset metadata and remove ETFs from the stock/crypto movers list.
     all_tickers = [r["ticker"] for r in prices]
-    names_res = supabase.table("stocks").select("ticker, name").in_("ticker", all_tickers).execute()
-    name_map = {r["ticker"]: r["name"] for r in (names_res.data or [])}
+    names_res = supabase.table("stocks").select("ticker, name, sector").in_("ticker", all_tickers).execute()
+    metadata = {r["ticker"]: r for r in (names_res.data or [])}
+    prices = [r for r in prices if metadata.get(r["ticker"], {}).get("sector") != "ETF"]
+    name_map = {ticker: row["name"] for ticker, row in metadata.items()}
 
     def enrich(rows: list[dict]) -> list[dict]:
         return [

@@ -15,6 +15,7 @@ interface StockInfo {
   price: number;
   change_pct: number | null;
   fetched_at: string | null;
+  sector: string | null;
 }
 
 interface PositionInfo {
@@ -98,6 +99,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
         price: currentPrice,
         change_pct: priceData?.change_pct ?? null,
         fetched_at: priceData?.fetched_at ?? null,
+        sector: matched.sector ?? null,
       });
 
       const mapPos = (pos: Record<string, number | string | null> | undefined): PositionInfo | null => {
@@ -123,10 +125,6 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
 
   useEffect(loadData, [authed, ticker, supabase]);
 
-  // Active position for the current side
-  const activePosition = (side === "sell") ? longPosition
-    : (side === "cover") ? shortPosition
-    : null;
 
   const rawShares = inputMode === "shares"
     ? parseFloat(inputValue) || 0

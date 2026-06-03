@@ -21,6 +21,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "ticker and shares (> 0) are required" }, { status: 400 });
   }
 
+
   // Check account status
   const { data: statusCheck } = await supabase
     .from("paper_accounts")
