@@ -27,7 +27,7 @@ from tickers import SP100_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_c
 
 BATCH_SIZE = 25  # Recommended batch size for stocks
 CRYPTO_BATCH_SIZE = 5  # Keep crypto requests small to reduce provider timeouts
-SLEEP_PER_TICKER = 2.2  # Seconds to wait per ticker (55 credits/min plan, ~4min total)
+SLEEP_PER_TICKER = 2.4  # Seconds to wait per ticker (55 credits/min plan, ~4min total)
 HISTORY_DEDUP_MINUTES = 4  # Short overlap guard; keep below 10-min cron cadence
 
 # Configure retry strategy
