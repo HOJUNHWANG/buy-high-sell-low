@@ -354,6 +354,7 @@ export default async function HomePage() {
                 { href: "/stocks", label: "📊 Stock Screener" },
                 { href: "/news",   label: "📰 News Feed"      },
                 { href: "/paper",  label: "💰 Paper Trading" },
+                { href: "/market-calendar", label: "🗓️ Market Calendar" },
                 { href: "/auth/login", label: "⭐ My Watchlist" },
               ].map(({ href, label }) => (
                 <Link

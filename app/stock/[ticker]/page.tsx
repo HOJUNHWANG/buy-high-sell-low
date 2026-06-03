@@ -9,6 +9,7 @@ import { StockChart } from "@/components/StockChart";
 import { WatchlistButton } from "@/components/WatchlistButton";
 import { StockNewsSection } from "@/components/StockNewsSection";
 import { WhyMoving } from "@/components/WhyMoving";
+import { PriceFreshnessBadge } from "@/components/PriceFreshnessBadge";
 import { gateSummaries, FREE_USER_DAILY_UNLOCKS } from "@/lib/summary-gate";
 import type { UserTier } from "@/lib/summary-gate";
 
@@ -57,7 +58,7 @@ const getStockData = cache(async function getStockData(ticker: string) {
     const oldestIntraday = intraday.length > 0
       ? new Date(intraday[intraday.length - 1].recorded_at)
       : new Date();
-    
+
     const dailyFiltered = daily.filter(d => d.recorded_at && new Date(d.recorded_at) < oldestIntraday);
 
     const history = [...intraday, ...dailyFiltered].sort(
@@ -133,6 +134,10 @@ export default async function StockDetailPage({ params }: Props) {
   const pctStr = price?.change_pct != null
     ? `${price.change_pct >= 0 ? "+" : ""}${price.change_pct.toFixed(2)}%`
     : null;
+  const previousPoint = history.find((point) => price && point.recorded_at !== price.fetched_at);
+  const sinceLastFetch = price && previousPoint
+    ? ((price.price - previousPoint.price) / previousPoint.price) * 100
+    : null;
 
   return (
     <div className="max-w-7xl mx-auto px-5 py-8">
@@ -180,13 +185,24 @@ export default async function StockDetailPage({ params }: Props) {
                   </span>
                 )}
               </div>
-              <p className="text-xs mt-2" style={{ color: "var(--text-3)" }}>
-                {price.volume ? `Vol ${(price.volume / 1_000_000).toFixed(1)}M · ` : ""}
-                Delayed · as of{" "}
-                {new Date(price.fetched_at).toLocaleTimeString("en-US", {
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs" style={{ color: "var(--text-3)" }}>
+                <span>{price.volume ? `Vol ${(price.volume / 1_000_000).toFixed(1)}M · ` : ""}Delayed · as of {new Date(price.fetched_at).toLocaleTimeString("en-US", {
                   hour: "2-digit", minute: "2-digit", timeZone: "America/New_York",
-                })} ET
-              </p>
+                })} ET</span>
+                <PriceFreshnessBadge fetchedAt={price.fetched_at} />
+              </div>
+
+              {sinceLastFetch != null && (
+                <div className="mt-4 rounded-lg p-3 text-xs" style={{ background: "var(--surface-2)", color: "var(--text-2)" }}>
+                  <strong style={{ color: "var(--text)" }}>Since last chart point:</strong>{" "}
+                  <span style={{ color: sinceLastFetch >= 0 ? "var(--up)" : "var(--down)" }}>
+                    {sinceLastFetch >= 0 ? "+" : ""}{sinceLastFetch.toFixed(2)}%
+                  </span>
+                  {rawNews.length > 0
+                    ? " · Check related news and AI context below for possible drivers."
+                    : " · No fresh ticker-specific news found; this may be market- or sector-driven."}
+                </div>
+              )}
             </div>
           ) : (
             <div className="rounded-xl px-5 py-4 text-sm"

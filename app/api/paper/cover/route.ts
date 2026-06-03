@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   // Get current price
   const { data: priceData } = await supabase
     .from("stock_prices")
-    .select("price")
+    .select("price, fetched_at")
     .eq("ticker", ticker)
     .single();
 
@@ -155,6 +155,7 @@ export async function POST(request: Request) {
     side: "cover",
     shares,
     price,
+    priceFetchedAt: priceData.fetched_at ?? null,
     costToCover,
     marginReturned: marginUsed,
     netProceeds,
