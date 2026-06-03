@@ -26,7 +26,8 @@ from tickers import ETF_TICKERS, COMPANY_NAMES
 
 # ETF logo domains for DuckDuckGo favicon
 ETF_DOMAINS = {
-    "SPY": "ssga.com", "QQQ": "invesco.com", "DIA": "ssga.com", "IWM": "ishares.com",
+    "VOO": "vanguard.com", "SPY": "ssga.com", "QQQ": "invesco.com", "VTI": "vanguard.com",
+    "DIA": "ssga.com", "IWM": "ishares.com", "AGG": "ishares.com",
     "XLK": "ssga.com", "XLF": "ssga.com", "XLE": "ssga.com", "XLV": "ssga.com",
     "XLI": "ssga.com", "XLP": "ssga.com", "XLY": "ssga.com", "XLU": "ssga.com",
     "XLRE": "ssga.com", "XLC": "ssga.com", "XLB": "ssga.com",
