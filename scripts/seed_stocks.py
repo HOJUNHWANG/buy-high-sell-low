@@ -17,7 +17,7 @@ SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import SP100_TICKERS, CRYPTO_TICKERS, COMPANY_NAMES
+from tickers import SP100_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, COMPANY_NAMES
 
 
 def seed_stocks():
@@ -65,6 +65,21 @@ def seed_affiliate_links():
             print(f"  Skip {link['partner']} (already exists)")
 
 
+def seed_etfs():
+    """Seed core ETF assets into the stocks table."""
+    print(f"\nSeeding {len(ETF_TICKERS)} ETF tickers...")
+    for ticker in ETF_TICKERS:
+        row = {
+            "ticker": ticker,
+            "name": COMPANY_NAMES.get(ticker, ticker),
+            "exchange": "NYSE ARCA",
+            "sector": "ETF",
+        }
+        supabase.table("stocks").upsert(row).execute()
+        print(f"  OK {ticker}: {row['name']}")
+    print(f"Done. {len(ETF_TICKERS)} ETF tickers seeded.")
+
+
 CRYPTO_ICON_BASE = "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color"
 CRYPTO_LOGO_MAP = {
     "BTC-USD": "btc", "ETH-USD": "eth", "USDT-USD": "usdt", "BNB-USD": "bnb",
@@ -96,5 +111,6 @@ def seed_crypto():
 
 if __name__ == "__main__":
     seed_stocks()
+    seed_etfs()
     seed_crypto()
     seed_affiliate_links()

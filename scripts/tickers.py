@@ -50,8 +50,11 @@ CRYPTO_TICKERS = [
     "NEAR-USD", "APT-USD", "ARB-USD", "OP-USD", "AAVE-USD",
 ]  # 19 crypto
 
-# ETFs removed — free tier optimization
-ETF_TICKERS = []  # was 25 ETFs, removed to stay within Twelve Data free plan
+# Core market ETFs: broad benchmarks and major macro/sector proxies.
+ETF_TICKERS = [
+    "VOO", "QQQ", "SPY", "VTI", "IWM",
+    "DIA", "GLD", "TLT", "AGG", "XLK",
+]
 
 # Combined list for scripts that handle both
 ALL_TICKERS = SP100_TICKERS + CRYPTO_TICKERS + ETF_TICKERS
@@ -93,6 +96,12 @@ COMPANY_NAMES = {
     "UNP": "Union Pacific", "UPS": "UPS", "USB": "U.S. Bancorp", "UBER": "Uber",
     "V": "Visa",
     "VZ": "Verizon", "WFC": "Wells Fargo", "WMT": "Walmart", "XOM": "ExxonMobil",
+    # Core ETFs
+    "VOO": "Vanguard S&P 500 ETF", "QQQ": "Invesco QQQ Trust",
+    "SPY": "SPDR S&P 500 ETF Trust", "VTI": "Vanguard Total Stock Market ETF",
+    "IWM": "iShares Russell 2000 ETF", "DIA": "SPDR Dow Jones Industrial Average ETF Trust",
+    "GLD": "SPDR Gold Shares", "TLT": "iShares 20+ Year Treasury Bond ETF",
+    "AGG": "iShares Core U.S. Aggregate Bond ETF", "XLK": "Technology Select Sector SPDR Fund",
     # Crypto
     "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "USDT-USD": "Tether",
     "BNB-USD": "BNB",

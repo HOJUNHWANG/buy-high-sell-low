@@ -9,7 +9,7 @@ export const revalidate = 300; // 5 min cache so UI picks up the 10-min price cr
 export const metadata: Metadata = {
   title: "Screener — Stocks, ETFs & Crypto",
   description:
-    "Browse S&P 100 stocks and top crypto with live prices, daily changes, and sector filters.",
+    "Browse S&P 100 stocks, core ETFs, and top crypto with live prices, daily changes, and filters.",
 };
 
 type StockRow = Stock & { stock_prices: StockPrice | null };
@@ -76,7 +76,7 @@ export default async function StocksPage() {
             Stock Screener
           </h1>
           <p className="text-xs mt-0.5" style={{ color: "var(--text-3)" }}>
-            S&amp;P 100 + Crypto · {stocks.length} assets · Prices updated every 10 min
+            S&amp;P 100 + Core ETFs + Crypto · {stocks.length} assets · Prices updated every 10 min
           </p>
         </div>
 
