@@ -90,7 +90,7 @@ def main():
             # Try yfinance first (with central mapping)
             yf_ticker = to_yf(ticker)
             info = yf.Ticker(yf_ticker).info
-            market_cap = info.get("marketCap")
+            market_cap = info.get("marketCap") or info.get("totalAssets") or info.get("netAssets")
 
             # Fall back to manual values
             if not market_cap:

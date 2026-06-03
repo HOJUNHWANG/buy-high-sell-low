@@ -1,9 +1,9 @@
-name: Fetch Prices (S&P 100 + Crypto)
+name: Fetch Prices (S&P 100 + ETFs + Crypto)
 
 on:
   #schedule:
-    # Everything: every 5 min, 24/7 (365 days)
-  #  - cron: "*/5 * * * *"
+    # Price fetch: every 10 min; script filters market hours for stocks/ETFs
+  #  - cron: "*/10 * * * *"
   workflow_dispatch:
 
 concurrency:

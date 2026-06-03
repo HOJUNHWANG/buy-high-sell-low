@@ -11,12 +11,15 @@ const navLinks = [
   { href: "/paper",        label: "Paper Trade"  },
 ];
 
-export function NavLinks() {
+export function NavLinks({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const links = isAdmin
+    ? [...navLinks, { href: "/admin/data-health", label: "Data Health" }]
+    : navLinks;
   return (
     <nav className="hidden md:flex items-center gap-0.5">
       <div className="h-5 w-px mx-2" style={{ background: "var(--border-md)" }} />
-      {navLinks.map(({ href, label }) => {
+      {links.map(({ href, label }) => {
         const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
         return (
           <Link

@@ -1,6 +1,6 @@
 """
 fetch_prices.py — Fetch S&P 100 + crypto prices from Twelve Data.
-Schedule: every 5-15 minutes during market hours (market hours filtered internally)
+Schedule: every 10 minutes (market hours filtered internally for stocks; crypto runs 24/7)
 """
 import os
 import sys
@@ -28,6 +28,7 @@ from tickers import SP100_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_c
 BATCH_SIZE = 25  # Recommended batch size for stocks
 CRYPTO_BATCH_SIZE = 5  # Keep crypto requests small to reduce provider timeouts
 SLEEP_PER_TICKER = 2.2  # Seconds to wait per ticker (55 credits/min plan, ~4min total)
+HISTORY_DEDUP_MINUTES = 4  # Short overlap guard; keep below 10-min cron cadence
 
 # Configure retry strategy
 retry_strategy = Retry(
@@ -73,8 +74,8 @@ def get_post_market_stock_fetch_mode() -> str | None:
     return None
 
 
-def already_ran_settlement_close_today() -> bool:
-    """Avoid repeated stock close-correction fetches while cron runs every few minutes."""
+def already_completed_settlement_close_today() -> bool:
+    """Avoid repeating a settlement refresh after at least one stock was updated."""
     et = pytz.timezone("America/New_York")
     now_et = datetime.now(et)
     settlement_start_utc = now_et.replace(
@@ -83,6 +84,7 @@ def already_ran_settlement_close_today() -> bool:
     result = supabase.table("fetch_logs") \
         .select("id") \
         .eq("job_name", "prices_close_settlement") \
+        .gt("records_fetched", 0) \
         .gte("executed_at", settlement_start_utc) \
         .limit(1) \
         .execute()
@@ -113,7 +115,7 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
     """Upsert price data. ticker_map converts API symbols back to DB tickers (for crypto)."""
     fetched, failed = 0, []
     now = datetime.utcnow().isoformat()
-    cutoff = (datetime.utcnow() - timedelta(minutes=4)).isoformat()
+    cutoff = (datetime.utcnow() - timedelta(minutes=HISTORY_DEDUP_MINUTES)).isoformat()
 
     for api_ticker, data in results.items():
         if not isinstance(data, dict) or "close" not in data:
@@ -201,9 +203,6 @@ def fetch_crypto_twelve_data():
     api_symbols = [to_twelve_data_crypto(t) for t in CRYPTO_TICKERS]
     ticker_map = {to_twelve_data_crypto(t): t for t in CRYPTO_TICKERS}
 
-    # 4-min dedup guard for 5-min fetches
-    cutoff = (datetime.utcnow() - timedelta(minutes=4)).isoformat()
-
     total_fetched, all_failed = 0, []
     batches = [api_symbols[i:i+CRYPTO_BATCH_SIZE] for i in range(0, len(api_symbols), CRYPTO_BATCH_SIZE)]
 
@@ -245,8 +244,9 @@ def main():
         print(f"Crypto fetch error: {e}")
 
     # Stocks: during market hours OR post-market-close final/settlement fetches.
+    # Keep the later settlement-close refresh; fetch_logs limits completed runs to once per day.
     post_market_mode = get_post_market_stock_fetch_mode()
-    if post_market_mode == "settlement_close" and already_ran_settlement_close_today():
+    if post_market_mode == "settlement_close" and already_completed_settlement_close_today():
         print("Settlement close stock fetch already ran today — skipping stocks.")
         return
 
