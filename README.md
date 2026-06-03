@@ -123,6 +123,7 @@ Automated via scheduled cron jobs:
 | `fetch_news.py` | Every 30 min | News aggregation + AI summarization |
 | `update_market_caps.py` | Daily | Market cap refresh |
 | `seed_history.py` | Manual/bootstrap | 1Y daily chart history via yfinance |
+| `seed_etfs.py` | Manual/bootstrap | ETF metadata + 1Y daily history via Twelve Data, with yfinance fallback |
 | `cleanup.py` | Daily | Data retention (30d intraday, 1Y daily, 90d news) |
 
 ---
