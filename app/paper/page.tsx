@@ -80,6 +80,8 @@ function formatMoney(n: number): string {
   return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+const ADMIN_ADJUSTMENT_AMOUNTS = [1000, 10000, 100000, 1000000];
+
 export default function PaperTradingPage() {
   const router = useRouter();
   const supabase = createSupabaseBrowserClient();
@@ -772,21 +774,27 @@ export default function PaperTradingPage() {
               <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--accent)" }}>
                 ⚡ Admin
               </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleAdminAdjust(1000)}
-                  className="btn btn-sm flex-1"
-                  style={{ background: "rgba(74,222,128,0.15)", color: "var(--up)", border: "1px solid rgba(74,222,128,0.3)" }}
-                >
-                  +$1,000
-                </button>
-                <button
-                  onClick={() => handleAdminAdjust(-1000)}
-                  className="btn btn-sm flex-1"
-                  style={{ background: "rgba(248,113,113,0.15)", color: "var(--down)", border: "1px solid rgba(248,113,113,0.3)" }}
-                >
-                  −$1,000
-                </button>
+              <div className="grid grid-cols-2 gap-2">
+                {ADMIN_ADJUSTMENT_AMOUNTS.map((amount) => (
+                  <button
+                    key={`add-${amount}`}
+                    onClick={() => handleAdminAdjust(amount)}
+                    className="btn btn-sm"
+                    style={{ background: "rgba(74,222,128,0.15)", color: "var(--up)", border: "1px solid rgba(74,222,128,0.3)" }}
+                  >
+                    +{formatMoney(amount).replace(".00", "")}
+                  </button>
+                ))}
+                {ADMIN_ADJUSTMENT_AMOUNTS.map((amount) => (
+                  <button
+                    key={`remove-${amount}`}
+                    onClick={() => handleAdminAdjust(-amount)}
+                    className="btn btn-sm"
+                    style={{ background: "rgba(248,113,113,0.15)", color: "var(--down)", border: "1px solid rgba(248,113,113,0.3)" }}
+                  >
+                    −{formatMoney(amount).replace(".00", "")}
+                  </button>
+                ))}
               </div>
               {adminMsg && <p className="text-xs font-medium text-center" style={{ color: "var(--accent)" }}>{adminMsg}</p>}
             </div>
