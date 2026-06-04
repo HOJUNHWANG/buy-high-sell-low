@@ -6,6 +6,7 @@ import Link from "next/link";
 import { LogoImage } from "@/components/LogoImage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PaperTradeBanner } from "@/components/PaperTradeBanner";
+import { PriceFreshnessBadge } from "@/components/PriceFreshnessBadge";
 
 interface StockInfo {
   ticker: string;
@@ -13,6 +14,8 @@ interface StockInfo {
   logo_url: string | null;
   price: number;
   change_pct: number | null;
+  fetched_at: string | null;
+  sector: string | null;
 }
 
 interface PositionInfo {
@@ -43,6 +46,7 @@ interface TradeResult {
   cashBalance: number;
 
   realizedPnl?: number;
+  priceFetchedAt?: string | null;
 }
 
 type TradeSide = "buy" | "sell" | "short" | "cover";
@@ -78,7 +82,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
     Promise.all([
       fetch(`/api/search?q=${ticker}`).then((r) => r.json()),
       fetch("/api/paper/portfolio").then((r) => r.json()),
-      supabase.from("stock_prices").select("price, change_pct").eq("ticker", ticker).single(),
+      supabase.from("stock_prices").select("price, change_pct, fetched_at").eq("ticker", ticker).single(),
     ]).then(([searchResults, portfolio, { data: priceData }]) => {
       const matched = searchResults.find((s: { ticker: string }) => s.ticker === ticker);
       if (!matched) return;
@@ -94,6 +98,8 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
         logo_url: matched.logo_url,
         price: currentPrice,
         change_pct: priceData?.change_pct ?? null,
+        fetched_at: priceData?.fetched_at ?? null,
+        sector: matched.sector ?? null,
       });
 
       const mapPos = (pos: Record<string, number | string | null> | undefined): PositionInfo | null => {
@@ -119,10 +125,6 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
 
   useEffect(loadData, [authed, ticker, supabase]);
 
-  // Active position for the current side
-  const activePosition = (side === "sell") ? longPosition
-    : (side === "cover") ? shortPosition
-    : null;
 
   const rawShares = inputMode === "shares"
     ? parseFloat(inputValue) || 0
@@ -265,6 +267,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
               {isUp ? "+" : ""}{stock.change_pct.toFixed(2)}%
             </p>
           )}
+          <div className="mt-1 flex justify-end"><PriceFreshnessBadge fetchedAt={stock.fetched_at} compact /></div>
         </div>
       </div>
 
@@ -670,6 +673,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
               {result.shares.toFixed(4)} shares at ${result.price.toFixed(2)}
               {result.leverage && result.leverage > 1 && ` @ ${result.leverage}x`}
             </p>
+            {result.priceFetchedAt && <p>Execution price timestamp: {new Date(result.priceFetchedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "America/New_York" })} ET</p>}
             {(result.side === "buy" || result.side === "short") && result.leverage && result.leverage > 1 && (
               <p>Margin: ${result.margin?.toFixed(2)} | Borrowed: ${result.borrowed?.toFixed(2)}</p>
             )}

@@ -24,7 +24,7 @@
 
 ## What is this?
 
-A free, real-time US stock market intelligence platform covering **S&P 100 + 19 Cryptocurrencies** — with AI-powered news analysis and paper trading.
+A free, real-time US stock market intelligence platform covering **S&P 100 + 10 core ETFs + 19 Cryptocurrencies** — with AI-powered news analysis and paper trading.
 
 > All data is delayed. Nothing here is investment advice. You will probably lose fake money.
 
@@ -115,14 +115,15 @@ npm test
 
 ## Data Pipeline
 
-Automated via GitHub Actions cron jobs:
+Automated via scheduled cron jobs:
 
 | Script | Schedule | Purpose |
 |:-------|:---------|:--------|
-| `fetch_prices.py` | Every 5-15 min (market hours) | Stock + crypto prices |
+| `fetch_prices.py` | Every 10 min (market hours; script skips closed stock market) | Stock + ETF + crypto prices |
 | `fetch_news.py` | Every 30 min | News aggregation + AI summarization |
 | `update_market_caps.py` | Daily | Market cap refresh |
 | `seed_history.py` | Manual/bootstrap | 1Y daily chart history via yfinance |
+| `seed_etfs.py` | Manual/bootstrap | ETF metadata + 1Y daily history via Twelve Data, with yfinance fallback |
 | `cleanup.py` | Daily | Data retention (30d intraday, 1Y daily, 90d news) |
 
 ---
@@ -132,6 +133,7 @@ Automated via GitHub Actions cron jobs:
 ```
 app/
 ├── page.tsx                    # Home (hero + dashboard)
+├── market-calendar/           # Market hours, holidays, settlement window
 ├── stock/[ticker]/             # Stock detail (chart, news, trade CTA)
 ├── stocks/                     # Screener (stocks / ETFs / crypto tabs)
 ├── news/                       # News feed with sentiment filter
@@ -139,6 +141,7 @@ app/
 │   ├── trade/[ticker]/         #   Buy / Sell / Short / Cover
 │   ├── history/                #   Transaction history
 │   └── leaderboard/            #   Leaderboard
+├── admin/data-health/          # Admin-only data pipeline health
 └── api/                        # API routes
 components/                     # Reusable UI components
 lib/                            # Utilities, types, Supabase clients

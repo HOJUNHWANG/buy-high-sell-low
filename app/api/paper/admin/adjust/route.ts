@@ -1,6 +1,17 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
+const ALLOWED_ADMIN_ADJUSTMENTS = new Set([
+  1000,
+  10000,
+  100000,
+  1000000,
+  -1000,
+  -10000,
+  -100000,
+  -1000000,
+]);
+
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -12,8 +23,8 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const delta: number = body.delta;
-  if (delta !== 1000 && delta !== -1000) {
-    return NextResponse.json({ error: "delta must be +1000 or -1000" }, { status: 400 });
+  if (!ALLOWED_ADMIN_ADJUSTMENTS.has(delta)) {
+    return NextResponse.json({ error: "delta must be one of ±1000, ±10000, ±100000, or ±1000000" }, { status: 400 });
   }
 
   const { data: account } = await supabase
