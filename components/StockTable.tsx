@@ -20,6 +20,19 @@ function fmtMarketCap(val: number | null | undefined): string {
   return `$${val.toLocaleString()}`;
 }
 
+function compareOptionalNumber(
+  a: number | null | undefined,
+  b: number | null | undefined,
+  dir: 1 | -1
+) {
+  const aMissing = a == null;
+  const bMissing = b == null;
+  if (aMissing && bMissing) return 0;
+  if (aMissing) return 1;
+  if (bMissing) return -1;
+  return (a - b) * dir;
+}
+
 function PendingPriceLabel({ compact = false }: { compact?: boolean }) {
   return (
     <span
@@ -102,11 +115,11 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
         switch (sort.key) {
           case "ticker":     return a.ticker.localeCompare(b.ticker) * dir;
           case "name":       return a.name.localeCompare(b.name) * dir;
-          case "market_cap": return ((a.market_cap ?? 0) - (b.market_cap ?? 0)) * dir;
-          case "price":      return ((a.price?.price ?? 0) - (b.price?.price ?? 0)) * dir;
-          case "change_pct": return ((a.price?.change_pct ?? -999) - (b.price?.change_pct ?? -999)) * dir;
-          case "change_30d": return ((a.change_30d ?? -999) - (b.change_30d ?? -999)) * dir;
-          case "volume":     return ((a.price?.volume ?? 0) - (b.price?.volume ?? 0)) * dir;
+          case "market_cap": return compareOptionalNumber(a.market_cap, b.market_cap, dir);
+          case "price":      return compareOptionalNumber(a.price?.price, b.price?.price, dir);
+          case "change_pct": return compareOptionalNumber(a.price?.change_pct, b.price?.change_pct, dir);
+          case "change_30d": return compareOptionalNumber(a.change_30d, b.change_30d, dir);
+          case "volume":     return compareOptionalNumber(a.price?.volume, b.price?.volume, dir);
           default:           return 0;
         }
       });

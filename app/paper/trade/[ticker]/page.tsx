@@ -481,10 +481,11 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
               <>
                 {[1, 10, 100, 1000].map((amt) => {
                   const maxAmt = maxForSide();
+                  const disabled = !hasLivePrice || amt > maxAmt;
                   return (
                     <button
                       key={amt}
-                      disabled={!hasLivePrice || amt > maxAmt}
+                      disabled={disabled}
                       onClick={() => setInputValue((prev) => {
                         const cur = parseFloat(prev) || 0;
                         const next = Math.min(cur + amt, maxAmt);
@@ -493,9 +494,9 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
                       className="px-2.5 py-1 rounded text-[11px] font-medium transition-colors"
                       style={{
                         background: "var(--surface-3)",
-                        color: amt > maxAmt ? "var(--text-4)" : "var(--text-2)",
-                        cursor: amt > maxAmt ? "not-allowed" : "pointer",
-                        opacity: amt > maxAmt ? 0.5 : 1,
+                        color: disabled ? "var(--text-4)" : "var(--text-2)",
+                        cursor: disabled ? "not-allowed" : "pointer",
+                        opacity: disabled ? 0.5 : 1,
                       }}
                     >
                       +${amt}
@@ -526,10 +527,11 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
               <>
                 {[1, 10, 100].map((amt) => {
                   const maxShares = maxSharesForSide();
+                  const disabled = !hasLivePrice || amt > maxShares;
                   return (
                     <button
                       key={amt}
-                      disabled={!hasLivePrice || amt > maxShares}
+                      disabled={disabled}
                       onClick={() => setInputValue((prev) => {
                         const cur = parseFloat(prev) || 0;
                         const next = Math.min(cur + amt, maxShares);
@@ -538,9 +540,9 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
                       className="px-2.5 py-1 rounded text-[11px] font-medium transition-colors"
                       style={{
                         background: "var(--surface-3)",
-                        color: amt > maxShares ? "var(--text-4)" : "var(--text-2)",
-                        cursor: amt > maxShares ? "not-allowed" : "pointer",
-                        opacity: amt > maxShares ? 0.5 : 1,
+                        color: disabled ? "var(--text-4)" : "var(--text-2)",
+                        cursor: disabled ? "not-allowed" : "pointer",
+                        opacity: disabled ? 0.5 : 1,
                       }}
                     >
                       +{amt} {amt === 1 ? "Share" : "Shares"}

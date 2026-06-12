@@ -14,8 +14,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const ticker = body.ticker as string | undefined;
+  const rawTicker = body.ticker as string | undefined;
+  const ticker = rawTicker?.trim().toUpperCase();
   if (!ticker) return NextResponse.json({ error: "ticker required" }, { status: 400 });
+
+  // Fetch price data before claiming the user's daily slot. Pending/newly listed
+  // tickers can exist in stocks before quotes are available.
+  const { data: priceData } = await supabase
+    .from("stock_prices")
+    .select("price, change_pct")
+    .eq("ticker", ticker)
+    .maybeSingle();
+
+  if (!priceData) {
+    return NextResponse.json(
+      { error: "Price data is not available for this ticker yet." },
+      { status: 409 }
+    );
+  }
 
   // Rate limit: 1/day per user per ticker
   const today = new Date().toISOString().split("T")[0];
@@ -36,13 +52,6 @@ export async function POST(request: Request) {
 
   // Claim slot before Groq call
   await supabase.from("ai_why_usage").insert({ user_id: user.id, date: today, ticker });
-
-  // Fetch price data
-  const { data: priceData } = await supabase
-    .from("stock_prices")
-    .select("price, change_pct")
-    .eq("ticker", ticker)
-    .single();
 
   // Fetch related recent news
   const { data: news } = await supabase

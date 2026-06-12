@@ -216,19 +216,19 @@ export default async function StockDetailPage({ params }: Props) {
 
           {/* Chart */}
           <StockChart
-            ticker={ticker}
+            ticker={stock.ticker}
             history={history}
             isCrypto={stock.sector === "Cryptocurrency"}
             currentPrice={price ? { price: price.price, fetched_at: price.fetched_at } : null}
           />
 
           {/* Why is it moving? */}
-          <WhyMoving ticker={ticker} isLoggedIn={!!user} />
+          {price && <WhyMoving ticker={stock.ticker} isLoggedIn={!!user} />}
 
           {/* Related News */}
           <StockNewsSection
             news={news}
-            ticker={ticker}
+            ticker={stock.ticker}
             isLoggedIn={!!user}
             initialRemainingUnlocks={remainingUnlocks}
           />

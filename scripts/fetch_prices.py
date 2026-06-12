@@ -1,6 +1,6 @@
 """
-fetch_prices.py — Fetch S&P 100 + crypto prices from Twelve Data.
-Schedule: every 10 minutes (market hours filtered internally for stocks; crypto runs 24/7)
+fetch_prices.py — Fetch tracked equities, ETFs, and crypto prices from Twelve Data.
+Schedule: every 10 minutes (market hours filtered internally for equities/ETFs; crypto runs 24/7)
 """
 import os
 import sys
