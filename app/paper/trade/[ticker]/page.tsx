@@ -12,7 +12,7 @@ interface StockInfo {
   ticker: string;
   name: string;
   logo_url: string | null;
-  price: number;
+  price: number | null;
   change_pct: number | null;
   fetched_at: string | null;
   sector: string | null;
@@ -90,7 +90,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
       const positions = portfolio.positions ?? [];
       const longPos = positions.find((p: { ticker: string; side: string }) => p.ticker === ticker && p.side !== "short");
       const shortPos = positions.find((p: { ticker: string; side: string }) => p.ticker === ticker && p.side === "short");
-      const currentPrice = priceData?.price ?? longPos?.currentPrice ?? shortPos?.currentPrice ?? 0;
+      const currentPrice = priceData?.price ?? null;
 
       setStock({
         ticker: matched.ticker,
@@ -137,16 +137,18 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
     : rawShares;
   const showLeverage = side === "buy" || side === "short";
   const effectiveShares = showLeverage ? shares * leverage : shares;
-  const estimatedTotal = stock ? shares * stock.price : 0;
+  const hasLivePrice = stock?.price != null;
+  const estimatedTotal = hasLivePrice ? shares * stock.price! : 0;
 
   // Estimated short P&L preview for cover
-  const estimatedShortPnl = side === "cover" && shortPosition && stock
-    ? (shortPosition.avg_cost - stock.price) * shares
+  const estimatedShortPnl = side === "cover" && shortPosition && hasLivePrice
+    ? (shortPosition.avg_cost - stock.price!) * shares
     : 0;
 
   async function executeTrade() {
     setError("");
     setResult(null);
+    if (!hasLivePrice) { setError("Price data is not available yet."); return; }
     if (shares <= 0) { setError("Enter a valid amount"); return; }
 
     const endpoint = side === "buy" ? "buy"
@@ -259,7 +261,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
         </div>
         <div className="shrink-0 text-right">
           <p className="text-xl font-bold tabular-nums" style={{ color: "var(--text)" }}>
-            ${stock.price.toFixed(2)}
+            {hasLivePrice ? `$${stock.price!.toFixed(2)}` : "Awaiting data"}
           </p>
           {stock.change_pct != null && (
             <p className="text-xs font-semibold tabular-nums"
@@ -267,9 +269,16 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
               {isUp ? "+" : ""}{stock.change_pct.toFixed(2)}%
             </p>
           )}
-          <div className="mt-1 flex justify-end"><PriceFreshnessBadge fetchedAt={stock.fetched_at} compact /></div>
+          {stock.fetched_at && <div className="mt-1 flex justify-end"><PriceFreshnessBadge fetchedAt={stock.fetched_at} compact /></div>}
         </div>
       </div>
+
+      {!hasLivePrice && (
+        <div className="rounded-xl px-4 py-3 text-xs"
+          style={{ background: "var(--surface-2)", border: "1px dashed var(--border-md)", color: "var(--text-2)" }}>
+          {ticker} is already tracked, but paper trading will unlock once live price data is available.
+        </div>
+      )}
 
       {/* Current positions */}
       {[
@@ -457,6 +466,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
             placeholder={inputMode === "dollars" ? "Amount in $" : "Number of shares"}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
+            disabled={!hasLivePrice}
             className="input input-lg tabular-nums"
           />
           <p className="text-xs mt-1.5" style={{ color: "var(--text-3)" }}>
@@ -474,7 +484,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
                   return (
                     <button
                       key={amt}
-                      disabled={amt > maxAmt}
+                      disabled={!hasLivePrice || amt > maxAmt}
                       onClick={() => setInputValue((prev) => {
                         const cur = parseFloat(prev) || 0;
                         const next = Math.min(cur + amt, maxAmt);
@@ -496,13 +506,13 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
                   onClick={() => {
                     if (side === "buy" || side === "short") {
                       setInputValue(cashBalance.toFixed(2));
-                    } else if (side === "sell" && longPosition && stock) {
-                      setInputValue((longPosition.shares * stock.price).toFixed(2));
-                    } else if (side === "cover" && shortPosition && stock) {
-                      setInputValue((shortPosition.shares * stock.price).toFixed(2));
+                    } else if (side === "sell" && longPosition && hasLivePrice) {
+                      setInputValue((longPosition.shares * stock.price!).toFixed(2));
+                    } else if (side === "cover" && shortPosition && hasLivePrice) {
+                      setInputValue((shortPosition.shares * stock.price!).toFixed(2));
                     }
                   }}
-                  disabled={(side === "sell" && !longPosition) || (side === "cover" && !shortPosition)}
+                  disabled={!hasLivePrice || (side === "sell" && !longPosition) || (side === "cover" && !shortPosition)}
                   className="px-2.5 py-1 rounded text-[11px] font-semibold transition-colors"
                   style={{
                     background: sideConfig[side].bg,
@@ -519,7 +529,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
                   return (
                     <button
                       key={amt}
-                      disabled={amt > maxShares}
+                      disabled={!hasLivePrice || amt > maxShares}
                       onClick={() => setInputValue((prev) => {
                         const cur = parseFloat(prev) || 0;
                         const next = Math.min(cur + amt, maxShares);
@@ -547,7 +557,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
                       setInputValue(shortPosition.shares.toFixed(4));
                     }
                   }}
-                  disabled={(side === "sell" && !longPosition) || (side === "cover" && !shortPosition)}
+                  disabled={!hasLivePrice || (side === "sell" && !longPosition) || (side === "cover" && !shortPosition)}
                   className="px-2.5 py-1 rounded text-[11px] font-semibold transition-colors"
                   style={{
                     background: sideConfig[side].bg,
@@ -562,7 +572,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
         </div>
 
         {/* Order summary */}
-        {shares > 0 && (
+        {shares > 0 && hasLivePrice && (
           <div className="rounded-lg p-3 space-y-1" style={{ background: "var(--surface-2)" }}>
             {showLeverage && leverage > 1 && (
               <div className="flex justify-between text-xs">
@@ -578,7 +588,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
             </div>
             <div className="flex justify-between text-xs">
               <span style={{ color: "var(--text-3)" }}>Price</span>
-              <span className="tabular-nums" style={{ color: "var(--text)" }}>${stock.price.toFixed(2)}</span>
+              <span className="tabular-nums" style={{ color: "var(--text)" }}>${stock.price!.toFixed(2)}</span>
             </div>
             {showLeverage && leverage > 1 && (
               <>
@@ -632,7 +642,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
                   If the stock moves <strong>1%</strong>, your actual money moves <strong>{leverage}%</strong>.
                 </p>
                 <p style={{ color: "var(--down)" }}>
-                  <strong>🚨 Danger:</strong> If the stock {side === "short" ? "rises" : "drops"} by <strong>{(100 / leverage).toFixed(1)}%</strong> to <strong className="tabular-nums">${(side === "short" ? stock.price * (1 + 1/leverage) : stock.price * (1 - 1/leverage)).toFixed(2)}</strong>, you will lose your entire ${estimatedTotal.toFixed(2)} investment (Margin Call).
+                  <strong>🚨 Danger:</strong> If the stock {side === "short" ? "rises" : "drops"} by <strong>{(100 / leverage).toFixed(1)}%</strong> to <strong className="tabular-nums">${(side === "short" ? stock.price! * (1 + 1/leverage) : stock.price! * (1 - 1/leverage)).toFixed(2)}</strong>, you will lose your entire ${estimatedTotal.toFixed(2)} investment (Margin Call).
                 </p>
               </div>
             )}
@@ -643,8 +653,8 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
                 <p style={{ color: "var(--text)" }}><strong>Trade Outcome Summary</strong></p>
                 <p style={{ color: "var(--text-2)" }}>
                   By closing this position, you are securing a 
-                  <strong style={{ color: (side === "sell" ? ((longPosition?.avg_cost ?? 0) <= stock.price) : estimatedShortPnl >= 0) ? "var(--up)" : "var(--down)", marginLeft: "4px" }}>
-                    {(side === "sell" ? ((longPosition?.avg_cost ?? 0) <= stock.price) : estimatedShortPnl >= 0) ? "PROFIT" : "LOSS"}
+                  <strong style={{ color: (side === "sell" ? ((longPosition?.avg_cost ?? 0) <= stock.price!) : estimatedShortPnl >= 0) ? "var(--up)" : "var(--down)", marginLeft: "4px" }}>
+                    {(side === "sell" ? ((longPosition?.avg_cost ?? 0) <= stock.price!) : estimatedShortPnl >= 0) ? "PROFIT" : "LOSS"}
                   </strong>.
                   Any borrowed debt will be automatically repaid.
                 </p>
@@ -691,7 +701,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
 
         <button
           onClick={executeTrade}
-          disabled={loading || shares <= 0}
+          disabled={loading || shares <= 0 || !hasLivePrice}
           className="btn btn-block btn-lg uppercase tracking-wider"
           style={{
             background: sideConfig[side].bg,

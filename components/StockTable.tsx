@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useCallback, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { LogoImage } from "./LogoImage";
@@ -18,6 +18,25 @@ function fmtMarketCap(val: number | null | undefined): string {
   if (val >= 1e9) return `$${(val / 1e9).toFixed(1)}B`;
   if (val >= 1e6) return `$${(val / 1e6).toFixed(0)}M`;
   return `$${val.toLocaleString()}`;
+}
+
+function PendingPriceLabel({ compact = false }: { compact?: boolean }) {
+  return (
+    <span
+      className={compact ? "text-[10px] font-medium" : "text-[11px] font-medium"}
+      style={{ color: "var(--text-3)" }}
+    >
+      Awaiting data
+    </span>
+  );
+}
+
+function isCrypto(s: StockRow) {
+  return s.sector === "Cryptocurrency";
+}
+
+function isEtf(s: StockRow) {
+  return s.sector === "ETF";
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
@@ -52,14 +71,11 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"table" | "grid">("table");
 
-  const isCrypto = (s: StockRow) => s.sector === "Cryptocurrency";
-  const isEtf = (s: StockRow) => s.sector === "ETF";
-
-  const filterByTab = (s: StockRow) => {
+  const filterByTab = useCallback((s: StockRow) => {
     if (assetType === "crypto") return isCrypto(s);
     if (assetType === "etfs") return isEtf(s);
     return !isCrypto(s) && !isEtf(s);
-  };
+  }, [assetType]);
 
   const sectors = useMemo(() => {
     const s = new Set<string>();
@@ -67,7 +83,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
       .filter(filterByTab)
       .forEach((st) => { if (st.sector) s.add(st.sector); });
     return assetType === "crypto" || assetType === "etfs" ? ["All"] : ["All", ...Array.from(s).sort()];
-  }, [stocks, assetType]);
+  }, [stocks, assetType, filterByTab]);
 
   const filtered = useMemo(() => {
     return stocks
@@ -94,7 +110,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
           default:           return 0;
         }
       });
-  }, [stocks, assetType, sector, query, sort]);
+  }, [stocks, sector, query, sort, filterByTab]);
 
   function toggleSort(key: SortKey) {
     setSort((prev) =>
@@ -354,7 +370,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                         {fmtMarketCap(stock.market_cap)}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold tabular-nums" style={{ color: "var(--text)" }}>
-                        <div>{stock.price ? `$${stock.price.price.toFixed(2)}` : "—"}</div>
+                        <div>{stock.price ? `$${stock.price.price.toFixed(2)}` : <PendingPriceLabel />}</div>
                         {stock.price?.fetched_at && <div className="mt-1"><PriceFreshnessBadge fetchedAt={stock.price.fetched_at} compact /></div>}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -458,7 +474,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                 </p>
                 <div>
                   <div className="text-sm font-bold tabular-nums" style={{ color: "var(--text)" }}>
-                    {stock.price ? `$${stock.price.price.toFixed(2)}` : "—"}
+                    {stock.price ? `$${stock.price.price.toFixed(2)}` : <PendingPriceLabel compact />}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     {pct !== null && (

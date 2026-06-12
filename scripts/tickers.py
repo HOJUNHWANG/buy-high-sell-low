@@ -42,6 +42,19 @@ SP100_TICKERS = [
 # Backward compatibility alias
 SP500_TICKERS = SP100_TICKERS
 
+# Extra equities tracked outside the S&P 100 universe.
+TRACKED_EQUITY_TICKERS = [
+    "SPCX",
+]
+
+TRACKED_EQUITY_METADATA = {
+    "SPCX": {
+        "name": "SpaceX",
+        "exchange": "NASDAQ",
+        "sector": "Aerospace & Defense",
+    },
+}
+
 # Top 19 crypto by market cap
 CRYPTO_TICKERS = [
     "BTC-USD", "ETH-USD", "USDT-USD", "BNB-USD", "SOL-USD", "XRP-USD",
@@ -56,8 +69,12 @@ ETF_TICKERS = [
     "DIA", "GLD", "TLT", "AGG", "XLK",
 ]
 
-# Combined list for scripts that handle both
-ALL_TICKERS = SP100_TICKERS + CRYPTO_TICKERS + ETF_TICKERS
+# Combined lists for scripts that handle multiple asset classes
+ALL_EQUITY_TICKERS = SP100_TICKERS + TRACKED_EQUITY_TICKERS
+ALL_TICKERS = ALL_EQUITY_TICKERS + CRYPTO_TICKERS + ETF_TICKERS
+
+# Tickers with established history suitable for 1Y backfill jobs.
+HISTORY_SEED_TICKERS = SP100_TICKERS + CRYPTO_TICKERS + ETF_TICKERS
 
 # Official company names for news ticker mapping
 COMPANY_NAMES = {
@@ -96,6 +113,8 @@ COMPANY_NAMES = {
     "UNP": "Union Pacific", "UPS": "UPS", "USB": "U.S. Bancorp", "UBER": "Uber",
     "V": "Visa",
     "VZ": "Verizon", "WFC": "Wells Fargo", "WMT": "Walmart", "XOM": "ExxonMobil",
+    # Additional tracked equities
+    "SPCX": "SpaceX",
     # Core ETFs
     "VOO": "Vanguard S&P 500 ETF", "QQQ": "Invesco QQQ Trust",
     "SPY": "SPDR S&P 500 ETF Trust", "VTI": "Vanguard Total Stock Market ETF",

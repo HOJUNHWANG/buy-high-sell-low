@@ -17,7 +17,14 @@ SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import SP100_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, COMPANY_NAMES
+from tickers import (
+    SP100_TICKERS,
+    TRACKED_EQUITY_TICKERS,
+    TRACKED_EQUITY_METADATA,
+    CRYPTO_TICKERS,
+    ETF_TICKERS,
+    COMPANY_NAMES,
+)
 
 
 def seed_stocks():
@@ -34,6 +41,22 @@ def seed_stocks():
         success += 1
 
     print(f"\nDone. {success} stocks upserted.")
+
+
+def seed_tracked_equities():
+    print(f"\nSeeding {len(TRACKED_EQUITY_TICKERS)} additional tracked equities...")
+    for ticker in TRACKED_EQUITY_TICKERS:
+        metadata = TRACKED_EQUITY_METADATA.get(ticker, {})
+        row = {
+            "ticker": ticker,
+            "name": metadata.get("name") or COMPANY_NAMES.get(ticker, ticker),
+            "exchange": metadata.get("exchange"),
+            "sector": metadata.get("sector"),
+            "logo_url": metadata.get("logo_url"),
+        }
+        supabase.table("stocks").upsert(row).execute()
+        print(f"  OK {ticker}: {row['name']}")
+    print(f"Done. {len(TRACKED_EQUITY_TICKERS)} additional equities seeded.")
 
 
 def seed_affiliate_links():
@@ -111,6 +134,7 @@ def seed_crypto():
 
 if __name__ == "__main__":
     seed_stocks()
+    seed_tracked_equities()
     seed_etfs()
     seed_crypto()
     seed_affiliate_links()

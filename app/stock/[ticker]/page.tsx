@@ -205,9 +205,12 @@ export default async function StockDetailPage({ params }: Props) {
               )}
             </div>
           ) : (
-            <div className="rounded-xl px-5 py-4 text-sm"
+            <div className="rounded-xl px-5 py-4 text-sm space-y-1"
               style={{ border: "1px dashed var(--border-md)", color: "var(--text-2)" }}>
-              Price data unavailable
+              <p className="font-medium" style={{ color: "var(--text)" }}>Awaiting market data</p>
+              <p className="text-xs" style={{ color: "var(--text-3)" }}>
+                This ticker is tracked, and live pricing will appear once the data provider starts returning quotes.
+              </p>
             </div>
           )}
 
@@ -336,16 +339,25 @@ export default async function StockDetailPage({ params }: Props) {
           })()}
 
           {/* Paper Trade CTA */}
-          <Link
-            href={`/paper/trade/${stock.ticker}`}
-            className="flex items-center justify-center gap-2 text-xs font-semibold px-3 py-2.5 rounded-lg transition-colors"
-            style={{ background: "var(--accent)", color: "#fff" }}
-          >
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Paper Trade {stock.ticker}
-          </Link>
+          {price ? (
+            <Link
+              href={`/paper/trade/${stock.ticker}`}
+              className="flex items-center justify-center gap-2 text-xs font-semibold px-3 py-2.5 rounded-lg transition-colors"
+              style={{ background: "var(--accent)", color: "#fff" }}
+            >
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Paper Trade {stock.ticker}
+            </Link>
+          ) : (
+            <div
+              className="flex items-center justify-center gap-2 text-xs font-semibold px-3 py-2.5 rounded-lg"
+              style={{ background: "var(--surface-3)", color: "var(--text-3)", border: "1px solid var(--border)" }}
+            >
+              Paper Trade pending price data
+            </div>
+          )}
 
           {/* Back to screener */}
           <Link

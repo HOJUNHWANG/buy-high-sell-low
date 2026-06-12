@@ -20,7 +20,7 @@ SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import SP100_TICKERS, to_yf
+from tickers import ALL_EQUITY_TICKERS, to_yf
 
 HTTP_TIMEOUT_SECONDS = 30
 VERIFY_HTTP_SSL = os.environ.get("BHSL_VERIFY_HTTP_SSL", "1").lower() not in {"0", "false", "no"}
@@ -127,7 +127,7 @@ def insert_price_history(row: dict):
 
 
 def main():
-    tickers = [t.upper() for t in sys.argv[1:]] if len(sys.argv) > 1 else SP100_TICKERS
+    tickers = [t.upper() for t in sys.argv[1:]] if len(sys.argv) > 1 else ALL_EQUITY_TICKERS
     print(f"Fetching latest prices for {len(tickers)} tickers via direct Yahoo chart...")
 
     now = datetime.utcnow().isoformat()

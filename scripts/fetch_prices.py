@@ -23,7 +23,7 @@ TWELVE_DATA_API_KEY = os.environ["TWELVE_DATA_API_KEY"]
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import SP100_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_crypto
+from tickers import ALL_EQUITY_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_crypto
 
 BATCH_SIZE = 25  # Recommended batch size for stocks
 CRYPTO_BATCH_SIZE = 5  # Keep crypto requests small to reduce provider timeouts
@@ -260,7 +260,7 @@ def main():
     elif post_market_mode == "settlement_close":
         print("Settlement close window — refreshing final closing prices once more...")
 
-    stock_tickers = SP100_TICKERS + ETF_TICKERS
+    stock_tickers = ALL_EQUITY_TICKERS + ETF_TICKERS
     print(f"Fetching prices for {len(stock_tickers)} stock tickers...")
     total_fetched, all_failed = 0, []
 

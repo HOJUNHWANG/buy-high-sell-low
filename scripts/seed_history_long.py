@@ -22,7 +22,7 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABAS
 supabase = create_client(SUPABASE_URL, os.environ["SUPABASE_SERVICE_ROLE_KEY"])
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import SP100_TICKERS, CRYPTO_TICKERS, ALL_TICKERS, to_yf
+from tickers import SP100_TICKERS, CRYPTO_TICKERS, HISTORY_SEED_TICKERS, to_yf
 
 BATCH_SIZE = 20
 CHUNK_INSERT = 500
@@ -126,13 +126,13 @@ def main():
             tickers = SP100_TICKERS
             print(f"Seeding {len(tickers)} S&P 100 tickers (1Y history)")
         elif arg == "--all":
-            tickers = ALL_TICKERS
+            tickers = HISTORY_SEED_TICKERS
             print(f"Seeding all {len(tickers)} tickers (1Y history)")
         else:
             tickers = [t.upper() for t in sys.argv[1:]]
             print(f"Seeding specific tickers: {tickers}")
     else:
-        tickers = ALL_TICKERS
+        tickers = HISTORY_SEED_TICKERS
         print(f"Seeding all {len(tickers)} tickers (1Y history)")
 
     start = time.time()
