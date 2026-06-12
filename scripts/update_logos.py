@@ -74,7 +74,7 @@ STOCK_DOMAINS = {
     "BA": "boeing.com", "BAC": "bankofamerica.com", "BALL": "ball.com",
     "BAX": "baxter.com", "BBY": "bestbuy.com", "BDX": "bd.com",
     "BEN": "franklintempleton.com", "BF.B": "brown-forman.com", "BG": "bunge.com",
-    "BIIB": "biogen.com", "BK": "bnymellon.com", "BKNG": "booking.com",
+    "BIIB": "biogen.com", "BNY": "bny.com", "BKNG": "booking.com",
     "BKR": "bakerhughes.com", "BLDR": "bldr.com", "BLK": "blackrock.com",
     "BMY": "bms.com", "BR": "broadridge.com", "BRK.B": "berkshirehathaway.com",
     "BRO": "bbinsurance.com", "BSX": "bostonscientific.com", "BX": "blackstone.com",

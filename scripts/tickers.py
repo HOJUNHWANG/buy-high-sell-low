@@ -34,7 +34,7 @@ SP100_TICKERS = [
     "VZ", "MCD", "DIS", "AMGN", "BA", "T", "TMO", "AXP", "GILD", "UNP",
     "BLK", "CRM", "UBER", "ISRG", "SCHW", "ABT", "PFE", "COP", "DE", "HON",
     "LOW", "BKNG", "CVS", "MO", "SBUX", "COF", "BMY", "LMT", "INTU", "DHR",
-    "SO", "ACN", "MDT", "ADBE", "DUK", "NOW", "BK", "CMCSA", "TMUS", "GD",
+    "SO", "ACN", "MDT", "ADBE", "DUK", "NOW", "BNY", "CMCSA", "TMUS", "GD",
     "USB", "FDX", "AMT", "MDLZ", "EMR", "MMM", "UPS", "CL", "GM", "SPG",
     "NKE",
 ]  # 101 equity tickers; dual share classes make the count differ from 100 companies.
@@ -82,7 +82,7 @@ COMPANY_NAMES = {
     "AAPL": "Apple", "ABBV": "AbbVie", "ABT": "Abbott", "ACN": "Accenture",
     "ADBE": "Adobe", "AMAT": "Applied Materials", "AMD": "AMD",
     "AMGN": "Amgen", "AMZN": "Amazon", "AVGO": "Broadcom", "AXP": "American Express",
-    "BA": "Boeing", "BAC": "Bank of America", "BK": "BNY Mellon",
+    "BA": "Boeing", "BAC": "Bank of America", "BNY": "BNY Mellon",
     "BKNG": "Booking Holdings", "BLK": "BlackRock", "BMY": "Bristol Myers Squibb",
     "BRK.B": "Berkshire Hathaway", "C": "Citigroup", "CAT": "Caterpillar",
     "CL": "Colgate-Palmolive",
