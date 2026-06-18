@@ -6,7 +6,7 @@ export default function PrivacyPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-12 space-y-8 text-gray-300">
       <h1 className="text-3xl font-bold text-white">Privacy Policy</h1>
-      <p className="text-gray-500 text-sm">Last updated: March 2026</p>
+      <p className="text-gray-500 text-sm">Last updated: June 2026</p>
       <p className="text-sm leading-relaxed">
         Buy High Sell Low (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) operates this website as an informational
         platform for S&amp;P 100 stock and cryptocurrency market data, paper trading, and AI-powered
@@ -78,8 +78,8 @@ export default function PrivacyPage() {
             </a>
           </li>
           <li>
-            <strong>Groq</strong>: Generates AI summaries of news articles using the Llama 3.3
-            model. Article titles and content snippets are sent to Groq&apos;s API.{" "}
+            <strong>Groq</strong>: Hosts the AI models used to generate summaries of news
+            articles. Article titles and content snippets are sent to Groq&apos;s API.{" "}
             <a href="https://groq.com/privacy-policy/" className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">
               Groq Privacy Policy
             </a>

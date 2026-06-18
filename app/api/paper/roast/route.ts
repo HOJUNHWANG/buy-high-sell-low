@@ -1,9 +1,39 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  getGroqCompletionSettings,
+  getGroqJsonResponseFormat,
+} from "@/lib/groq";
 import { isDustPosition } from "@/lib/paper-trading";
 import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
 
 const DAILY_LIMIT = 1;
+const PORTFOLIO_ANALYSIS_SCHEMA = {
+  type: "object",
+  properties: {
+    grade: { type: "string" },
+    nickname: { type: "string" },
+    summary: { type: "string" },
+    strengths: {
+      type: "array",
+      items: { type: "string" },
+    },
+    risks: {
+      type: "array",
+      items: { type: "string" },
+    },
+    suggestion: { type: "string" },
+  },
+  required: [
+    "grade",
+    "nickname",
+    "summary",
+    "strengths",
+    "risks",
+    "suggestion",
+  ],
+  additionalProperties: false,
+};
 
 export async function POST() {
   const supabase = await createSupabaseServerClient();
@@ -94,10 +124,13 @@ Output JSON only:
   try {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const msg = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      max_tokens: 512,
+      ...getGroqCompletionSettings(),
+      max_completion_tokens: 2048,
       messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
+      response_format: getGroqJsonResponseFormat(
+        "portfolio_analysis",
+        PORTFOLIO_ANALYSIS_SCHEMA
+      ),
     });
     result = JSON.parse(msg.choices[0].message.content ?? "{}");
   } catch {

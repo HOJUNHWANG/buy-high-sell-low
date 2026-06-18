@@ -1,8 +1,26 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  getGroqCompletionSettings,
+  getGroqJsonResponseFormat,
+} from "@/lib/groq";
 import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
 
 const DAILY_LIMIT = 30;
+const SUMMARY_SCHEMA = {
+  type: "object",
+  properties: {
+    summary: { type: "string" },
+    impact: { type: "string" },
+    sentiment: {
+      type: "string",
+      enum: ["positive", "neutral", "negative"],
+    },
+    caution: { type: ["string", "null"] },
+  },
+  required: ["summary", "impact", "sentiment", "caution"],
+  additionalProperties: false,
+};
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
@@ -91,10 +109,13 @@ ${article.title}`;
   let result;
   try {
     const msg = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      max_tokens: 512,
+      ...getGroqCompletionSettings(),
+      max_completion_tokens: 2048,
       messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
+      response_format: getGroqJsonResponseFormat(
+        "financial_news_summary",
+        SUMMARY_SCHEMA
+      ),
     });
     result = JSON.parse(msg.choices[0].message.content ?? "{}");
   } catch {

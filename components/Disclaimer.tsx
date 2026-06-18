@@ -20,7 +20,7 @@ export function Disclaimer() {
 
         {/* AI disclaimer */}
         <p className="text-[10px] text-center" style={{ color: "var(--text-3)" }}>
-          AI-generated summaries are produced by Groq (Llama 3.3) and are provided for
+          AI-generated summaries are produced by AI models hosted on Groq and are provided for
           convenience only. They may contain errors and should not be relied upon as factual
           analysis.
         </p>

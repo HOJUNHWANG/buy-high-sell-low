@@ -15,7 +15,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
   <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white" alt="Supabase" />
-  <img src="https://img.shields.io/badge/AI-Groq%20%2F%20Llama%203.3-FF6B35?logo=meta&logoColor=white" alt="Groq" />
+  <img src="https://img.shields.io/badge/AI-Groq%20%2F%20GPT--OSS%20120B-FF6B35" alt="Groq GPT-OSS 120B" />
   <img src="https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Tests-207-brightgreen?logo=vitest&logoColor=white" alt="Tests" />
 </p>
@@ -66,7 +66,7 @@ A free, real-time US stock market intelligence platform covering **S&P 100 + 10 
 | **Framework** | Next.js 16 (App Router, Server Components) |
 | **Database** | Supabase (PostgreSQL + Row Level Security) |
 | **Auth** | Supabase Auth (Google OAuth) |
-| **AI** | Groq (Llama 3.3 70B) |
+| **AI** | Groq (GPT-OSS 120B by default) |
 | **Charts** | lightweight-charts v5 |
 | **Market Data** | Twelve Data API + yfinance seeding |
 | **Styling** | Tailwind CSS (dark theme) |
@@ -105,6 +105,7 @@ npm test
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key |
 | `GROQ_API_KEY` | Yes | Groq API key (AI summaries) |
+| `GROQ_MODEL` | No | Groq model ID (defaults to `openai/gpt-oss-120b`) |
 | `TWELVE_DATA_API_KEY` | Yes | Twelve Data (market prices) |
 | `NEWSAPI_KEY` | Yes | NewsAPI (news aggregation) |
 | `FMP_API_KEY` | No | Financial Modeling Prep |

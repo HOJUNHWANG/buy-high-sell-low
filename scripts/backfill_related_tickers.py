@@ -24,11 +24,23 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 sys.path.insert(0, os.path.dirname(__file__))
+from groq_config import get_completion_settings, get_json_response_format
 from tickers import COMPANY_NAMES
 
 ALL_KNOWN_TICKERS = sorted(COMPANY_NAMES.keys())
 TICKER_LIST_STR = ", ".join(ALL_KNOWN_TICKERS)
 KNOWN_SET = set(ALL_KNOWN_TICKERS)
+RELATED_TICKERS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "related_tickers": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+    },
+    "required": ["related_tickers"],
+    "additionalProperties": False,
+}
 
 
 def ai_related_tickers(title: str) -> list[str] | str:
@@ -52,10 +64,13 @@ Title: {title}"""
 
     try:
         msg = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            max_tokens=256,
+            **get_completion_settings(),
+            max_completion_tokens=1024,
             messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
+            response_format=get_json_response_format(
+                "related_tickers",
+                RELATED_TICKERS_SCHEMA,
+            ),
         )
         result = json.loads(msg.choices[0].message.content or "{}")
         raw = result.get("related_tickers", [])

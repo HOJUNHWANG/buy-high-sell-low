@@ -7,6 +7,7 @@ Usage:
   python scripts/generate_market_brief.py
 """
 import os
+import sys
 import json
 import time
 from datetime import datetime, timedelta, timezone
@@ -17,6 +18,9 @@ from groq import Groq
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env.local"))
 load_dotenv()
 
+sys.path.insert(0, os.path.dirname(__file__))
+from groq_config import get_completion_settings, get_json_response_format
+
 SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
@@ -25,6 +29,32 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 groq = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 TODAY = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+MARKET_BRIEF_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "headline": {"type": "string"},
+        "overall_sentiment": {
+            "type": "string",
+            "enum": ["bullish", "bearish", "neutral"],
+        },
+        "summary": {"type": "string"},
+        "bullets": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "crypto_notes": {"type": "string"},
+        "sector_notes": {"type": "string"},
+    },
+    "required": [
+        "headline",
+        "overall_sentiment",
+        "summary",
+        "bullets",
+        "crypto_notes",
+        "sector_notes",
+    ],
+    "additionalProperties": False,
+}
 
 
 def fetch_movers(limit: int = 8) -> tuple[list[dict], list[dict]]:
@@ -153,10 +183,13 @@ Write a professional market brief in JSON:
 
     try:
         msg = groq.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            max_tokens=800,
+            **get_completion_settings(),
+            max_completion_tokens=4096,
             messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
+            response_format=get_json_response_format(
+                "daily_market_brief",
+                MARKET_BRIEF_SCHEMA,
+            ),
         )
         return json.loads(msg.choices[0].message.content or "{}")
     except Exception as e:

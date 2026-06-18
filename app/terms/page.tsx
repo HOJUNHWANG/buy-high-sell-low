@@ -6,7 +6,7 @@ export default function TermsPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-12 space-y-8 text-gray-300">
       <h1 className="text-3xl font-bold text-white">Terms of Use</h1>
-      <p className="text-gray-500 text-sm">Last updated: March 2026</p>
+      <p className="text-gray-500 text-sm">Last updated: June 2026</p>
       <p className="text-sm leading-relaxed">
         Please read these Terms of Use carefully before using Buy High Sell Low. By accessing or
         using this service, you agree to be bound by these terms. If you do not agree, do not
@@ -55,7 +55,7 @@ export default function TermsPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-white">3. AI-Generated Content</h2>
         <p className="text-sm leading-relaxed">
-          Buy High Sell Low uses Groq (Llama 3.3) to generate AI summaries and analysis of news
+          Buy High Sell Low uses AI models hosted on Groq to generate summaries and analysis of news
           articles. These summaries:
         </p>
         <ul className="list-disc list-inside space-y-1 text-sm">

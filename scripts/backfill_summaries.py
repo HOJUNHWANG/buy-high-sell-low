@@ -17,6 +17,9 @@ from groq import Groq
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env.local"))
 load_dotenv()  # fallback to .env
 
+sys.path.insert(0, os.path.dirname(__file__))
+from groq_config import get_completion_settings, get_json_response_format
+
 SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 GROQ_API_KEY = os.environ["GROQ_API_KEY"]
@@ -25,8 +28,20 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 groq     = Groq(api_key=GROQ_API_KEY)
 
 SLEEP_BETWEEN = 2.2  # seconds between calls (~27 req/min)
-
-
+SUMMARY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "impact": {"type": "string"},
+        "sentiment": {
+            "type": "string",
+            "enum": ["positive", "neutral", "negative"],
+        },
+        "caution": {"type": ["string", "null"]},
+    },
+    "required": ["summary", "impact", "sentiment", "caution"],
+    "additionalProperties": False,
+}
 
 def generate_summary(title: str) -> dict | str | None:
     """Returns dict on success, 'RATE_LIMITED' on 429, None on other errors."""
@@ -42,10 +57,13 @@ def generate_summary(title: str) -> dict | str | None:
 
     try:
         msg = groq.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            max_tokens=300,
+            **get_completion_settings(),
+            max_completion_tokens=2048,
             messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
+            response_format=get_json_response_format(
+                "financial_news_summary",
+                SUMMARY_SCHEMA,
+            ),
         )
         return json.loads(msg.choices[0].message.content or "{}")
     except Exception as e:

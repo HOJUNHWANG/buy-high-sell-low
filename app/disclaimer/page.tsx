@@ -6,7 +6,7 @@ export default function DisclaimerPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-12 space-y-8 text-gray-300">
       <h1 className="text-3xl font-bold text-white">Disclaimer</h1>
-      <p className="text-gray-500 text-sm">Last updated: March 2026</p>
+      <p className="text-gray-500 text-sm">Last updated: June 2026</p>
 
       {/* Financial Disclaimer - prominent red box */}
       <section className="space-y-3">
@@ -40,7 +40,7 @@ export default function DisclaimerPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-white">AI-Generated Content</h2>
         <p className="text-sm leading-relaxed">
-          Buy High Sell Low uses artificial intelligence (Groq / Llama 3.3) to generate news
+          Buy High Sell Low uses artificial intelligence models hosted on Groq to generate news
           summaries and market analysis. This AI-generated content:
         </p>
         <ul className="list-disc list-inside space-y-1 text-sm">

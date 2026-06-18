@@ -1,6 +1,28 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  getGroqCompletionSettings,
+  getGroqJsonResponseFormat,
+} from "@/lib/groq";
 import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
+
+const WHY_MOVING_SCHEMA = {
+  type: "object",
+  properties: {
+    headline: { type: "string" },
+    drivers: {
+      type: "array",
+      items: { type: "string" },
+    },
+    sentiment: {
+      type: "string",
+      enum: ["bullish", "bearish", "neutral"],
+    },
+    outlook: { type: "string" },
+  },
+  required: ["headline", "drivers", "sentiment", "outlook"],
+  additionalProperties: false,
+};
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
@@ -88,10 +110,13 @@ Respond in JSON only:
   try {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const msg = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      max_tokens: 400,
+      ...getGroqCompletionSettings(),
+      max_completion_tokens: 2048,
       messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
+      response_format: getGroqJsonResponseFormat(
+        "stock_movement_analysis",
+        WHY_MOVING_SCHEMA
+      ),
     });
     const result = JSON.parse(msg.choices[0].message.content ?? "{}");
     return NextResponse.json({

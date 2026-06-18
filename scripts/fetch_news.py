@@ -33,10 +33,35 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 groq     = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 sys.path.insert(0, os.path.dirname(__file__))
+from groq_config import get_completion_settings, get_json_response_format
 from tickers import COMPANY_NAMES
 
 ALL_KNOWN_TICKERS = sorted(COMPANY_NAMES.keys())
 TICKER_LIST_STR = ", ".join(ALL_KNOWN_TICKERS)
+NEWS_SUMMARY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "impact": {"type": "string"},
+        "sentiment": {
+            "type": "string",
+            "enum": ["positive", "neutral", "negative"],
+        },
+        "caution": {"type": ["string", "null"]},
+        "related_tickers": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+    },
+    "required": [
+        "summary",
+        "impact",
+        "sentiment",
+        "caution",
+        "related_tickers",
+    ],
+    "additionalProperties": False,
+}
 
 # Configure resilient HTTP session
 retry_strategy = Retry(
@@ -129,10 +154,13 @@ def generate_ai_summary(title: str, content: str) -> dict | None:
         return None
     try:
         msg = groq.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            max_tokens=400,
+            **get_completion_settings(),
+            max_completion_tokens=2048,
             messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
+            response_format=get_json_response_format(
+                "financial_news_summary",
+                NEWS_SUMMARY_SCHEMA,
+            ),
         )
         result = json.loads(msg.choices[0].message.content or "{}")
         # Filter related_tickers to only known tickers
