@@ -6,6 +6,7 @@ import os
 import sys
 import time
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import requests
 from requests.exceptions import SSLError
 import urllib3
@@ -21,6 +22,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 sys.path.insert(0, os.path.dirname(__file__))
 from tickers import ALL_EQUITY_TICKERS, to_yf
+from price_adjustments import normalize_change_pct
 
 HTTP_TIMEOUT_SECONDS = 30
 VERIFY_HTTP_SSL = os.environ.get("BHSL_VERIFY_HTTP_SSL", "1").lower() not in {"0", "false", "no"}
@@ -150,7 +152,17 @@ def main():
 
             price = float(meta.get("regularMarketPrice") or closes[-1])
             prev = float(meta.get("chartPreviousClose") or closes[-2])
-            change_pct = round((price - prev) / prev * 100, 4) if prev != 0 else 0.0
+            provider_change_pct = (
+                round((price - prev) / prev * 100, 4) if prev != 0 else 0.0
+            )
+            market_date = datetime.now(
+                ZoneInfo("America/New_York")
+            ).date().isoformat()
+            change_pct, adjustment_note = normalize_change_pct(
+                ticker, market_date, provider_change_pct
+            )
+            if adjustment_note:
+                print(f"  Price adjustment: {adjustment_note}")
             volume = meta.get("regularMarketVolume")
 
             upsert_stock_price({
@@ -174,9 +186,14 @@ def main():
                 })
                 inserted_history += 1
 
+            change_text = (
+                f"{'+' if change_pct >= 0 else ''}{change_pct:.2f}%"
+                if change_pct is not None
+                else "change unavailable"
+            )
             print(
                 f"  OK {ticker}: ${price:.2f} "
-                f"({'+' if change_pct >= 0 else ''}{change_pct:.2f}%, history {inserted_history})"
+                f"({change_text}, history {inserted_history})"
             )
             fetched += 1
         except Exception as e:

@@ -24,6 +24,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 sys.path.insert(0, os.path.dirname(__file__))
 from tickers import ALL_EQUITY_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_crypto
+from price_adjustments import normalize_change_pct
 
 BATCH_SIZE = 25  # Recommended batch size for stocks
 CRYPTO_BATCH_SIZE = 5  # Keep crypto requests small to reduce provider timeouts
@@ -126,7 +127,22 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
         db_ticker = ticker_map.get(api_ticker, api_ticker) if ticker_map else api_ticker
 
         price = float(data["close"])
-        change_pct = float(data["percent_change"]) if data.get("percent_change") not in (None, "") else None
+        provider_change_pct = (
+            float(data["percent_change"])
+            if data.get("percent_change") not in (None, "")
+            else None
+        )
+        market_date = (
+            datetime.now(pytz.timezone("America/New_York")).date().isoformat()
+        )
+        change_pct, adjustment_note = normalize_change_pct(
+            db_ticker,
+            market_date,
+            provider_change_pct,
+            is_crypto=db_ticker.endswith("-USD"),
+        )
+        if adjustment_note:
+            print(f"  Price adjustment: {adjustment_note}")
         volume     = int(data["volume"])             if data.get("volume")         not in (None, "") else None
 
         row_price = {
