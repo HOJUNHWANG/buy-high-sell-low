@@ -22,7 +22,11 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 sys.path.insert(0, os.path.dirname(__file__))
 from tickers import ALL_EQUITY_TICKERS, to_yf
-from price_adjustments import normalize_change_pct
+from price_adjustments import (
+    get_reviewed_anomaly_override,
+    normalize_change_pct,
+    record_price_anomaly,
+)
 
 HTTP_TIMEOUT_SECONDS = 30
 VERIFY_HTTP_SSL = os.environ.get("BHSL_VERIFY_HTTP_SSL", "1").lower() not in {"0", "false", "no"}
@@ -158,9 +162,26 @@ def main():
             market_date = datetime.now(
                 ZoneInfo("America/New_York")
             ).date().isoformat()
-            change_pct, adjustment_note = normalize_change_pct(
+            change_pct, adjustment_note, anomaly_reason = normalize_change_pct(
                 ticker, market_date, provider_change_pct
             )
+            reviewed_override, review_lookup_error = get_reviewed_anomaly_override(
+                supabase,
+                ticker=ticker,
+                market_date=market_date,
+                reason=anomaly_reason,
+            )
+            if reviewed_override is not None:
+                change_pct = reviewed_override
+                adjustment_note = (
+                    f"{ticker} {market_date}: applied admin-reviewed "
+                    f"change {reviewed_override}%"
+                )
+            if review_lookup_error:
+                print(
+                    f"  Warning: failed to check reviewed anomaly for "
+                    f"{ticker}: {review_lookup_error}"
+                )
             if adjustment_note:
                 print(f"  Price adjustment: {adjustment_note}")
             volume = meta.get("regularMarketVolume")
@@ -172,6 +193,22 @@ def main():
                 "volume":     int(volume) if volume is not None else None,
                 "fetched_at": now,
             })
+
+            anomaly_error = record_price_anomaly(
+                supabase,
+                ticker=ticker,
+                market_date=market_date,
+                price=price,
+                provider_change_pct=provider_change_pct,
+                applied_change_pct=change_pct,
+                reason=anomaly_reason,
+                details=adjustment_note,
+            )
+            if anomaly_error:
+                print(
+                    f"  Warning: failed to record price anomaly for "
+                    f"{ticker}: {anomaly_error}"
+                )
 
             # Insert last 5 days of history
             inserted_history = 0
