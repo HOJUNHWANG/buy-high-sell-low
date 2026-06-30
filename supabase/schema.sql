@@ -83,6 +83,29 @@ CREATE TABLE IF NOT EXISTS fetch_logs (
   executed_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Suspicious provider changes awaiting admin review
+CREATE TABLE IF NOT EXISTS price_anomalies (
+  id                  BIGSERIAL PRIMARY KEY,
+  ticker              TEXT NOT NULL REFERENCES stocks(ticker),
+  market_date         DATE NOT NULL,
+  price               NUMERIC NOT NULL,
+  provider_change_pct NUMERIC,
+  applied_change_pct  NUMERIC,
+  reason              TEXT NOT NULL CHECK (
+    reason IN ('corporate_action_override', 'extreme_change_suppressed')
+  ),
+  details             TEXT,
+  status              TEXT NOT NULL DEFAULT 'open' CHECK (
+    status IN ('open', 'reviewed', 'ignored')
+  ),
+  detected_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  reviewed_at         TIMESTAMPTZ,
+  reviewed_by         TEXT,
+  UNIQUE (ticker, market_date, reason)
+);
+CREATE INDEX IF NOT EXISTS idx_price_anomalies_review_queue
+  ON price_anomalies (status, detected_at DESC);
+
 -- AI usage rate limiting (30 calls/user/day)
 CREATE TABLE IF NOT EXISTS ai_usage (
   user_id  UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -132,6 +155,7 @@ DROP POLICY IF EXISTS "public read price history"         ON stock_price_history
 DROP POLICY IF EXISTS "public read news"                  ON news_articles;
 DROP POLICY IF EXISTS "public read active affiliates"     ON affiliate_links;
 DROP POLICY IF EXISTS "no public access fetch_logs"       ON fetch_logs;
+DROP POLICY IF EXISTS "no public access price anomalies"  ON price_anomalies;
 DROP POLICY IF EXISTS "users can read own ai_usage"       ON ai_usage;
 
 -- watchlist: own data only
@@ -161,6 +185,9 @@ DROP POLICY IF EXISTS "no public access fetch_logs" ON fetch_logs;
 ALTER TABLE fetch_logs ENABLE ROW LEVEL SECURITY;
 -- No SELECT policy = blocked for all anon/authenticated client queries.
 -- Only service role key (used by Python scripts) can write.
+
+-- price_anomalies: internal only; service role access from ingestion/admin.
+ALTER TABLE price_anomalies ENABLE ROW LEVEL SECURITY;
 
 -- ai_usage: users can only read their own usage
 DROP POLICY IF EXISTS "users can read own ai_usage" ON ai_usage;
