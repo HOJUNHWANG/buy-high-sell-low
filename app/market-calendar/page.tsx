@@ -1,15 +1,13 @@
 import { MarketStatusWidget } from "@/components/MarketStatusWidget";
+import marketHolidays from "@/data/us-market-holidays.json";
 
 const UPCOMING_2026 = [
-  { date: "2026-06-19", label: "Juneteenth", status: "Closed" },
-  { date: "2026-07-02", label: "Day before Independence Day observed", status: "Early close 1:00 PM ET" },
-  { date: "2026-07-03", label: "Independence Day observed", status: "Closed" },
-  { date: "2026-09-07", label: "Labor Day", status: "Closed" },
-  { date: "2026-11-26", label: "Thanksgiving Day", status: "Closed" },
+  ...marketHolidays
+    .filter((holiday) => holiday.date.startsWith("2026-"))
+    .map((holiday) => ({ ...holiday, status: "Closed" })),
   { date: "2026-11-27", label: "Day after Thanksgiving", status: "Early close 1:00 PM ET" },
   { date: "2026-12-24", label: "Christmas Eve", status: "Early close 1:00 PM ET" },
-  { date: "2026-12-25", label: "Christmas Day", status: "Closed" },
-];
+].sort((a, b) => a.date.localeCompare(b.date));
 
 export const metadata = {
   title: "Market Calendar",

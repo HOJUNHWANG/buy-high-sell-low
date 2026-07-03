@@ -29,6 +29,7 @@ from price_adjustments import (
     normalize_change_pct,
     record_price_anomaly,
 )
+from market_calendar import is_market_holiday
 
 BATCH_SIZE = 25  # Recommended batch size for stocks
 CRYPTO_BATCH_SIZE = 5  # Keep crypto requests small to reduce provider timeouts
@@ -48,25 +49,25 @@ http_session.mount("https://", adapter)
 http_session.mount("http://", adapter)
 
 
-def is_market_open() -> bool:
+def is_market_open(now_et: datetime | None = None) -> bool:
     et = pytz.timezone("America/New_York")
-    now_et = datetime.now(et)
-    if now_et.weekday() >= 5:
+    now_et = now_et or datetime.now(et)
+    if now_et.weekday() >= 5 or is_market_holiday(now_et.date()):
         return False
     market_open  = now_et.replace(hour=9,  minute=30, second=0, microsecond=0)
     market_close = now_et.replace(hour=16, minute=0,  second=0, microsecond=0)
     return market_open <= now_et <= market_close
 
 
-def get_post_market_stock_fetch_mode() -> str | None:
+def get_post_market_stock_fetch_mode(now_et: datetime | None = None) -> str | None:
     """Return the after-hours stock fetch window, if any.
 
     regular_close catches the first closing print, while settlement_close runs
     once later after providers have had time to settle final OHLC values.
     """
     et = pytz.timezone("America/New_York")
-    now_et = datetime.now(et)
-    if now_et.weekday() >= 5:
+    now_et = now_et or datetime.now(et)
+    if now_et.weekday() >= 5 or is_market_holiday(now_et.date()):
         return None
     close_time = now_et.replace(hour=16, minute=0,  second=0, microsecond=0)
     final_time = now_et.replace(hour=16, minute=30, second=0, microsecond=0)
