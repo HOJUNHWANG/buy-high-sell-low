@@ -7,10 +7,70 @@ from unittest.mock import MagicMock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from price_adjustments import (  # noqa: E402
+    calculate_change_pct,
+    get_previous_closes,
     get_reviewed_anomaly_override,
     normalize_change_pct,
     record_price_anomaly,
 )
+
+
+class CalculateChangePctTests(unittest.TestCase):
+    def test_calculates_from_stored_previous_close(self):
+        value, source = calculate_change_pct(105.0, 100.0, 27.0)
+
+        self.assertEqual(value, 5.0)
+        self.assertEqual(source, "stored_close")
+
+    def test_falls_back_to_provider_when_close_is_missing(self):
+        value, source = calculate_change_pct(105.0, None, 2.5)
+
+        self.assertEqual(value, 2.5)
+        self.assertEqual(source, "provider_fallback")
+
+    def test_falls_back_to_provider_for_invalid_close(self):
+        value, source = calculate_change_pct(105.0, 0.0, -1.5)
+
+        self.assertEqual(value, -1.5)
+        self.assertEqual(source, "provider_fallback")
+
+
+class PreviousCloseTests(unittest.TestCase):
+    def test_returns_close_for_exact_reference_date_per_ticker(self):
+        client = MagicMock()
+        builder = MagicMock()
+        client.table.return_value = builder
+        builder.select.return_value = builder
+        builder.in_.return_value = builder
+        builder.eq.return_value = builder
+        builder.limit.return_value = builder
+        builder.execute.return_value.data = [
+            {"ticker": "AAPL", "close": 100},
+            {"ticker": "MSFT", "close": 200},
+        ]
+
+        values, error = get_previous_closes(
+            client,
+            tickers=["aapl", "MSFT"],
+            close_date="2026-07-06",
+        )
+
+        self.assertEqual(values, {"AAPL": 100.0, "MSFT": 200.0})
+        self.assertIsNone(error)
+        builder.eq.assert_called_once_with("date", "2026-07-06")
+
+    def test_lookup_failure_falls_back_cleanly(self):
+        client = MagicMock()
+        client.table.side_effect = RuntimeError("offline")
+
+        values, error = get_previous_closes(
+            client,
+            tickers=["AAPL"],
+            close_date="2026-07-06",
+        )
+
+        self.assertEqual(values, {})
+        self.assertEqual(error, "offline")
 
 
 class NormalizeChangePctTests(unittest.TestCase):

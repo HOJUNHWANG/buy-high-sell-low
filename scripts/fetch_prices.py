@@ -25,16 +25,19 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 sys.path.insert(0, os.path.dirname(__file__))
 from tickers import ALL_EQUITY_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_crypto
 from price_adjustments import (
+    calculate_change_pct,
+    get_previous_closes,
     get_reviewed_anomaly_override,
     normalize_change_pct,
     record_price_anomaly,
 )
-from market_calendar import is_market_holiday
+from market_calendar import is_market_holiday, previous_market_day
 
 BATCH_SIZE = 25  # Recommended batch size for stocks
 CRYPTO_BATCH_SIZE = 5  # Keep crypto requests small to reduce provider timeouts
 SLEEP_PER_TICKER = 2.2  # Seconds to wait per ticker (55 credits/min plan, ~4min total)
 HISTORY_DEDUP_MINUTES = 4  # Short overlap guard; keep below 10-min cron cadence
+PROVIDER_CHANGE_WARNING_PCT = 1.0
 
 # Configure retry strategy
 retry_strategy = Retry(
@@ -123,13 +126,55 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
     now = datetime.utcnow().isoformat()
     cutoff = (datetime.utcnow() - timedelta(minutes=HISTORY_DEDUP_MINUTES)).isoformat()
 
+    resolved_tickers = {
+        api_ticker: ticker_map.get(api_ticker, api_ticker) if ticker_map else api_ticker
+        for api_ticker in results
+    }
+    et_market_date = datetime.now(
+        pytz.timezone("America/New_York")
+    ).date().isoformat()
+    utc_market_date = datetime.now(pytz.utc).date().isoformat()
+    previous_closes: dict[tuple[str, str], float] = {}
+
+    # Batches are normally all equities/ETFs or all crypto, but grouping by
+    # reference date keeps the helper correct if a mixed batch is ever used.
+    tickers_by_reference: dict[tuple[str, str], list[str]] = {}
+    for db_ticker in resolved_tickers.values():
+        is_crypto = db_ticker.endswith("-USD")
+        market_date = utc_market_date if is_crypto else et_market_date
+        current_date = datetime.fromisoformat(market_date).date()
+        reference_date = (
+            current_date - timedelta(days=1)
+            if is_crypto
+            else previous_market_day(current_date)
+        ).isoformat()
+        tickers_by_reference.setdefault(
+            (market_date, reference_date), []
+        ).append(db_ticker)
+
+    for (market_date, reference_date), db_tickers in tickers_by_reference.items():
+        closes, close_lookup_error = get_previous_closes(
+            supabase,
+            tickers=db_tickers,
+            close_date=reference_date,
+        )
+        previous_closes.update(
+            ((ticker, market_date), close) for ticker, close in closes.items()
+        )
+        if close_lookup_error:
+            print(
+                f"  Warning: failed to load stored previous closes for "
+                f"{reference_date}: {close_lookup_error}"
+            )
+
     for api_ticker, data in results.items():
         if not isinstance(data, dict) or "close" not in data:
             failed.append(api_ticker)
             continue
 
         # Convert API ticker back to DB ticker if mapping exists
-        db_ticker = ticker_map.get(api_ticker, api_ticker) if ticker_map else api_ticker
+        db_ticker = resolved_tickers[api_ticker]
+        is_crypto = db_ticker.endswith("-USD")
 
         price = float(data["close"])
         provider_change_pct = (
@@ -137,15 +182,35 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
             if data.get("percent_change") not in (None, "")
             else None
         )
-        market_date = (
-            datetime.now(pytz.timezone("America/New_York")).date().isoformat()
+        market_date = utc_market_date if is_crypto else et_market_date
+        previous_close = previous_closes.get((db_ticker.upper(), market_date))
+        calculated_change_pct, change_source = calculate_change_pct(
+            price,
+            previous_close,
+            provider_change_pct,
         )
         change_pct, adjustment_note, anomaly_reason = normalize_change_pct(
             db_ticker,
             market_date,
-            provider_change_pct,
-            is_crypto=db_ticker.endswith("-USD"),
+            calculated_change_pct,
+            is_crypto=is_crypto,
         )
+        if change_source == "provider_fallback":
+            print(
+                f"  Warning: {db_ticker} has no stored close before "
+                f"{market_date}; falling back to provider percent change"
+            )
+        elif (
+            provider_change_pct is not None
+            and calculated_change_pct is not None
+            and abs(provider_change_pct - calculated_change_pct)
+            >= PROVIDER_CHANGE_WARNING_PCT
+        ):
+            print(
+                f"  Provider change mismatch: {db_ticker} "
+                f"provider={provider_change_pct:.4f}% "
+                f"stored-close={calculated_change_pct:.4f}%"
+            )
         reviewed_override, review_lookup_error = get_reviewed_anomaly_override(
             supabase,
             ticker=db_ticker,
@@ -174,10 +239,9 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
             "volume":     volume,
             "fetched_at": now,
         }
-        today = datetime.utcnow().strftime("%Y-%m-%d")
         row_long = {
             "ticker": db_ticker,
-            "date":   today,
+            "date":   market_date,
             "close":  price,
         }
         for field in ("open", "high", "low"):

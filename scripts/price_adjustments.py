@@ -20,6 +20,56 @@ CORPORATE_ACTION_CHANGE_OVERRIDES: dict[tuple[str, str], float] = {
 }
 
 
+def calculate_change_pct(
+    price: float,
+    previous_close: float | None,
+    provider_change_pct: float | None,
+) -> tuple[float | None, str]:
+    """Calculate daily change from our stored close, with a safe fallback.
+
+    Provider-reported percentages can be based on a stale previous close even
+    when the live price itself is current. The app's last stored daily close is
+    therefore authoritative whenever it is available.
+    """
+    if previous_close is not None and previous_close > 0:
+        return ((price - previous_close) / previous_close * 100), "stored_close"
+
+    return provider_change_pct, "provider_fallback"
+
+
+def get_previous_closes(
+    supabase: Any,
+    *,
+    tickers: list[str],
+    close_date: str,
+) -> tuple[dict[str, float], str | None]:
+    """Load each ticker's stored close for an exact reference date."""
+    normalized_tickers = list(dict.fromkeys(ticker.upper() for ticker in tickers))
+    if not normalized_tickers:
+        return {}, None
+
+    try:
+        result = (
+            supabase.table("price_history_long")
+            .select("ticker,close")
+            .in_("ticker", normalized_tickers)
+            .eq("date", close_date)
+            .limit(len(normalized_tickers))
+            .execute()
+        )
+    except Exception as exc:
+        return {}, str(exc)
+
+    previous_closes: dict[str, float] = {}
+    for row in result.data or []:
+        ticker = str(row.get("ticker", "")).upper()
+        close = row.get("close")
+        if ticker and close is not None:
+            previous_closes[ticker] = float(close)
+
+    return previous_closes, None
+
+
 def normalize_change_pct(
     ticker: str,
     market_date: str,
