@@ -9,6 +9,7 @@ import { UserMenu } from "@/components/UserMenu";
 const navLinks = [
   { href: "/",             label: "Home"         },
   { href: "/stocks",       label: "Stocks"       },
+  { href: "/fictional-market", label: "Fictional" },
   { href: "/news",         label: "News"         },
   { href: "/market-brief", label: "Market Brief" },
   { href: "/paper",        label: "Paper Trade"  },
@@ -22,7 +23,10 @@ export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Close on route change
-  useEffect(() => { setMenuOpen(false); }, [pathname]);
+  useEffect(() => {
+    const id = window.setTimeout(() => setMenuOpen(false), 0);
+    return () => window.clearTimeout(id);
+  }, [pathname]);
 
   // Prevent body scroll when menu is open
   useEffect(() => {
