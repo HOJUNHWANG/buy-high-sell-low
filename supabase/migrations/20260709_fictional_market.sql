@@ -122,6 +122,6 @@ BEGIN
   WHERE published_at < NOW() - INTERVAL '45 days';
 
   DELETE FROM fictional_price_history_daily
-  WHERE date < CURRENT_DATE - INTERVAL '2 years';
+  WHERE date < CURRENT_DATE - INTERVAL '366 days';
 END;
 $$;

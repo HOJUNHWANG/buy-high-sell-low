@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import type { FictionalRisk, FictionalSector, FictionalSnapshot } from "@/data/fictional-market";
 import { formatFictionalMarketCap } from "@/data/fictional-market";
 import { FictionalTickerMark } from "@/components/FictionalTickerMark";
@@ -199,7 +200,7 @@ export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
           {filteredRows.map((row) => {
             const positive = row.changePct >= 0;
             return (
-              <article key={row.ticker} className="card p-4">
+              <Link key={row.ticker} href={`/fictional-market/${row.ticker}`} className="card-clickable p-4 block">
                 <div className="flex items-start gap-3">
                   <FictionalTickerMark ticker={row.ticker} color={row.color} accent={row.accent} />
                   <div className="min-w-0 flex-1">
@@ -238,7 +239,7 @@ export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
                     </div>
                   </div>
                 </div>
-              </article>
+              </Link>
             );
           })}
         </div>
@@ -265,7 +266,7 @@ export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
                   return (
                     <tr key={row.ticker} className="transition-colors hover:bg-white/[0.02]" style={{ borderBottom: "1px solid var(--border)" }}>
                       <td className="px-4 py-3 min-w-[260px]">
-                        <div className="flex items-center gap-3">
+                        <Link href={`/fictional-market/${row.ticker}`} className="flex items-center gap-3">
                           <FictionalTickerMark ticker={row.ticker} color={row.color} accent={row.accent} size="sm" />
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
@@ -275,7 +276,7 @@ export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
                             <p className="truncate mt-0.5" style={{ color: "var(--text-2)" }}>{row.name}</p>
                             <p className="text-[10px] mt-0.5" style={{ color: "var(--text-3)" }}>{row.source}</p>
                           </div>
-                        </div>
+                        </Link>
                       </td>
                       <td className="px-4 py-3 min-w-[150px]" style={{ color: "var(--text-2)" }}>{row.sector}</td>
                       <td className="px-4 py-3 text-right font-semibold" style={{ color: "var(--text)" }}>${row.price.toFixed(2)}</td>
