@@ -257,7 +257,6 @@ export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
                   <th className="px-4 py-3 text-right">{headerButton("volume", "Volume")}</th>
                   <th className="px-4 py-3 text-right">{headerButton("technology", "Tech")}</th>
                   <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--text-3)" }}>Risk</th>
-                  <th className="px-4 py-3 text-right font-semibold" style={{ color: "var(--text-3)" }}>Chart</th>
                 </tr>
               </thead>
               <tbody>
@@ -287,7 +286,6 @@ export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
                       <td className="px-4 py-3 text-right" style={{ color: "var(--text-2)" }}>{formatVolume(row.volume)}</td>
                       <td className="px-4 py-3 text-right" style={{ color: "var(--text-2)" }}>{row.technology}</td>
                       <td className="px-4 py-3"><span className={`badge ${riskClass(row.risk)}`}>{row.risk}</span></td>
-                      <td className="px-4 py-3 text-right"><Sparkline values={row.sparkline} positive={positive} /></td>
                     </tr>
                   );
                 })}
