@@ -59,7 +59,7 @@ export type FictionalMarketEvent = {
 const T = 1_000_000_000_000;
 const B = 1_000_000_000;
 
-export const fictionalCompanies: FictionalCompany[] = [
+const rawFictionalCompanies: FictionalCompany[] = [
   { ticker: "ARSK", name: "Arasaka Corporation", source: "Cyberpunk", sector: "Security", exchange: "FICTDAQ", marketCap: 2.4*T, basePrice: 742.18, floatShares: 3.23*B, volatility: 2.9, risk: "Extreme", influence: 98, technology: 94, color: "#ef4444", accent: "#111827", note: "Private armies, cyberware, and sovereign-level political reach." },
   { ticker: "MLTC", name: "Militech International", source: "Cyberpunk", sector: "Aerospace & Defense", exchange: "OMNI", marketCap: 1.9*T, basePrice: 418.62, floatShares: 4.54*B, volatility: 2.5, risk: "High", influence: 95, technology: 89, color: "#22c55e", accent: "#0f172a", note: "Defense contracts keep the top line heavy and morally complicated." },
   { ticker: "KTAO", name: "Kang Tao", source: "Cyberpunk", sector: "Aerospace & Defense", exchange: "FICTDAQ", marketCap: 420*B, basePrice: 128.44, floatShares: 3.27*B, volatility: 2.1, risk: "High", influence: 78, technology: 88, color: "#f97316", accent: "#1f2937", note: "Smart weapons give it a premium multiple despite export scrutiny." },
@@ -161,6 +161,30 @@ export const fictionalCompanies: FictionalCompany[] = [
   { ticker: "INCM", name: "Incom Corporation", source: "Star Wars", sector: "Aerospace & Defense", exchange: "LUNA", marketCap: 820*B, basePrice: 205.24, floatShares: 4.0*B, volatility: 2.3, risk: "High", influence: 82, technology: 91, color: "#f97316", accent: "#f8fafc", note: "Starfighter franchise value spiked after several heroic case studies." },
   { ticker: "CEC", name: "Concordance Extraction Corporation", source: "Dead Space", sector: "Space", exchange: "LUNA", marketCap: 1.4*T, basePrice: 321.18, floatShares: 4.36*B, volatility: 3.4, risk: "Existential", influence: 90, technology: 94, color: "#f59e0b", accent: "#111827", note: "Planet cracking economics are huge, with marker-adjacent tail risk." },
 ];
+
+function fictionalMarketScale(company: FictionalCompany) {
+  const civilizational = new Set(["CHOAM", "BNLG"]);
+  const interstellar = new Set(["WYUT", "STK", "SAKR", "KDYD", "RDA", "SHRA"]);
+  const planetary = new Set(["ARSK", "MLTC", "WNTE", "LEX", "WLLC", "ROXX", "PCHM", "MCRP", "RSI", "UAC", "CEC"]);
+
+  if (civilizational.has(company.ticker)) return 8;
+  if (interstellar.has(company.ticker)) return 5;
+  if (planetary.has(company.ticker)) return 3.5;
+  if (company.exchange === "LUNA" || company.sector === "Space") return 2.8;
+  if (company.sector === "Megacorp" || company.influence >= 90) return 2.4;
+  if (company.risk === "Existential" || company.risk === "Extreme") return 2;
+  if (company.marketCap >= T) return 1.8;
+  return 1.35;
+}
+
+export const fictionalCompanies: FictionalCompany[] = rawFictionalCompanies.map((company) => {
+  const scale = fictionalMarketScale(company);
+  return {
+    ...company,
+    marketCap: Math.round(company.marketCap * scale),
+    floatShares: company.floatShares * scale,
+  };
+});
 
 const eventTemplates = [
   "announced a procurement win that surprised desk analysts",

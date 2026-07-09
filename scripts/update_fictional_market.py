@@ -56,6 +56,28 @@ def parse_value(raw: str):
     return eval(raw, {"__builtins__": {}}, {"T": T, "B": B})
 
 
+def fictional_market_scale(row: dict) -> float:
+    civilizational = {"CHOAM", "BNLG"}
+    interstellar = {"WYUT", "STK", "SAKR", "KDYD", "RDA", "SHRA"}
+    planetary = {"ARSK", "MLTC", "WNTE", "LEX", "WLLC", "ROXX", "PCHM", "MCRP", "RSI", "UAC", "CEC"}
+
+    if row["ticker"] in civilizational:
+        return 8
+    if row["ticker"] in interstellar:
+        return 5
+    if row["ticker"] in planetary:
+        return 3.5
+    if row["exchange"] == "LUNA" or row["sector"] == "Space":
+        return 2.8
+    if row["sector"] == "Megacorp" or int(row["influence"]) >= 90:
+        return 2.4
+    if row["risk"] in ("Existential", "Extreme"):
+        return 2
+    if float(row["marketCap"]) >= T:
+        return 1.8
+    return 1.35
+
+
 def load_companies() -> list[dict]:
     companies = []
     pattern = re.compile(r"^\s*\{\s*ticker:\s*")
@@ -67,6 +89,7 @@ def load_companies() -> list[dict]:
         for field in split_fields(body):
             key, value = field.split(":", 1)
             row[key.strip()] = parse_value(value)
+        scale = fictional_market_scale(row)
         companies.append({
             "ticker": row["ticker"],
             "name": row["name"],
@@ -74,9 +97,9 @@ def load_companies() -> list[dict]:
             "exchange": row["exchange"],
             "sector": row["sector"],
             "risk": row["risk"],
-            "market_cap": int(row["marketCap"]),
+            "market_cap": int(row["marketCap"] * scale),
             "base_price": float(row["basePrice"]),
-            "float_shares": float(row["floatShares"]),
+            "float_shares": float(row["floatShares"]) * scale,
             "volatility": float(row["volatility"]),
             "influence": int(row["influence"]),
             "technology": int(row["technology"]),
