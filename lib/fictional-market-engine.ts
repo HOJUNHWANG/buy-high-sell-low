@@ -90,6 +90,7 @@ function etParts(date: Date) {
   return {
     date: `${get("year")}-${String(get("month")).padStart(2, "0")}-${String(get("day")).padStart(2, "0")}`,
     minutes: get("hour") * 60 + get("minute"),
+    halfHourSlot: Math.floor((get("hour") * 60 + get("minute")) / 30),
   };
 }
 
@@ -153,14 +154,23 @@ export function priceFictionalCompany({
   existingPrice,
   existingDaily,
 }: FictionalEngineInput): FictionalEngineOutput {
-  const { date: marketDate } = etParts(now);
+  const { date: marketDate, minutes, halfHourSlot } = etParts(now);
   const progress = marketProgress(now);
+  const isRegularSession = minutes >= 9 * 60 + 30 && minutes <= 16 * 60;
   const open = existingDaily?.open ?? existingPrice?.price ?? company.basePrice;
   const { pct: targetReturnPct, eventImpactPct } = dailyTargetReturn(company, marketDate);
   const intradayCurve = Math.sin(progress * Math.PI - Math.PI / 2) * 0.5 + 0.5;
-  const intradayNoise = seededNoise(`intraday:${company.ticker}:${marketDate}:${Math.floor(progress * 13)}`, -0.38, 0.38) * company.volatility;
+  const sessionDamping = isRegularSession ? 1 : 0.55;
+  const tickDamping = isRegularSession ? 0.45 : 0.22;
+  const intradayNoise = seededNoise(`intraday:${company.ticker}:${marketDate}:${halfHourSlot}`, -0.38, 0.38)
+    * company.volatility
+    * (1 - progress * 0.35)
+    * sessionDamping;
+  const halfHourDrift = seededNoise(`tick:${company.ticker}:${marketDate}:${halfHourSlot}`, -0.18, 0.18)
+    * company.volatility
+    * tickDamping;
   const meanReversion = clamp(((company.basePrice - open) / company.basePrice) * 100, -4, 4) * 0.08;
-  const currentReturnPct = targetReturnPct * intradayCurve + intradayNoise * (1 - progress * 0.35) + meanReversion;
+  const currentReturnPct = targetReturnPct * intradayCurve + intradayNoise + halfHourDrift + meanReversion;
   const price = roundPrice(open * (1 + currentReturnPct / 100));
   const changePct = Number((((price - open) / open) * 100).toFixed(2));
   const volumeBase = company.floatShares * (0.0012 + company.volatility / 1450);

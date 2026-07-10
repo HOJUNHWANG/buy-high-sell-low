@@ -128,16 +128,18 @@ def seeded_noise(seed: str, low: float = -1, high: float = 1) -> float:
 
 def build_price_row(company: dict, now: datetime) -> dict:
     day = now.date().isoformat()
+    half_hour_slot = now.hour * 2 + now.minute // 30
     market_pulse = seeded_noise(f"market:{day}", -0.9, 0.9)
     company_pulse = seeded_noise(f"{company['ticker']}:{day}", -1, 1)
     sector_pulse = seeded_noise(f"{company['sector']}:{day}", -0.55, 0.55)
     event_pulse = seeded_noise(f"event:{company['ticker']}:{day}", -1.4, 1.4)
+    half_hour_pulse = seeded_noise(f"tick:{company['ticker']}:{day}:{half_hour_slot}", -0.18, 0.18) * company["volatility"]
     risk = company["risk"]
     risk_multiplier = 1.7 if risk == "Existential" else 1.35 if risk == "Extreme" else 1.12 if risk == "High" else 0.82
-    change_pct = round((market_pulse + sector_pulse + company_pulse * company["volatility"] + event_pulse) * risk_multiplier, 2)
+    change_pct = round((market_pulse + sector_pulse + company_pulse * company["volatility"] + event_pulse) * risk_multiplier + half_hour_pulse, 2)
     price = round(max(0.5, company["base_price"] * (1 + change_pct / 100)), 2)
     volume_base = company["float_shares"] * (0.0018 + company["volatility"] / 1000)
-    volume = round(volume_base * (1 + abs(change_pct) / 18 + seeded_noise(f"volume:{company['ticker']}:{day}", -0.18, 0.22)))
+    volume = round(volume_base * (1 + abs(change_pct) / 18 + seeded_noise(f"volume:{company['ticker']}:{day}:{half_hour_slot}", -0.18, 0.22)))
     pe_ratio = None if company["sector"] == "Finance" or risk == "Existential" else round(18 + company["technology"] / 6 + seeded_noise(f"pe:{company['ticker']}:{day}", -4, 5), 1)
     dividend_yield = round(max(0, seeded_noise(f"yield:{company['ticker']}:{day}", 0.2, 3.6)), 2) if company["sector"] in ("Energy", "Finance", "Industrial") else None
     return {
