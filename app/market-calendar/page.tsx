@@ -1,13 +1,25 @@
 import { MarketStatusWidget } from "@/components/MarketStatusWidget";
 import marketHolidays from "@/data/us-market-holidays.json";
 
-const UPCOMING_2026 = [
-  ...marketHolidays
-    .filter((holiday) => holiday.date.startsWith("2026-"))
-    .map((holiday) => ({ ...holiday, status: "Closed" })),
+const EARLY_CLOSES = [
   { date: "2026-11-27", label: "Day after Thanksgiving", status: "Early close 1:00 PM ET" },
   { date: "2026-12-24", label: "Christmas Eve", status: "Early close 1:00 PM ET" },
-].sort((a, b) => a.date.localeCompare(b.date));
+  { date: "2027-11-26", label: "Day after Thanksgiving", status: "Early close 1:00 PM ET" },
+  { date: "2027-12-23", label: "Christmas Eve observed", status: "Early close 1:00 PM ET" },
+];
+
+export const dynamic = "force-dynamic";
+
+function getUpcomingEvents() {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
+  return [
+    ...marketHolidays.map((holiday) => ({ ...holiday, status: "Closed" })),
+    ...EARLY_CLOSES,
+  ]
+    .filter((event) => event.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 10);
+}
 
 export const metadata = {
   title: "Market Calendar",
@@ -15,9 +27,11 @@ export const metadata = {
 };
 
 export default function MarketCalendarPage() {
+  const upcomingEvents = getUpcomingEvents();
   return (
     <div className="max-w-4xl mx-auto px-5 py-8 space-y-6">
-      <div>
+      <div className="page-header">
+        <p className="page-kicker mb-2">Planning</p>
         <h1 className="text-xl font-semibold" style={{ color: "var(--text)" }}>Market Calendar</h1>
         <p className="text-xs mt-1" style={{ color: "var(--text-3)" }}>
           Regular hours, after-close settlement window, and upcoming US market holidays.
@@ -34,9 +48,9 @@ export default function MarketCalendarPage() {
       </div>
 
       <section className="card rounded-xl p-4">
-        <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--text)" }}>Upcoming 2026 US Market Holidays</h2>
+        <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--text)" }}>Upcoming US Market Schedule</h2>
         <div className="space-y-2">
-          {UPCOMING_2026.map((item) => (
+          {upcomingEvents.map((item) => (
             <div key={item.date} className="flex items-center justify-between gap-3 rounded-lg px-3 py-2" style={{ background: "var(--surface-2)" }}>
               <div>
                 <p className="text-xs font-semibold" style={{ color: "var(--text)" }}>{item.label}</p>

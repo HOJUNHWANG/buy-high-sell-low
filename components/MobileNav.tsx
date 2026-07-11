@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { SearchBar } from "@/components/SearchBar";
 import { UserMenu } from "@/components/UserMenu";
+import { ThemePicker } from "@/components/ThemePicker";
 
 const navLinks = [
   { href: "/",             label: "Home"         },
@@ -67,7 +68,7 @@ export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
             className="sm:hidden absolute top-full left-0 right-0 z-50 px-4 pb-6 pt-3 space-y-3 slide-down"
             style={{
               borderTop: "1px solid var(--border)",
-              background: "rgba(6,6,8,0.97)",
+              background: "var(--header-bg)",
               backdropFilter: "blur(20px) saturate(180%)",
               WebkitBackdropFilter: "blur(20px) saturate(180%)",
             }}
@@ -92,6 +93,7 @@ export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
                 );
               })}
             </nav>
+            <ThemePicker mobile />
             <div className="pt-2" style={{ borderTop: "1px solid var(--border)" }}>
               <UserMenu isAdmin={isAdmin} />
             </div>

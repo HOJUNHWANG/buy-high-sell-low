@@ -269,7 +269,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
               {isUp ? "+" : ""}{stock.change_pct.toFixed(2)}%
             </p>
           )}
-          {stock.fetched_at && <div className="mt-1 flex justify-end"><PriceFreshnessBadge fetchedAt={stock.fetched_at} compact /></div>}
+          {stock.fetched_at && <div className="mt-1 flex justify-end"><PriceFreshnessBadge fetchedAt={stock.fetched_at} ticker={stock.ticker} compact /></div>}
         </div>
       </div>
 

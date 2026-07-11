@@ -3,6 +3,7 @@ import { NavLinks } from "@/components/NavLinks";
 import { MobileNav } from "@/components/MobileNav";
 import { SearchBar } from "@/components/SearchBar";
 import { UserMenu } from "@/components/UserMenu";
+import { ThemePicker } from "@/components/ThemePicker";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function Navbar() {
@@ -14,7 +15,7 @@ export async function Navbar() {
     <header
       className="sticky top-0 z-50"
       style={{
-        background: "rgba(6,6,8,0.82)",
+        background: "var(--header-bg)",
         backdropFilter: "blur(20px) saturate(180%)",
         WebkitBackdropFilter: "blur(20px) saturate(180%)",
         borderBottom: "1px solid var(--border)",
@@ -42,6 +43,8 @@ export async function Navbar() {
         </div>
 
         {/* User menu */}
+        <ThemePicker />
+
         <div className="hidden sm:block">
           <UserMenu isAdmin={isAdmin} />
         </div>

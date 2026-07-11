@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import type { Stock, StockPrice } from "@/lib/types";
 import { StockTable } from "@/components/StockTable";
 import { MarketStatusWidget } from "@/components/MarketStatusWidget";
+import { MarketClosedBanner } from "@/components/MarketClosedBanner";
+import { getMarketStatus } from "@/lib/market-hours";
 
 export const revalidate = 300; // 5 min cache so UI picks up the 10-min price cron shortly after completion
 
@@ -66,17 +68,19 @@ export default async function StocksPage() {
   const withPrice = stocks.filter((s) => s.price).length;
   const totalUp   = stocks.filter((s) => (s.price?.change_pct ?? 0) > 0.05).length;
   const totalDown = stocks.filter((s) => (s.price?.change_pct ?? 0) < -0.05).length;
+  const marketStatus = getMarketStatus();
 
   return (
     <div className="max-w-7xl mx-auto px-5 py-8">
       {/* Header row */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+      <div className="page-header flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
         <div>
+          <p className="page-kicker mb-2">Explore</p>
           <h1 className="text-lg font-semibold" style={{ color: "var(--text)" }}>
             Stock Screener
           </h1>
           <p className="text-xs mt-0.5" style={{ color: "var(--text-3)" }}>
-            S&amp;P 100 + Core ETFs + Crypto · {stocks.length} assets · Prices updated every 10 min
+            S&amp;P 100 + Core ETFs + Crypto · {stocks.length} assets · {marketStatus.isOpen ? "prices update every 10 min" : "stocks show last market close"}
           </p>
         </div>
 
@@ -111,6 +115,8 @@ export default async function StocksPage() {
           </div>
         )}
       </div>
+
+      <MarketClosedBanner />
 
       <StockTable stocks={stocks} />
     </div>

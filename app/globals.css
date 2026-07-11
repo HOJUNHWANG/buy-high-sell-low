@@ -29,6 +29,61 @@
   --shadow-lg:    0 8px 32px rgba(0,0,0,0.6);
   --glass:        rgba(12,12,16,0.75);
   --glass-border: rgba(255,255,255,0.06);
+  --header-bg: rgba(6,6,8,0.82);
+}
+
+[data-theme="aurora"] {
+  --bg: #071411;
+  --surface: #0b1d18;
+  --surface-2: #102820;
+  --surface-3: #17372d;
+  --border: rgba(181,255,225,0.08);
+  --border-md: rgba(181,255,225,0.14);
+  --border-lg: rgba(181,255,225,0.22);
+  --text: #effff7;
+  --text-2: #a5c6b7;
+  --text-3: #668b7b;
+  --accent: #2dd4bf;
+  --accent-2: #67e8f9;
+  --accent-dim: rgba(45,212,191,0.12);
+  --accent-hover: rgba(45,212,191,0.2);
+  --accent-glow: rgba(45,212,191,0.25);
+  --up: #6ee7b7;
+  --up-dim: rgba(110,231,183,0.12);
+  --down: #fb7185;
+  --down-dim: rgba(251,113,133,0.12);
+  --warn: #fcd34d;
+  --warn-dim: rgba(252,211,77,0.12);
+  --glass: rgba(11,29,24,0.78);
+  --glass-border: rgba(181,255,225,0.08);
+  --header-bg: rgba(7,20,17,0.84);
+}
+
+[data-theme="dusk"] {
+  --bg: #120b1e;
+  --surface: #1a1028;
+  --surface-2: #241535;
+  --surface-3: #321c47;
+  --border: rgba(244,229,255,0.08);
+  --border-md: rgba(244,229,255,0.14);
+  --border-lg: rgba(244,229,255,0.22);
+  --text: #fbf5ff;
+  --text-2: #c5b3d2;
+  --text-3: #89769a;
+  --accent: #c084fc;
+  --accent-2: #f0abfc;
+  --accent-dim: rgba(192,132,252,0.13);
+  --accent-hover: rgba(192,132,252,0.22);
+  --accent-glow: rgba(192,132,252,0.28);
+  --up: #86efac;
+  --up-dim: rgba(134,239,172,0.12);
+  --down: #fda4af;
+  --down-dim: rgba(253,164,175,0.12);
+  --warn: #fcd34d;
+  --warn-dim: rgba(252,211,77,0.12);
+  --glass: rgba(26,16,40,0.78);
+  --glass-border: rgba(244,229,255,0.08);
+  --header-bg: rgba(18,11,30,0.84);
 }
 
 html, body {
@@ -41,6 +96,12 @@ html, body {
   letter-spacing: -0.011em;
   /* Prevent horizontal scroll on mobile */
   overflow-x: hidden;
+}
+
+body {
+  background:
+    radial-gradient(ellipse 70% 45% at 50% -20%, var(--accent-dim), transparent 65%),
+    var(--bg) !important;
 }
 
 /* Prevent iOS input zoom (iOS zooms when input font-size < 16px) */
@@ -116,6 +177,36 @@ html, body {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
+}
+
+.page-header {
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.page-kicker {
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.legal-page {
+  color: var(--text-2);
+}
+.legal-page .text-white { color: var(--text); }
+.legal-page .text-gray-300 { color: var(--text-2); }
+.legal-page .text-gray-400,
+.legal-page .text-gray-500 { color: var(--text-3); }
+.legal-page .text-blue-400 { color: var(--accent); }
+
+.market-closed-banner {
+  background:
+    radial-gradient(ellipse 70% 130% at 100% 0%, rgba(124,108,252,0.18), transparent 65%),
+    var(--surface);
+  border: 1px solid var(--border-md);
+  box-shadow: var(--shadow-sm);
 }
 
 /* ══════════════════════════════════════════

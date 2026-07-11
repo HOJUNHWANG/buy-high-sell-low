@@ -37,7 +37,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={geist.className}>
+    <html lang="en" className={geist.className} suppressHydrationWarning>
       <body className="min-h-screen flex flex-col" style={{ background: "var(--bg)", color: "var(--text)" }}>
         <Providers>
           <Navbar />

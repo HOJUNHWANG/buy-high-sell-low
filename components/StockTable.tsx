@@ -384,7 +384,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                       </td>
                       <td className="px-4 py-3 text-right font-semibold tabular-nums" style={{ color: "var(--text)" }}>
                         <div>{stock.price ? `$${stock.price.price.toFixed(2)}` : <PendingPriceLabel />}</div>
-                        {stock.price?.fetched_at && <div className="mt-1"><PriceFreshnessBadge fetchedAt={stock.price.fetched_at} compact /></div>}
+                        {stock.price?.fetched_at && <div className="mt-1"><PriceFreshnessBadge fetchedAt={stock.price.fetched_at} ticker={stock.ticker} compact /></div>}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {pct !== null ? (
@@ -498,7 +498,7 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
                         {isUp ? "+" : ""}{pct.toFixed(2)}%
                       </span>
                     )}
-                    {stock.price?.fetched_at && <PriceFreshnessBadge fetchedAt={stock.price.fetched_at} compact />}
+                    {stock.price?.fetched_at && <PriceFreshnessBadge fetchedAt={stock.price.fetched_at} ticker={stock.ticker} compact />}
                     {stock.change_30d != null && (
                       <span
                         className="text-[10px] tabular-nums"

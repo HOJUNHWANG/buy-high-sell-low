@@ -5,6 +5,7 @@ import { LogoImage } from "@/components/LogoImage";
 import { Suspense } from "react";
 import { WatchlistSection } from "@/components/WatchlistSection";
 import { MarketStatusWidget } from "@/components/MarketStatusWidget";
+import { MarketClosedBanner } from "@/components/MarketClosedBanner";
 import { SectorWidget } from "@/components/SectorWidget";
 import { MarketStatsWidget } from "@/components/MarketStatsWidget";
 import { SentimentWidget } from "@/components/SentimentWidget";
@@ -13,6 +14,7 @@ import { timeAgo } from "@/lib/utils";
 import { gateSummaries } from "@/lib/summary-gate";
 import type { UserTier } from "@/lib/summary-gate";
 import { getAllStockPrices } from "@/lib/cached-data";
+import { getMarketStatus } from "@/lib/market-hours";
 
 async function getMovers(): Promise<{
   stockGainers: (StockPrice & { stocks: Stock })[];
@@ -89,6 +91,16 @@ export default async function HomePage() {
     newsPromise,
   ]);
   const news = gateSummaries(rawNews, tier, unlockedIds);
+  const marketStatus = getMarketStatus();
+  const moverGroups = marketStatus.isOpen
+    ? [
+        { label: "Stocks", gainers: stockGainers, losers: stockLosers, live: false },
+        { label: "Crypto", gainers: cryptoGainers, losers: cryptoLosers, live: true },
+      ]
+    : [
+        { label: "Crypto", gainers: cryptoGainers, losers: cryptoLosers, live: true },
+        { label: "Last completed stock session", gainers: stockGainers, losers: stockLosers, live: false },
+      ];
 
   return (
     <div>
@@ -167,9 +179,11 @@ export default async function HomePage() {
             Markets
           </h1>
           <p className="text-xs mt-1" style={{ color: "var(--text-3)" }}>
-            Real-time prices &amp; AI-powered news
+            Market-aware prices &amp; AI-powered news
           </p>
         </div>
+
+        <MarketClosedBanner />
 
         <div className="flex gap-5 items-start">
 
@@ -207,7 +221,7 @@ export default async function HomePage() {
                   className="text-[11px] font-semibold uppercase tracking-widest"
                   style={{ color: "var(--text-3)" }}
                 >
-                  Today&apos;s Movers
+                  {marketStatus.isOpen ? "Today’s Movers" : "Market activity"}
                 </p>
                 <Link href="/stocks" className="nav-link text-xs">
                   All stocks →
@@ -222,66 +236,12 @@ export default async function HomePage() {
                   Market data unavailable — updates during trading hours (9:30 AM – 4:00 PM ET)
                 </div>
               ) : (
-                <div className="space-y-5">
-                  {/* Stocks */}
-                  {stockGainers.length > 0 && (
-                    <>
-                      <p className="text-[10px] font-semibold uppercase tracking-widest"
-                        style={{ color: "var(--text-3)" }}>
-                        Stocks
-                      </p>
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1"
-                            style={{ color: "var(--up)" }}>
-                            <span>▲</span> Top Gainers
-                          </p>
-                          <div className="space-y-1.5">
-                            {stockGainers.map((m) => <MoverRow key={m.ticker} m={m} />)}
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1"
-                            style={{ color: "var(--down)" }}>
-                            <span>▼</span> Top Losers
-                          </p>
-                          <div className="space-y-1.5">
-                            {stockLosers.map((m) => <MoverRow key={m.ticker} m={m} />)}
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Crypto */}
-                  {cryptoGainers.length > 0 && (
-                    <>
-                      <p className="text-[10px] font-semibold uppercase tracking-widest mt-2"
-                        style={{ color: "var(--text-3)" }}>
-                        Crypto
-                      </p>
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1"
-                            style={{ color: "var(--up)" }}>
-                            <span>▲</span> Top Gainers
-                          </p>
-                          <div className="space-y-1.5">
-                            {cryptoGainers.map((m) => <MoverRow key={m.ticker} m={m} />)}
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1"
-                            style={{ color: "var(--down)" }}>
-                            <span>▼</span> Top Losers
-                          </p>
-                          <div className="space-y-1.5">
-                            {cryptoLosers.map((m) => <MoverRow key={m.ticker} m={m} />)}
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
+                <div className="space-y-6">
+                  {moverGroups.map((group) => (
+                    group.gainers.length > 0 && (
+                      <MoverGroup key={group.label} {...group} />
+                    )
+                  ))}
                 </div>
               )}
             </section>
@@ -419,6 +379,49 @@ function MoverRow({ m }: { m: StockPrice & { stocks: Stock } }) {
         </p>
       </div>
     </Link>
+  );
+}
+
+function MoverGroup({
+  label,
+  gainers,
+  losers,
+  live,
+}: {
+  label: string;
+  gainers: (StockPrice & { stocks: Stock })[];
+  losers: (StockPrice & { stocks: Stock })[];
+  live: boolean;
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>
+          {label}
+        </p>
+        {live && (
+          <span className="badge badge-up text-[9px]">24/7 live</span>
+        )}
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1" style={{ color: "var(--up)" }}>
+            <span>▲</span> Top Gainers
+          </p>
+          <div className="space-y-1.5">
+            {gainers.map((m) => <MoverRow key={m.ticker} m={m} />)}
+          </div>
+        </div>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2 flex items-center gap-1" style={{ color: "var(--down)" }}>
+            <span>▼</span> Top Losers
+          </p>
+          <div className="space-y-1.5">
+            {losers.map((m) => <MoverRow key={m.ticker} m={m} />)}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

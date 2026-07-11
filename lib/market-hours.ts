@@ -13,10 +13,33 @@ type EasternTime = {
 
 export type MarketStatus = {
   isOpen: boolean;
+  isClosed: boolean;
+  reason: "weekend" | "holiday" | "before-open" | "after-close" | null;
+  holidayName?: string;
   nextLabel: string;
   timeStr: string;
   session: "Regular Hours" | "Pre-Market" | "After Hours" | "Closed";
 };
+
+function nextTradingDate(fromDate: string): string {
+  // Use noon UTC so adding calendar days is never affected by US daylight-saving changes.
+  const cursor = new Date(`${fromDate}T12:00:00Z`);
+  do {
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+    const date = cursor.toISOString().slice(0, 10);
+    const day = cursor.getUTCDay();
+    if (day !== 0 && day !== 6 && !HOLIDAYS.has(date)) return date;
+  } while (true);
+}
+
+function formatTradingDate(date: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(`${date}T12:00:00Z`));
+}
 
 function getEasternTime(now: Date): EasternTime {
   const formatter = new Intl.DateTimeFormat("en-US", {
@@ -81,6 +104,7 @@ export function getMarketStatus(now = new Date()): MarketStatus {
   const isOpen = isWeekday && !isHoliday && et.mins >= 570 && et.mins < 960;
 
   let nextLabel: string;
+  let reason: MarketStatus["reason"] = null;
   if (isOpen) {
     const left = 960 - et.mins;
     nextLabel = `Closes in ${Math.floor(left / 60)}h ${left % 60}m`;
@@ -88,8 +112,12 @@ export function getMarketStatus(now = new Date()): MarketStatus {
     const left = 570 - et.mins;
     nextLabel = `Opens in ${Math.floor(left / 60)}h ${left % 60}m`;
   } else {
-    nextLabel = "Opens next trading day 9:30 AM ET";
+    const nextDate = nextTradingDate(et.date);
+    nextLabel = `Opens ${formatTradingDate(nextDate)} at 9:30 AM ET`;
+    reason = isHoliday ? "holiday" : isWeekday ? "after-close" : "weekend";
   }
+
+  if (!isOpen && !reason && isWeekday && !isHoliday) reason = "before-open";
 
   const session = isOpen
     ? "Regular Hours"
@@ -99,5 +127,13 @@ export function getMarketStatus(now = new Date()): MarketStatus {
         ? "After Hours"
         : "Closed";
 
-  return { isOpen, nextLabel, timeStr: et.timeStr, session };
+  return {
+    isOpen,
+    isClosed: !isOpen,
+    reason,
+    holidayName: HOLIDAYS.get(et.date),
+    nextLabel,
+    timeStr: et.timeStr,
+    session,
+  };
 }

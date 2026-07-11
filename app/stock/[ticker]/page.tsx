@@ -189,7 +189,7 @@ export default async function StockDetailPage({ params }: Props) {
                 <span>{price.volume ? `Vol ${(price.volume / 1_000_000).toFixed(1)}M · ` : ""}Delayed · as of {new Date(price.fetched_at).toLocaleTimeString("en-US", {
                   hour: "2-digit", minute: "2-digit", timeZone: "America/New_York",
                 })} ET</span>
-                <PriceFreshnessBadge fetchedAt={price.fetched_at} />
+                <PriceFreshnessBadge fetchedAt={price.fetched_at} ticker={ticker} />
               </div>
 
               {sinceLastFetch != null && (

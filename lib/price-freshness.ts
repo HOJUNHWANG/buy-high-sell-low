@@ -1,4 +1,5 @@
 import { timeAgo } from "./utils";
+import { getMarketStatus, isCrypto } from "./market-hours";
 
 export const PRICE_STALE_MINUTES = 20;
 
@@ -17,4 +18,33 @@ export function priceFreshnessLabel(fetchedAt: string | null | undefined): strin
 export function isPriceStale(fetchedAt: string | null | undefined, staleMinutes = PRICE_STALE_MINUTES): boolean {
   const age = priceAgeMinutes(fetchedAt);
   return age == null || age >= staleMinutes;
+}
+
+export type PriceFreshness = {
+  state: "live" | "delayed" | "settled" | "unavailable";
+  label: string;
+};
+
+/**
+ * A closed US equity market is an expected settled-data state, not stale data.
+ * Crypto remains subject to freshness checks because it trades continuously.
+ */
+export function getPriceFreshness(
+  fetchedAt: string | null | undefined,
+  ticker?: string,
+  now = new Date(),
+  staleMinutes = PRICE_STALE_MINUTES,
+): PriceFreshness {
+  if (!fetchedAt) return { state: "unavailable", label: "Price unavailable" };
+
+  const equityMarketOpen = getMarketStatus(now).isOpen;
+  if (ticker && !isCrypto(ticker) && !equityMarketOpen) {
+    return { state: "settled", label: "Last market close" };
+  }
+
+  if (isPriceStale(fetchedAt, staleMinutes)) {
+    return { state: "delayed", label: "Update delayed" };
+  }
+
+  return { state: "live", label: priceFreshnessLabel(fetchedAt) };
 }

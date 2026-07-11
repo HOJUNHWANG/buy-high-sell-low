@@ -111,7 +111,7 @@ export async function WatchlistSection({ userId }: { userId: string }) {
                   {sign}{pct.toFixed(2)}%
                 </div>
               </div>
-              {item.fetched_at && <PriceFreshnessBadge fetchedAt={item.fetched_at} compact />}
+              {item.fetched_at && <PriceFreshnessBadge fetchedAt={item.fetched_at} ticker={item.ticker} compact />}
               </Link>
             </div>
           );

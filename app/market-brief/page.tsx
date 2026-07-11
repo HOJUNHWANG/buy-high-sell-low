@@ -97,7 +97,8 @@ export default async function MarketBriefPage() {
     <div className="max-w-4xl mx-auto px-5 py-8 space-y-6 fade-up">
 
       {/* Header */}
-      <div className="space-y-2">
+      <div className="page-header space-y-2">
+        <p className="page-kicker">Daily close</p>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest"
             style={{ background: sentStyle.bg, color: sentStyle.color }}>

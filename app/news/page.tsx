@@ -105,8 +105,9 @@ export default async function NewsPage({
 
         {/* ── Main news feed ── */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-5">
+          <div className="page-header flex items-center justify-between mb-5">
             <div>
+              <p className="page-kicker mb-2">Signal desk</p>
               <h1 className="text-lg font-semibold" style={{ color: "var(--text)" }}>
                 News Feed
               </h1>

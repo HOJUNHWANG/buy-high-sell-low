@@ -132,6 +132,13 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Per-user presentation preferences (safe to update without exposing account tier data)
+CREATE TABLE IF NOT EXISTS user_preferences (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  theme TEXT NOT NULL DEFAULT 'midnight' CHECK (theme IN ('midnight', 'aurora', 'dusk')),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Search indexes (pg_trgm)
 CREATE INDEX IF NOT EXISTS idx_stocks_name_trgm   ON stocks USING gin (name gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_stocks_ticker_trgm ON stocks USING gin (ticker gin_trgm_ops);
@@ -204,6 +211,13 @@ CREATE POLICY "users can read own summary_unlocks" ON summary_unlocks FOR SELECT
 DROP POLICY IF EXISTS "users can read own user_profiles" ON user_profiles;
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "users can read own user_profiles" ON user_profiles FOR SELECT USING (auth.uid() = user_id);
+
+-- user_preferences: users can only manage their own display settings
+ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE ON public.user_preferences TO authenticated;
+CREATE POLICY "users can read own preferences" ON user_preferences FOR SELECT TO authenticated USING ((SELECT auth.uid()) = user_id);
+CREATE POLICY "users can insert own preferences" ON user_preferences FOR INSERT TO authenticated WITH CHECK ((SELECT auth.uid()) = user_id);
+CREATE POLICY "users can update own preferences" ON user_preferences FOR UPDATE TO authenticated USING ((SELECT auth.uid()) = user_id) WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- =========================================
 -- Daily chart history (1Y rolling OHLCV)
