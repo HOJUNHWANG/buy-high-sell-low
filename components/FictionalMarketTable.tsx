@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { FictionalRisk, FictionalSector, FictionalSnapshot } from "@/data/fictional-market";
-import { formatFictionalMarketCap } from "@/data/fictional-market";
+import { formatFictionalMarketCap, getFictionalCompanyProfile } from "@/data/fictional-market";
 import { FictionalTickerMark } from "@/components/FictionalTickerMark";
 
 type SortKey = "marketCap" | "price" | "changePct" | "volume" | "technology" | "influence";
@@ -57,25 +57,6 @@ function riskClass(risk: FictionalRisk) {
   if (risk === "High") return "badge-warn";
   if (risk === "Moderate") return "badge-muted";
   return "badge-up";
-}
-
-function worldRole(row: FictionalSnapshot) {
-  const reach = row.influence >= 96
-    ? "systemically important"
-    : row.influence >= 88
-      ? "bloc-scale"
-      : row.influence >= 76
-        ? "sector-shaping"
-        : "specialist";
-  const edge = row.technology >= 96
-    ? "frontier technology"
-    : row.technology >= 88
-      ? "advanced systems"
-      : row.technology >= 76
-        ? "proven industrial tech"
-        : "legacy assets";
-
-  return `${reach} ${row.sector.toLowerCase()} operator with ${edge}; influence is capped by exchange oversight and rival megacorps.`;
 }
 
 export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
@@ -252,7 +233,7 @@ export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
                     </div>
                     <div className="flex items-end justify-between gap-3 mt-4">
                       <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: "var(--text-2)" }}>
-                        {row.note}
+                        {getFictionalCompanyProfile(row.ticker, row.note)}
                       </p>
                       <Sparkline values={row.sparkline} positive={positive} />
                     </div>
@@ -298,7 +279,7 @@ export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
                       </td>
                       <td className="px-5 py-5 min-w-[300px] max-w-[390px]">
                         <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-2)" }}>
-                          {worldRole(row)}
+                          {getFictionalCompanyProfile(row.ticker, row.note)}
                         </p>
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           <span className="badge badge-muted">Influence {row.influence}</span>

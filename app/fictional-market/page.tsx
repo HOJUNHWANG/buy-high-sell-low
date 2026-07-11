@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import type { FictionalMarketEvent, FictionalSnapshot } from "@/data/fictional-market";
-import { buildFictionalMarketEvents, buildFictionalMarketSnapshot, fictionalCompanies, formatFictionalMarketCap } from "@/data/fictional-market";
+import type { FictionalSnapshot } from "@/data/fictional-market";
+import { buildFictionalMarketSnapshot, fictionalCompanies, formatFictionalMarketCap, getFictionalCompanyProfile } from "@/data/fictional-market";
 import { FictionalMarketTable } from "@/components/FictionalMarketTable";
 import { FictionalTickerMark } from "@/components/FictionalTickerMark";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -47,27 +47,18 @@ type FictionalPriceDbRow = {
   dividend_yield: number | null;
 };
 
-type FictionalEventDbRow = {
-  ticker: string | null;
-  headline: string;
-  impact_pct: number;
-  severity: "routine" | "material" | "chaotic";
-};
-
-async function getFictionalMarketData(): Promise<{ rows: FictionalSnapshot[]; events: FictionalMarketEvent[] }> {
+async function getFictionalMarketData(): Promise<FictionalSnapshot[]> {
   const fallbackRows = buildFictionalMarketSnapshot();
-  const fallbackEvents = buildFictionalMarketEvents();
 
   try {
     const supabase = await createSupabaseServerClient();
-    const [{ data: companies }, { data: prices }, { data: dbEvents }] = await Promise.all([
+    const [{ data: companies }, { data: prices }] = await Promise.all([
       supabase.from("fictional_companies").select("*").order("market_cap", { ascending: false }),
       supabase.from("fictional_prices").select("*"),
-      supabase.from("fictional_market_events").select("ticker, headline, impact_pct, severity").order("event_at", { ascending: false }).limit(12),
     ]);
 
     if (!companies?.length || !prices?.length) {
-      return { rows: fallbackRows, events: fallbackEvents };
+      return fallbackRows;
     }
 
     const fallbackByTicker = new Map(fallbackRows.map((row) => [row.ticker, row]));
@@ -108,24 +99,16 @@ async function getFictionalMarketData(): Promise<{ rows: FictionalSnapshot[]; ev
       .sort((a, b) => b.marketCap - a.marketCap);
 
     if (!rows.length) {
-      return { rows: fallbackRows, events: fallbackEvents };
+      return fallbackRows;
     }
-
-    const events = ((dbEvents as FictionalEventDbRow[] | null) ?? []).map((event) => ({
-      ticker: event.ticker ?? "OMNI",
-      headline: event.headline,
-      impactPct: Number(event.impact_pct),
-      severity: event.severity,
-    }));
-
-    return { rows, events: events.length ? events : fallbackEvents };
+    return rows;
   } catch {
-    return { rows: fallbackRows, events: fallbackEvents };
+    return fallbackRows;
   }
 }
 
 export default async function FictionalMarketPage() {
-  const { rows, events } = await getFictionalMarketData();
+  const rows = await getFictionalMarketData();
   const totalMarketCap = rows.reduce((sum, row) => sum + row.marketCap, 0);
   const weightedChange = rows.reduce((sum, row) => sum + row.changePct * row.marketCap, 0) / totalMarketCap;
   const indexLevel = 10_000 * (1 + weightedChange / 100);
@@ -197,8 +180,22 @@ export default async function FictionalMarketPage() {
               </p>
               <p className="text-lg font-bold mt-1" style={{ color: "var(--text)" }}>{averageTech.toFixed(1)}</p>
               <p className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>{riskiest} existential flags</p>
-            </div>
+           </div>
+         </div>
+
+        <section
+          className="flex items-start gap-3 px-4 py-3 rounded-lg"
+          style={{ background: "var(--accent-dim)", border: "1px solid rgba(124,108,252,0.3)" }}
+          role="note"
+        >
+          <span className="mt-0.5 text-sm font-bold" style={{ color: "var(--accent)" }}>i</span>
+          <div>
+            <p className="text-xs font-semibold" style={{ color: "var(--text)" }}>Fictional names, original ticker marks</p>
+            <p className="text-[11px] leading-relaxed mt-1" style={{ color: "var(--text-2)" }}>
+              Company names appear only as fictional references. Every ticker mark on this page is an original abstract badge, not an official logo or trade dress.
+            </p>
           </div>
+        </section>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-4">
@@ -213,7 +210,7 @@ export default async function FictionalMarketPage() {
                   {largest.name}
                 </h2>
                 <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--text-2)" }}>
-                  {largest.note}
+                  {getFictionalCompanyProfile(largest.ticker, largest.note)}
                 </p>
               </div>
               <div className="text-right shrink-0">
@@ -306,40 +303,7 @@ export default async function FictionalMarketPage() {
         </section>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 items-start">
-        <FictionalMarketTable rows={rows} />
-
-        <aside className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-          <section className="card p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold" style={{ color: "var(--text)" }}>Market tape</h2>
-              <span className="badge badge-muted">Simulated</span>
-            </div>
-            <div className="space-y-3">
-              {events.map((event) => (
-                <div key={`${event.ticker}-${event.headline}`} className="pb-3 last:pb-0" style={{ borderBottom: "1px solid var(--border)" }}>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{event.ticker}</span>
-                    <span className="text-xs font-semibold" style={{ color: event.impactPct >= 0 ? "var(--up)" : "var(--down)" }}>
-                      {event.impactPct >= 0 ? "+" : ""}{event.impactPct.toFixed(2)}%
-                    </span>
-                  </div>
-                  <p className="text-[11px] leading-relaxed mt-1" style={{ color: "var(--text-2)" }}>
-                    {event.headline}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="card p-4">
-            <h2 className="text-sm font-semibold" style={{ color: "var(--text)" }}>Name and logo policy</h2>
-            <p className="text-[11px] leading-relaxed mt-2" style={{ color: "var(--text-3)" }}>
-              Company names are used as fictional references. Ticker marks are original abstract badges, not official logos or trade dress.
-            </p>
-          </section>
-        </aside>
-      </div>
+      <FictionalMarketTable rows={rows} />
     </div>
   );
 }

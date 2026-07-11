@@ -7,7 +7,7 @@ import { StockChart } from "@/components/StockChart";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { StockPriceHistory } from "@/lib/types";
 import type { FictionalCompany, FictionalRisk, FictionalSector } from "@/data/fictional-market";
-import { buildFictionalMarketSnapshot, fictionalCompanies, formatFictionalMarketCap } from "@/data/fictional-market";
+import { buildFictionalMarketSnapshot, fictionalCompanies, formatFictionalMarketCap, getFictionalCompanyProfile } from "@/data/fictional-market";
 
 type Props = {
   params: Promise<{ ticker: string }>;
@@ -295,7 +295,9 @@ export default async function FictionalStockDetailPage({ params }: Props) {
 
           <section className="card rounded-xl p-4">
             <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>Thesis</p>
-            <p className="text-xs leading-relaxed mt-3" style={{ color: "var(--text-2)" }}>{company.note}</p>
+            <p className="text-xs leading-relaxed mt-3" style={{ color: "var(--text-2)" }}>
+              {getFictionalCompanyProfile(company.ticker, company.note)}
+            </p>
           </section>
 
           <section className="card rounded-xl p-4">
