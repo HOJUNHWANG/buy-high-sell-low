@@ -59,6 +59,25 @@ function riskClass(risk: FictionalRisk) {
   return "badge-up";
 }
 
+function worldRole(row: FictionalSnapshot) {
+  const reach = row.influence >= 96
+    ? "systemically important"
+    : row.influence >= 88
+      ? "bloc-scale"
+      : row.influence >= 76
+        ? "sector-shaping"
+        : "specialist";
+  const edge = row.technology >= 96
+    ? "frontier technology"
+    : row.technology >= 88
+      ? "advanced systems"
+      : row.technology >= 76
+        ? "proven industrial tech"
+        : "legacy assets";
+
+  return `${reach} ${row.sector.toLowerCase()} operator with ${edge}; influence is capped by exchange oversight and rival megacorps.`;
+}
+
 export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
   const [query, setQuery] = useState("");
   const [sector, setSector] = useState<FictionalSector | "All">("All");
@@ -97,7 +116,7 @@ export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
     <button
       type="button"
       onClick={() => toggleSort(key)}
-      className={`inline-flex items-center gap-1 text-[11px] font-semibold ${align === "right" ? "justify-end" : ""}`}
+      className={`inline-flex items-center gap-1 text-[11px] font-semibold whitespace-nowrap ${align === "right" ? "justify-end" : ""}`}
       style={{ color: sort.key === key ? "var(--text)" : "var(--text-3)" }}
     >
       <span>{label}</span>
@@ -249,22 +268,22 @@ export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
             <table className="w-full text-xs">
               <thead style={{ background: "var(--surface-2)", borderBottom: "1px solid var(--border)" }}>
                 <tr>
-                  <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--text-3)" }}>Company</th>
-                  <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--text-3)" }}>Sector</th>
-                  <th className="px-4 py-3 text-right">{headerButton("price", "Price")}</th>
-                  <th className="px-4 py-3 text-right">{headerButton("changePct", "Today")}</th>
-                  <th className="px-4 py-3 text-right">{headerButton("marketCap", "Market cap")}</th>
-                  <th className="px-4 py-3 text-right">{headerButton("volume", "Volume")}</th>
-                  <th className="px-4 py-3 text-right">{headerButton("technology", "Tech")}</th>
-                  <th className="px-4 py-3 text-left font-semibold" style={{ color: "var(--text-3)" }}>Risk</th>
+                  <th className="px-5 py-4 text-left font-semibold" style={{ color: "var(--text-3)" }}>Company</th>
+                  <th className="px-5 py-4 text-left font-semibold" style={{ color: "var(--text-3)" }}>World role</th>
+                  <th className="px-5 py-4 text-left font-semibold" style={{ color: "var(--text-3)" }}>Sector</th>
+                  <th className="px-5 py-4 text-right">{headerButton("price", "Price")}</th>
+                  <th className="px-5 py-4 text-right">{headerButton("changePct", "Today")}</th>
+                  <th className="px-5 py-4 text-right min-w-[104px]">{headerButton("marketCap", "Market cap")}</th>
+                  <th className="px-5 py-4 text-right">{headerButton("volume", "Volume")}</th>
+                  <th className="px-5 py-4 text-left font-semibold" style={{ color: "var(--text-3)" }}>Risk</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.map((row) => {
                   const positive = row.changePct >= 0;
                   return (
-                    <tr key={row.ticker} className="transition-colors hover:bg-white/[0.02]" style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td className="px-4 py-3 min-w-[260px]">
+                    <tr key={row.ticker} className="transition-colors hover:bg-white/[0.025]" style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td className="px-5 py-5 min-w-[280px]">
                         <Link href={`/fictional-market/${row.ticker}`} className="flex items-center gap-3">
                           <FictionalTickerMark ticker={row.ticker} color={row.color} accent={row.accent} size="sm" />
                           <div className="min-w-0">
@@ -277,15 +296,23 @@ export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
                           </div>
                         </Link>
                       </td>
-                      <td className="px-4 py-3 min-w-[150px]" style={{ color: "var(--text-2)" }}>{row.sector}</td>
-                      <td className="px-4 py-3 text-right font-semibold" style={{ color: "var(--text)" }}>${row.price.toFixed(2)}</td>
-                      <td className="px-4 py-3 text-right font-semibold" style={{ color: positive ? "var(--up)" : "var(--down)" }}>
+                      <td className="px-5 py-5 min-w-[300px] max-w-[390px]">
+                        <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-2)" }}>
+                          {worldRole(row)}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          <span className="badge badge-muted">Influence {row.influence}</span>
+                          <span className="badge badge-muted">Tech {row.technology}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-5 min-w-[150px]" style={{ color: "var(--text-2)" }}>{row.sector}</td>
+                      <td className="px-5 py-5 text-right font-semibold whitespace-nowrap" style={{ color: "var(--text)" }}>${row.price.toFixed(2)}</td>
+                      <td className="px-5 py-5 text-right font-semibold whitespace-nowrap" style={{ color: positive ? "var(--up)" : "var(--down)" }}>
                         {positive ? "+" : ""}{row.changePct.toFixed(2)}%
                       </td>
-                      <td className="px-4 py-3 text-right" style={{ color: "var(--text-2)" }}>{formatFictionalMarketCap(row.marketCap)}</td>
-                      <td className="px-4 py-3 text-right" style={{ color: "var(--text-2)" }}>{formatVolume(row.volume)}</td>
-                      <td className="px-4 py-3 text-right" style={{ color: "var(--text-2)" }}>{row.technology}</td>
-                      <td className="px-4 py-3"><span className={`badge ${riskClass(row.risk)}`}>{row.risk}</span></td>
+                      <td className="px-5 py-5 text-right whitespace-nowrap min-w-[104px]" style={{ color: "var(--text-2)" }}>{formatFictionalMarketCap(row.marketCap)}</td>
+                      <td className="px-5 py-5 text-right whitespace-nowrap" style={{ color: "var(--text-2)" }}>{formatVolume(row.volume)}</td>
+                      <td className="px-5 py-5"><span className={`badge ${riskClass(row.risk)}`}>{row.risk}</span></td>
                     </tr>
                   );
                 })}

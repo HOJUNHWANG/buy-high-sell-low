@@ -16,6 +16,10 @@ function formatIndex(value: number) {
   return value.toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 }
 
+function statBar(value: number) {
+  return `${Math.min(100, Math.max(0, value))}%`;
+}
+
 type FictionalCompanyDbRow = {
   ticker: string;
   name: string;
@@ -130,6 +134,14 @@ export default async function FictionalMarketPage() {
   const largest = rows[0];
   const topMover = [...rows].sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))[0];
   const riskiest = rows.filter((row) => row.risk === "Existential").length;
+  const averageTech = rows.reduce((sum, row) => sum + row.technology, 0) / rows.length;
+  const averageInfluence = rows.reduce((sum, row) => sum + row.influence, 0) / rows.length;
+  const topSectors = Object.entries(rows.reduce<Record<string, number>>((counts, row) => {
+    counts[row.sector] = (counts[row.sector] ?? 0) + 1;
+    return counts;
+  }, {}))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
 
   return (
     <div className="max-w-7xl mx-auto px-5 py-8">
@@ -151,7 +163,7 @@ export default async function FictionalMarketPage() {
               Fictional Market
             </h1>
             <p className="text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed" style={{ color: "var(--text-3)" }}>
-              100 media-born megacorps priced as public equities with separate fictional-market data plumbing.
+              100 media-born megacorps priced as public equities in one shared listing universe, with sovereign claims, monopolies, and apocalyptic patents marked down by exchange oversight.
             </p>
           </div>
 
@@ -181,10 +193,10 @@ export default async function FictionalMarketPage() {
             </div>
             <div className="card p-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
-                Red flags
+                Avg tech
               </p>
-              <p className="text-lg font-bold mt-1" style={{ color: "var(--text)" }}>{riskiest}</p>
-              <p className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>existential risk</p>
+              <p className="text-lg font-bold mt-1" style={{ color: "var(--text)" }}>{averageTech.toFixed(1)}</p>
+              <p className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>{riskiest} existential flags</p>
             </div>
           </div>
         </div>
@@ -233,12 +245,71 @@ export default async function FictionalMarketPage() {
             </p>
           </section>
         </div>
+
+        <section className="card p-4">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr] gap-4">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
+                Listing premise
+              </p>
+              <h2 className="text-base font-semibold mt-1" style={{ color: "var(--text)" }}>
+                Power, but not unchecked power
+              </h2>
+              <p className="text-xs leading-relaxed mt-2" style={{ color: "var(--text-2)" }}>
+                Each company keeps its signature technology and political reach, but the exchange assumes a shared antitrust regime, cross-world capital rules, and enough rival megacorps to prevent any single canon from owning the board.
+              </p>
+            </div>
+            <div>
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
+                  Market pressure
+                </p>
+                <span className="text-[11px]" style={{ color: "var(--text-3)" }}>average scores</span>
+              </div>
+              <div className="mt-3 space-y-3">
+                <div>
+                  <div className="flex justify-between text-[11px]" style={{ color: "var(--text-2)" }}>
+                    <span>Technology depth</span>
+                    <span>{averageTech.toFixed(1)}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full mt-1 overflow-hidden" style={{ background: "var(--surface-3)" }}>
+                    <div className="h-full rounded-full" style={{ width: statBar(averageTech), background: "var(--accent)" }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-[11px]" style={{ color: "var(--text-2)" }}>
+                    <span>Institutional influence</span>
+                    <span>{averageInfluence.toFixed(1)}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full mt-1 overflow-hidden" style={{ background: "var(--surface-3)" }}>
+                    <div className="h-full rounded-full" style={{ width: statBar(averageInfluence), background: "var(--up)" }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
+                Active sectors
+              </p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {topSectors.map(([sector, count]) => (
+                  <span key={sector} className="badge badge-muted">
+                    {sector} · {count}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[11px] leading-relaxed mt-3" style={{ color: "var(--text-3)" }}>
+                Sector labels are normalized for this market, so a planet-scale utility, a weapons contractor, and a consumer empire can be compared without importing every original setting literally.
+              </p>
+            </div>
+          </div>
+        </section>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-5 items-start">
+      <div className="grid grid-cols-1 gap-5 items-start">
         <FictionalMarketTable rows={rows} />
 
-        <aside className="space-y-4 xl:sticky xl:top-20">
+        <aside className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
           <section className="card p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold" style={{ color: "var(--text)" }}>Market tape</h2>
