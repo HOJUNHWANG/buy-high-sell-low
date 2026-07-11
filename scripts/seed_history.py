@@ -27,7 +27,7 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABAS
 supabase = create_client(SUPABASE_URL, os.environ["SUPABASE_SERVICE_ROLE_KEY"])
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import SP100_TICKERS, CRYPTO_TICKERS, HISTORY_SEED_TICKERS, to_yf
+from tickers import ALL_EQUITY_TICKERS, CRYPTO_TICKERS, HISTORY_SEED_TICKERS, to_yf
 
 BATCH_SIZE = int(os.environ.get("YF_BATCH_SIZE", "10"))
 SLEEP_BETWEEN_BATCHES = float(os.environ.get("YF_SLEEP_SECONDS", "5"))
@@ -305,8 +305,8 @@ def main():
             tickers = CRYPTO_TICKERS
             print(f"Seeding {len(tickers)} crypto tickers")
         elif arg == "--stocks":
-            tickers = SP100_TICKERS
-            print(f"Seeding {len(tickers)} S&P 100 tickers")
+            tickers = ALL_EQUITY_TICKERS
+            print(f"Seeding {len(tickers)} tracked equity tickers")
         elif arg == "--all":
             tickers = HISTORY_SEED_TICKERS
             print(f"Seeding all {len(tickers)} tickers (stocks + crypto)")

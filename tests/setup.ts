@@ -49,8 +49,8 @@ export function getDeleteCalls() { return _deleteCalls; }
 export function getUpsertCalls() { return _upsertCalls; }
 
 function createQueryBuilder(table: string, initialData?: unknown[]) {
-  let _filters: Record<string, unknown> = {};
-  let _data = initialData ?? _mockData[table] ?? [];
+  const _filters: Record<string, unknown> = {};
+  const _data = initialData ?? _mockData[table] ?? [];
   let _selectCount = false;
   let _limit = 100;
   let _ascending = false;
@@ -136,7 +136,7 @@ function createQueryBuilder(table: string, initialData?: unknown[]) {
 }
 
 function createMutationBuilder(table: string, type: "insert" | "update" | "delete" | "upsert", payload?: unknown) {
-  let _filters: Record<string, unknown> = {};
+  const _filters: Record<string, unknown> = {};
 
   if (type === "insert") _insertCalls.push({ table, data: payload });
   if (type === "upsert") _upsertCalls.push({ table, data: payload });

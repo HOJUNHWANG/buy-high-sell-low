@@ -15,6 +15,8 @@ export const getAllStockPrices = cache(
     const { data } = await supabase
       .from("stock_prices")
       .select("*, stocks(*)");
-    return (data as StockPriceWithStock[]) ?? [];
+    // Retired symbols remain in the database for watchlist and paper-trading
+    // history, but should not affect the public market overview.
+    return ((data as StockPriceWithStock[]) ?? []).filter((row) => row.stocks?.is_active !== false);
   }
 );

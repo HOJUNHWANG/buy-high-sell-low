@@ -29,7 +29,7 @@ from tickers import ETF_TICKERS, COMPANY_NAMES
 # ETF logo domains for DuckDuckGo favicon
 ETF_DOMAINS = {
     "VOO": "vanguard.com", "SPY": "ssga.com", "QQQ": "invesco.com", "VTI": "vanguard.com",
-    "DIA": "ssga.com", "IWM": "ishares.com", "AGG": "ishares.com",
+    "DIA": "ssga.com", "IWM": "ishares.com", "AGG": "ishares.com", "OEF": "ishares.com",
     "XLK": "ssga.com", "XLF": "ssga.com", "XLE": "ssga.com", "XLV": "ssga.com",
     "XLI": "ssga.com", "XLP": "ssga.com", "XLY": "ssga.com", "XLU": "ssga.com",
     "XLRE": "ssga.com", "XLC": "ssga.com", "XLB": "ssga.com",
@@ -52,6 +52,7 @@ ETF_MARKET_CAP_FALLBACKS = {
     "TLT": 50_000_000_000,
     "AGG": 120_000_000_000,
     "XLK": 90_000_000_000,
+    "OEF": 20_000_000_000,
 }
 
 CHUNK_INSERT = 500

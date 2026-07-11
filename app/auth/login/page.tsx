@@ -14,20 +14,14 @@ export default function LoginPage() {
 }
 
 function LoginForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail]     = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode]       = useState<"login" | "signup" | "reset">("login");
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState<string | null>(null);
+  const [error, setError]     = useState<string | null>(() => searchParams.get("error"));
   const [message, setMessage] = useState<string | null>(null);
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    const err = searchParams.get("error");
-    if (err) setError(err);
-  }, [searchParams]);
-
   // Redirect if already logged in
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();

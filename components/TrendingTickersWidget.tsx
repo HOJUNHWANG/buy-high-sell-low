@@ -5,6 +5,7 @@ export async function TrendingTickersWidget() {
   let data: { ticker: string | null; ai_sentiment: string | null }[] | null = null;
   try {
     const supabase = await createSupabaseServerClient();
+    // eslint-disable-next-line react-hooks/purity -- evaluated once for this server request
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const res = await supabase
       .from("news_articles")

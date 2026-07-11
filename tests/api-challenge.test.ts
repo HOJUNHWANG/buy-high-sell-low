@@ -1,7 +1,17 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { setMockUser, setMockData, clearMockData, getInsertCalls, getUpdateCalls } from "./setup";
 
 const USER = { id: "user-ch", email: "ch@test.com" };
+
+// Keep week-boundary assertions stable regardless of the day tests run.
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-07-08T15:00:00Z")); // Wednesday, market hours
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("Challenge: GET", () => {
   beforeEach(() => { clearMockData(); setMockUser(USER); });

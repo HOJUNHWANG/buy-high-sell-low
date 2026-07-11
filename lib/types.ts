@@ -5,6 +5,7 @@ export interface Stock {
   sector: string | null;
   logo_url: string | null;
   market_cap: number | null;
+  is_active: boolean;
   updated_at: string;
 }
 

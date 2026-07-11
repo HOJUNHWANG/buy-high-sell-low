@@ -73,7 +73,7 @@ describe("Leaderboard", () => {
     setMockData("paper_accounts", [
       { user_id: "loser", cash_balance: 500 },
       { user_id: "winner", cash_balance: 3000 },
-      { user_id: "mid", cash_balance: 1000 },
+      { user_id: "mid", cash_balance: 1001 },
     ]);
     setMockData("paper_positions", []);
     const mod = await import("@/app/api/paper/leaderboard/route");
@@ -99,7 +99,7 @@ describe("Leaderboard", () => {
 
   it("paginates at 20 per page", async () => {
     const accounts = Array.from({ length: 45 }, (_, i) => ({
-      user_id: `u${i}`, cash_balance: 1000 + i * 10,
+      user_id: `u${i}`, cash_balance: 1001 + i * 10,
     }));
     setMockData("paper_accounts", accounts);
     setMockData("paper_positions", []);

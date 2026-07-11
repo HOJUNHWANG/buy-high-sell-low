@@ -7,7 +7,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const supabase = await createSupabaseServerClient();
   const { data: stocks } = await supabase
     .from("stocks")
-    .select("ticker, updated_at");
+    .select("ticker, updated_at")
+    .eq("is_active", true);
 
   const stockRoutes = (stocks ?? []).map((s) => ({
     url: `${BASE_URL}/stock/${s.ticker}`,

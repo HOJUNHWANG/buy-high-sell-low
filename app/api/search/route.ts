@@ -19,6 +19,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("stocks")
     .select("ticker, name, exchange, sector, logo_url")
+    .eq("is_active", true)
     .or(`ticker.ilike.${q}%,name.ilike.%${q}%`);
 
   if (excludeSector) {

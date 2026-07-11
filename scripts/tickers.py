@@ -45,6 +45,7 @@ SP500_TICKERS = SP100_TICKERS
 # Extra equities tracked outside the S&P 100 universe.
 TRACKED_EQUITY_TICKERS = [
     "SPCX",
+    "HONA",
 ]
 
 TRACKED_EQUITY_METADATA = {
@@ -53,28 +54,35 @@ TRACKED_EQUITY_METADATA = {
         "exchange": "NASDAQ",
         "sector": "Aerospace & Defense",
     },
+    "HONA": {
+        "name": "Honeywell Aerospace",
+        "exchange": "NASDAQ",
+        "sector": "Aerospace & Defense",
+    },
 }
 
-# Top 19 crypto by market cap
+# Large-cap, liquid crypto assets. Stablecoins are deliberately included because
+# they are market-cap leaders and give the crypto view a complete market snapshot.
 CRYPTO_TICKERS = [
-    "BTC-USD", "ETH-USD", "USDT-USD", "BNB-USD", "SOL-USD", "XRP-USD",
-    "ADA-USD", "DOGE-USD", "AVAX-USD", "DOT-USD",
-    "LINK-USD", "ATOM-USD", "LTC-USD", "FIL-USD",
-    "NEAR-USD", "APT-USD", "ARB-USD", "OP-USD", "AAVE-USD",
+    "BTC-USD", "ETH-USD", "USDT-USD", "BNB-USD", "USDC-USD", "XRP-USD",
+    "SOL-USD", "TRX-USD", "HYPE-USD", "DOGE-USD", "LEO-USD", "ZEC-USD",
+    "ADA-USD", "XLM-USD", "XMR-USD", "LINK-USD", "DAI-USD", "BCH-USD",
+    "AVAX-USD",
 ]  # 19 crypto
 
 # Core market ETFs: broad benchmarks and major macro/sector proxies.
 ETF_TICKERS = [
     "VOO", "QQQ", "SPY", "VTI", "IWM",
-    "DIA", "GLD", "TLT", "AGG", "XLK",
+    "DIA", "GLD", "TLT", "AGG", "XLK", "OEF",
 ]
 
 # Combined lists for scripts that handle multiple asset classes
 ALL_EQUITY_TICKERS = SP100_TICKERS + TRACKED_EQUITY_TICKERS
 ALL_TICKERS = ALL_EQUITY_TICKERS + CRYPTO_TICKERS + ETF_TICKERS
 
-# Tickers with established history suitable for 1Y backfill jobs.
-HISTORY_SEED_TICKERS = SP100_TICKERS + CRYPTO_TICKERS + ETF_TICKERS
+# Tickers eligible for an up-to-1Y backfill. Newly listed equities naturally
+# receive only the history that exists since listing.
+HISTORY_SEED_TICKERS = ALL_EQUITY_TICKERS + CRYPTO_TICKERS + ETF_TICKERS
 
 # Official company names for news ticker mapping
 COMPANY_NAMES = {
@@ -114,20 +122,20 @@ COMPANY_NAMES = {
     "V": "Visa",
     "VZ": "Verizon", "WFC": "Wells Fargo", "WMT": "Walmart", "XOM": "ExxonMobil",
     # Additional tracked equities
-    "SPCX": "SpaceX",
+    "SPCX": "SpaceX", "HONA": "Honeywell Aerospace",
     # Core ETFs
     "VOO": "Vanguard S&P 500 ETF", "QQQ": "Invesco QQQ Trust",
     "SPY": "SPDR S&P 500 ETF Trust", "VTI": "Vanguard Total Stock Market ETF",
     "IWM": "iShares Russell 2000 ETF", "DIA": "SPDR Dow Jones Industrial Average ETF Trust",
     "GLD": "SPDR Gold Shares", "TLT": "iShares 20+ Year Treasury Bond ETF",
     "AGG": "iShares Core U.S. Aggregate Bond ETF", "XLK": "Technology Select Sector SPDR Fund",
+    "OEF": "iShares S&P 100 ETF",
     # Crypto
     "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "USDT-USD": "Tether",
-    "BNB-USD": "BNB",
-    "SOL-USD": "Solana", "XRP-USD": "XRP", "ADA-USD": "Cardano",
-    "DOGE-USD": "Dogecoin", "AVAX-USD": "Avalanche", "DOT-USD": "Polkadot",
-    "LINK-USD": "Chainlink",
-    "ATOM-USD": "Cosmos", "LTC-USD": "Litecoin", "FIL-USD": "Filecoin",
-    "NEAR-USD": "NEAR Protocol", "APT-USD": "Aptos", "ARB-USD": "Arbitrum",
-    "OP-USD": "Optimism", "AAVE-USD": "Aave",
+    "BNB-USD": "BNB", "USDC-USD": "USD Coin", "XRP-USD": "XRP",
+    "SOL-USD": "Solana", "TRX-USD": "TRON", "HYPE-USD": "Hyperliquid",
+    "DOGE-USD": "Dogecoin", "LEO-USD": "UNUS SED LEO", "ZEC-USD": "Zcash",
+    "ADA-USD": "Cardano", "XLM-USD": "Stellar", "XMR-USD": "Monero",
+    "LINK-USD": "Chainlink", "DAI-USD": "Dai", "BCH-USD": "Bitcoin Cash",
+    "AVAX-USD": "Avalanche",
 }

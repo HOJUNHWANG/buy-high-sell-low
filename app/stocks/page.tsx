@@ -20,12 +20,13 @@ export default async function StocksPage() {
   const supabase = await createSupabaseServerClient();
 
   // Target date: ~30 days ago, with ±3 day window for weekends/holidays
+  // eslint-disable-next-line react-hooks/purity -- evaluated once for this server request
   const d30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const dMin = new Date(d30.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
   const dMax = new Date(d30.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
   const [{ data }, { data: hist30 }] = await Promise.all([
-    supabase.from("stocks").select("*, stock_prices(*)").order("ticker"),
+    supabase.from("stocks").select("*, stock_prices(*)").eq("is_active", true).order("ticker"),
     supabase
       .from("price_history_long")
       .select("ticker, close, date")

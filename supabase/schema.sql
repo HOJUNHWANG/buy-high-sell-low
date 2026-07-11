@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS stocks (
   sector      TEXT,
   logo_url    TEXT,
   market_cap  BIGINT,
+  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
   updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
 

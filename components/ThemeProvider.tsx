@@ -40,10 +40,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const storedTheme = localStorage.getItem(STORAGE_KEY);
     const localTheme = isThemeId(storedTheme) ? storedTheme : DEFAULT_THEME;
     applyTheme(localTheme);
-    setThemeState(localTheme);
 
     const supabase = createSupabaseBrowserClient();
     let active = true;
+    queueMicrotask(() => {
+      if (active) setThemeState(localTheme);
+    });
     void supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return;
 

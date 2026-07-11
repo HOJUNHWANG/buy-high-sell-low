@@ -3,7 +3,7 @@
  * Covers tier-based access, unlock persistence, and quota enforcement.
  */
 import { describe, it, expect } from "vitest";
-import { gateSummaries, GUEST_FREE_SUMMARIES, FREE_USER_FREE_SUMMARIES } from "@/lib/summary-gate";
+import { gateSummaries, GUEST_FREE_SUMMARIES } from "@/lib/summary-gate";
 import type { NewsArticle } from "@/lib/types";
 
 function makeArticle(id: number, hasSummary: boolean): NewsArticle {
@@ -37,11 +37,11 @@ describe("gateSummaries", () => {
     expect(unlocked).toHaveLength(GUEST_FREE_SUMMARIES);
   });
 
-  it("free tier shows 5 free summaries", () => {
+  it("free tier shows all summaries", () => {
     const articles = Array.from({ length: 10 }, (_, i) => makeArticle(i + 1, true));
     const result = gateSummaries(articles, "free");
     const unlocked = result.filter(a => a.ai_summary !== null);
-    expect(unlocked).toHaveLength(FREE_USER_FREE_SUMMARIES);
+    expect(unlocked).toHaveLength(articles.length);
   });
 
   it("articles without summary are never locked", () => {

@@ -79,8 +79,8 @@ function runTests() {
 
   // CASE 1: Exact Balance Buy (The 312 case)
   console.log("TEST 1: Exact Balance Buy (312 needed, 312 have)");
-  let acc1: Account = { cash_balance: 312.0 };
-  let buy1 = calculateBuy(acc1, 31.2, 10, 1);
+  const acc1: Account = { cash_balance: 312.0 };
+  const buy1 = calculateBuy(acc1, 31.2, 10, 1);
   if (!('error' in buy1)) {
     console.log("✅ PASS: Can buy when margin equals balance exactly.");
   } else {
@@ -89,8 +89,8 @@ function runTests() {
 
   // CASE 2: Floating point risk (312 needed, 312.0000000001 reported)
   console.log("TEST 2: Floating Point Resilience (Margin is slightly higher than balance)");
-  let acc2: Account = { cash_balance: 312.0 };
-  let buy2 = calculateBuy(acc2, 31.200000000001, 10, 1);
+  const acc2: Account = { cash_balance: 312.0 };
+  const buy2 = calculateBuy(acc2, 31.200000000001, 10, 1);
   if (!('error' in buy2)) {
     console.log("✅ PASS: Buy epsilon caught the floating point error.");
   } else {
@@ -99,20 +99,20 @@ function runTests() {
 
   // CASE 3: Short -> Cover -> Buy Long Switch
   console.log("TEST 3: Short to Long Switch Sequence");
-  let acc3: Account = { cash_balance: 1000 };
+  const acc3: Account = { cash_balance: 1000 };
   // Short 10 shares of MSFT @ 100
-  let costBasis = 10 * 100;
-  let pos3: Position = { shares: 10, avg_cost: 100, borrowed: 0, leverage: 1, side: 'short' };
+  const costBasis = 10 * 100;
+  const pos3: Position = { shares: 10, avg_cost: 100, borrowed: 0, leverage: 1, side: 'short' };
   acc3.cash_balance -= 1000; // margin locked
   
   // Price drops to 80. Cover all.
-  let cover3 = calculateCover(acc3, pos3, 10, 80);
+  const cover3 = calculateCover(acc3, pos3, 10, 80);
   acc3.cash_balance = cover3.newBalance;
   console.log(` - Covered for profit. New balance: $${acc3.cash_balance} (Expected: 1200)`);
   
   if (acc3.cash_balance === 1200 && cover3.shouldDelete) {
     // Now try to Buy max with the new balance
-    let buyLong = calculateBuy(acc3, 120, 10, 1);
+    const buyLong = calculateBuy(acc3, 120, 10, 1);
     if (!('error' in buyLong)) {
       console.log("✅ PASS: Short-to-Long sequence successful with full reinvestment.");
     } else {
@@ -122,11 +122,11 @@ function runTests() {
 
   // CASE 4: Precision DUST Removal
   console.log("TEST 4: Dust Removal (Partial sells)");
-  let pos4: Position = { shares: 1.0, avg_cost: 100, borrowed: 0, leverage: 1, side: 'long' };
-  let acc4: Account = { cash_balance: 0 };
+  const pos4: Position = { shares: 1.0, avg_cost: 100, borrowed: 0, leverage: 1, side: 'long' };
+  const acc4: Account = { cash_balance: 0 };
   
   // Sell 0.99999999 shares
-  let sell4 = calculateSell(acc4, pos4, 0.99999999, 100);
+  const sell4 = calculateSell(acc4, pos4, 0.99999999, 100);
   if (sell4.shouldDelete) {
     console.log("✅ PASS: Dust shares triggered deletion correctly.");
   } else {
@@ -135,10 +135,10 @@ function runTests() {
 
   // CASE 5: High Leverage Liquidation Threshold
   console.log("TEST 5: 10x Leverage Margin Check");
-  let acc5: Account = { cash_balance: 1000 };
+  const acc5: Account = { cash_balance: 1000 };
   // Want to buy $10,000 worth (leveraged 10x)
   // user puts up 1000 (margin), borrows 9000
-  let buy5 = calculateBuy(acc5, 100, 10, 10);
+  const buy5 = calculateBuy(acc5, 100, 10, 10);
   if (!('error' in buy5)) {
     console.log(`✅ PASS: Correctly authorized 10x leverage trade with maxed margin. New Balance: ${buy5.newBalance}`);
   } else {

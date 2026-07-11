@@ -26,15 +26,24 @@ export default function PaperHistoryPage() {
 
   useEffect(() => {
     if (!authed) return;
-    setLoading(true);
+    let active = true;
     fetch(`/api/paper/transactions?limit=${LIMIT}&offset=${offset}`)
       .then((r) => r.json())
       .then((data) => {
+        if (!active) return;
         setTransactions(data.transactions);
         setTotal(data.total);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
   }, [authed, offset]);
+
+  function changePage(nextOffset: number) {
+    setLoading(true);
+    setOffset(nextOffset);
+  }
 
   if (authed === null || loading) {
     return (
@@ -146,7 +155,7 @@ export default function PaperHistoryPage() {
               </p>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setOffset(Math.max(0, offset - LIMIT))}
+                  onClick={() => changePage(Math.max(0, offset - LIMIT))}
                   disabled={offset === 0}
                   className="px-3 py-1 rounded text-xs font-medium"
                   style={{
@@ -158,7 +167,7 @@ export default function PaperHistoryPage() {
                   Previous
                 </button>
                 <button
-                  onClick={() => setOffset(offset + LIMIT)}
+                  onClick={() => changePage(offset + LIMIT)}
                   disabled={offset + LIMIT >= total}
                   className="px-3 py-1 rounded text-xs font-medium"
                   style={{
