@@ -14,7 +14,7 @@ on:
       tickers:
         description: "Space-separated tickers to backfill"
         required: true
-        default: "HONA OEF USDC-USD TRX-USD HYPE-USD LEO-USD ZEC-USD XLM-USD XMR-USD DAI-USD BCH-USD"
+        default: "HONA OEF USDC-USD TRX-USD ZEC-USD XLM-USD XMR-USD BCH-USD LTC-USD DOT-USD AAVE-USD"
 
 concurrency:
   group: seed-market-history
@@ -35,6 +35,6 @@ jobs:
         env:
           # workflow_dispatch can override this; push runs use the maintained
           # default list below instead of accidentally seeding the full universe.
-          TICKERS: ${{ inputs.tickers || 'HONA OEF USDC-USD TRX-USD HYPE-USD LEO-USD ZEC-USD XLM-USD XMR-USD DAI-USD BCH-USD' }}
+          TICKERS: ${{ inputs.tickers || 'HONA OEF USDC-USD TRX-USD ZEC-USD XLM-USD XMR-USD BCH-USD LTC-USD DOT-USD AAVE-USD' }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

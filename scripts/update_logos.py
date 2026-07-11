@@ -34,14 +34,13 @@ CRYPTO_LOGO_MAP = {
     "USDC-USD": f"{CRYPTO_ICON_BASE}/usdc.png",
     "XRP-USD": f"{CRYPTO_ICON_BASE}/xrp.png", "SOL-USD": f"{CRYPTO_ICON_BASE}/sol.png",
     "TRX-USD": f"{CRYPTO_ICON_BASE}/trx.png",
-    "HYPE-USD": "https://assets.coingecko.com/coins/images/50882/small/hyperliquid.jpg",
-    "LEO-USD": "https://assets.coingecko.com/coins/images/8418/small/leo-token.png",
     "ZEC-USD": f"{CRYPTO_ICON_BASE}/zec.png",
     "ADA-USD": f"{CRYPTO_ICON_BASE}/ada.png",
     "DOGE-USD": f"{CRYPTO_ICON_BASE}/doge.png", "XLM-USD": f"{CRYPTO_ICON_BASE}/xlm.png",
     "XMR-USD": f"{CRYPTO_ICON_BASE}/xmr.png", "LINK-USD": f"{CRYPTO_ICON_BASE}/link.png",
-    "DAI-USD": f"{CRYPTO_ICON_BASE}/dai.png", "BCH-USD": f"{CRYPTO_ICON_BASE}/bch.png",
-    "AVAX-USD": f"{CRYPTO_ICON_BASE}/avax.png",
+    "BCH-USD": f"{CRYPTO_ICON_BASE}/bch.png", "AVAX-USD": f"{CRYPTO_ICON_BASE}/avax.png",
+    "LTC-USD": f"{CRYPTO_ICON_BASE}/ltc.png", "DOT-USD": f"{CRYPTO_ICON_BASE}/dot.png",
+    "AAVE-USD": f"{CRYPTO_ICON_BASE}/aave.png",
 }
 
 # ── Stock logos via DuckDuckGo favicon service ──

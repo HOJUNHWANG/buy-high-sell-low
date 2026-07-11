@@ -108,8 +108,8 @@ CRYPTO_LOGO_MAP = {
     "BTC-USD": "btc", "ETH-USD": "eth", "USDT-USD": "usdt", "BNB-USD": "bnb",
     "USDC-USD": "usdc", "XRP-USD": "xrp", "SOL-USD": "sol", "TRX-USD": "trx",
     "DOGE-USD": "doge", "ZEC-USD": "zec", "ADA-USD": "ada", "XLM-USD": "xlm",
-    "XMR-USD": "xmr", "LINK-USD": "link", "DAI-USD": "dai", "BCH-USD": "bch",
-    "AVAX-USD": "avax",
+    "XMR-USD": "xmr", "LINK-USD": "link", "BCH-USD": "bch",
+    "AVAX-USD": "avax", "LTC-USD": "ltc", "DOT-USD": "dot", "AAVE-USD": "aave",
 }
 
 

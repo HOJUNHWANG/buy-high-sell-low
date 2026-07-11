@@ -65,9 +65,9 @@ TRACKED_EQUITY_METADATA = {
 # they are market-cap leaders and give the crypto view a complete market snapshot.
 CRYPTO_TICKERS = [
     "BTC-USD", "ETH-USD", "USDT-USD", "BNB-USD", "USDC-USD", "XRP-USD",
-    "SOL-USD", "TRX-USD", "HYPE-USD", "DOGE-USD", "LEO-USD", "ZEC-USD",
-    "ADA-USD", "XLM-USD", "XMR-USD", "LINK-USD", "DAI-USD", "BCH-USD",
-    "AVAX-USD",
+    "SOL-USD", "TRX-USD", "DOGE-USD", "ZEC-USD", "ADA-USD", "XLM-USD",
+    "XMR-USD", "LINK-USD", "BCH-USD", "AVAX-USD", "LTC-USD", "DOT-USD",
+    "AAVE-USD",
 ]  # 19 crypto
 
 # Core market ETFs: broad benchmarks and major macro/sector proxies.
@@ -133,9 +133,8 @@ COMPANY_NAMES = {
     # Crypto
     "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "USDT-USD": "Tether",
     "BNB-USD": "BNB", "USDC-USD": "USD Coin", "XRP-USD": "XRP",
-    "SOL-USD": "Solana", "TRX-USD": "TRON", "HYPE-USD": "Hyperliquid",
-    "DOGE-USD": "Dogecoin", "LEO-USD": "UNUS SED LEO", "ZEC-USD": "Zcash",
+    "SOL-USD": "Solana", "TRX-USD": "TRON", "DOGE-USD": "Dogecoin", "ZEC-USD": "Zcash",
     "ADA-USD": "Cardano", "XLM-USD": "Stellar", "XMR-USD": "Monero",
-    "LINK-USD": "Chainlink", "DAI-USD": "Dai", "BCH-USD": "Bitcoin Cash",
-    "AVAX-USD": "Avalanche",
+    "LINK-USD": "Chainlink", "BCH-USD": "Bitcoin Cash", "AVAX-USD": "Avalanche",
+    "LTC-USD": "Litecoin", "DOT-USD": "Polkadot", "AAVE-USD": "Aave",
 }
