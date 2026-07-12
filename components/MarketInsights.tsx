@@ -62,26 +62,24 @@ function PerformanceCard({
     <div className="rounded-xl p-3 min-w-0" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
       <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: "var(--text-3)" }}>{title}</p>
       {stocks.length ? (
-        <div className="grid grid-cols-3 gap-2 mt-2">
+        <div className="space-y-1.5 mt-2">
           {stocks.map((stock, index) => (
             <Link
               key={stock.ticker}
               href={`/stock/${stock.ticker}`}
-              className="rounded-lg p-2 min-w-0 transition-opacity hover:opacity-80"
+              className="rounded-lg px-2.5 py-2 flex items-center justify-between gap-3 min-w-0 transition-opacity hover:opacity-80"
               style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
             >
-              <span className="flex items-center justify-between gap-1">
-                <span className="text-[10px] tabular-nums" style={{ color: "var(--text-3)" }}>#{index + 1}</span>
-                <span className="text-xs font-bold tabular-nums shrink-0" style={{ color }}>
-                  {stock.change_30d != null ? `${stock.change_30d >= 0 ? "+" : ""}${stock.change_30d.toFixed(1)}%` : "—"}
-                </span>
-              </span>
-              <span className="mt-2 flex items-center gap-1.5 min-w-0">
+              <span className="flex items-center gap-2 min-w-0">
+                <span className="w-3 text-[10px] tabular-nums shrink-0" style={{ color: "var(--text-3)" }}>{index + 1}</span>
                 <AssetMark stock={stock} />
                 <span className="min-w-0">
                   <span className="block text-xs font-bold truncate" style={{ color: "var(--text)" }}>{stock.ticker}</span>
-                  <span className="block text-[9px] truncate" style={{ color: "var(--text-3)" }}>{stock.name}</span>
+                  <span className="block text-[10px] truncate" style={{ color: "var(--text-3)" }}>{stock.name}</span>
                 </span>
+              </span>
+              <span className="text-sm font-bold tabular-nums shrink-0" style={{ color }}>
+                {stock.change_30d != null ? `${stock.change_30d >= 0 ? "+" : ""}${stock.change_30d.toFixed(1)}%` : "—"}
               </span>
             </Link>
           ))}
@@ -101,9 +99,9 @@ function MarketCapPodium({
   leaderStreaks: Record<string, number>;
 }) {
   const podium = [
-    { stock: leaders[1], rank: 2, height: "h-14" },
-    { stock: leaders[0], rank: 1, height: "h-20" },
-    { stock: leaders[2], rank: 3, height: "h-10" },
+    { stock: leaders[1], rank: 2, height: "h-12" },
+    { stock: leaders[0], rank: 1, height: "h-[72px]" },
+    { stock: leaders[2], rank: 3, height: "h-8" },
   ];
 
   return (
@@ -117,18 +115,18 @@ function MarketCapPodium({
         </p>
         <span className="text-[10px]" style={{ color: "var(--text-3)" }}>Top 3</span>
       </div>
-      <div className="grid grid-cols-3 gap-1.5 mt-2 items-end">
+      <div className="grid grid-cols-3 gap-2 mt-4 pt-5 items-end">
         {podium.map(({ stock, rank, height }) => {
           if (!stock) return <div key={rank} />;
           return (
             <Link
               key={stock.ticker}
               href={`/stock/${stock.ticker}`}
-              className="min-w-0 flex flex-col justify-end transition-opacity hover:opacity-80"
+              className="min-w-0 flex flex-col justify-end transition-opacity hover:opacity-80 group"
             >
               <span
-                className="relative z-10 rounded-lg p-2 min-w-0"
-                style={{ background: "var(--surface-2)", border: "1px solid var(--border-md)" }}
+                className="relative z-10 -mb-px rounded-lg p-2 min-w-0 shadow-sm"
+                style={{ background: "var(--surface)", border: "1px solid var(--border-md)" }}
               >
                 <span className="flex items-center gap-1.5 min-w-0">
                   <AssetMark stock={stock} />
@@ -145,10 +143,10 @@ function MarketCapPodium({
               </span>
               <span
                 aria-hidden="true"
-                className={`-mt-px rounded-t-md flex items-start justify-center pt-2 ${height}`}
+                className={`rounded-t-lg flex items-start justify-center pt-2 ${height}`}
                 style={{ background: "var(--surface-3)", border: "1px solid var(--border-md)" }}
               >
-                <span className="text-[11px] font-bold tabular-nums" style={{ color: "var(--text-3)" }}>#{rank}</span>
+                <span className="text-[11px] font-bold tabular-nums" style={{ color: "var(--text-2)" }}>{rank}</span>
               </span>
             </Link>
           );
