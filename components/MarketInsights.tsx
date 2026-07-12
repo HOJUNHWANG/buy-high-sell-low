@@ -55,30 +55,35 @@ function AssetMark({ stock }: { stock: InsightStock }) {
 
 function PerformanceCard({
   title,
-  stock,
+  stocks,
   tone,
 }: {
   title: string;
-  stock?: InsightStock;
+  stocks: InsightStock[];
   tone: "up" | "down" | "neutral";
 }) {
   const color = tone === "up" ? "var(--up)" : tone === "down" ? "var(--down)" : "var(--text-2)";
   return (
     <div className="rounded-xl p-3 min-w-0" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
       <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: "var(--text-3)" }}>{title}</p>
-      {stock ? (
-        <Link href={`/stock/${stock.ticker}`} className="mt-2 flex items-center justify-between gap-2 group">
-          <span className="flex items-center gap-2 min-w-0">
-            <AssetMark stock={stock} />
-            <span className="min-w-0">
-              <span className="block text-xs font-bold truncate" style={{ color: "var(--text)" }}>{stock.ticker}</span>
-              <span className="block text-[10px] truncate" style={{ color: "var(--text-3)" }}>{stock.name}</span>
-            </span>
-          </span>
-          <span className="text-sm font-bold tabular-nums shrink-0" style={{ color }}>
-            {stock.change_30d != null ? `${stock.change_30d >= 0 ? "+" : ""}${stock.change_30d.toFixed(1)}%` : "—"}
-          </span>
-        </Link>
+      {stocks.length ? (
+        <div className="mt-2 divide-y" style={{ borderColor: "var(--border)" }}>
+          {stocks.map((stock, index) => (
+            <Link key={stock.ticker} href={`/stock/${stock.ticker}`} className="flex items-center justify-between gap-2 py-2 first:pt-0 last:pb-0 group">
+              <span className="flex items-center gap-2 min-w-0">
+                <span className="w-3 text-[10px] tabular-nums shrink-0" style={{ color: "var(--text-3)" }}>{index + 1}</span>
+                <AssetMark stock={stock} />
+                <span className="min-w-0">
+                  <span className="block text-xs font-bold truncate" style={{ color: "var(--text)" }}>{stock.ticker}</span>
+                  <span className="block text-[10px] truncate" style={{ color: "var(--text-3)" }}>{stock.name}</span>
+                </span>
+              </span>
+              <span className="text-sm font-bold tabular-nums shrink-0" style={{ color }}>
+                {stock.change_30d != null ? `${stock.change_30d >= 0 ? "+" : ""}${stock.change_30d.toFixed(1)}%` : "—"}
+              </span>
+            </Link>
+          ))}
+        </div>
       ) : (
         <p className="mt-3 text-xs" style={{ color: "var(--text-3)" }}>Waiting for 30-day history</p>
       )}
@@ -93,10 +98,10 @@ function MarketCapPodium({
   leaders: InsightStock[];
   leaderStreaks: Record<string, number>;
 }) {
-  const medals = [
-    { rank: "1", label: "Gold", color: "#fbbf24", background: "rgba(251,191,36,0.10)" },
-    { rank: "2", label: "Silver", color: "#cbd5e1", background: "rgba(203,213,225,0.08)" },
-    { rank: "3", label: "Bronze", color: "#d97745", background: "rgba(217,119,69,0.09)" },
+  const podium = [
+    { stock: leaders[1], rank: 2, height: "min-h-[132px]" },
+    { stock: leaders[0], rank: 1, height: "min-h-[164px]" },
+    { stock: leaders[2], rank: 3, height: "min-h-[112px]" },
   ];
 
   return (
@@ -110,33 +115,25 @@ function MarketCapPodium({
         </p>
         <span className="text-[10px]" style={{ color: "var(--text-3)" }}>Top 3</span>
       </div>
-      <div className="grid grid-cols-3 gap-1.5 mt-2">
-        {leaders.map((stock, index) => {
-          const medal = medals[index];
+      <div className="grid grid-cols-3 gap-1.5 mt-2 items-end">
+        {podium.map(({ stock, rank, height }) => {
+          if (!stock) return <div key={rank} />;
           return (
             <Link
               key={stock.ticker}
               href={`/stock/${stock.ticker}`}
-              className="rounded-lg p-2 min-w-0 transition-opacity hover:opacity-80"
-              style={{ background: medal.background, border: `1px solid ${medal.color}33` }}
+              className={`rounded-t-lg p-2 min-w-0 flex flex-col justify-end transition-opacity hover:opacity-80 ${height}`}
+              style={{ background: "var(--surface-2)", border: "1px solid var(--border-md)" }}
             >
-              <span className="flex items-center gap-1.5">
-                <span
-                  className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black shrink-0"
-                  style={{ background: medal.color, color: "#111827" }}
-                >
-                  {medal.rank}
-                </span>
-                <span className="text-[9px] font-semibold truncate" style={{ color: medal.color }}>{medal.label}</span>
-              </span>
-              <span className="mt-2 flex items-center gap-1.5 min-w-0">
+              <span className="text-[11px] font-bold tabular-nums" style={{ color: "var(--text-3)" }}>#{rank}</span>
+              <span className="mt-1.5 flex items-center gap-1.5 min-w-0">
                 <AssetMark stock={stock} />
                 <span className="text-xs font-bold truncate" style={{ color: "var(--text)" }}>{stock.ticker}</span>
               </span>
               <span className="block mt-1 text-[10px] font-medium tabular-nums truncate" style={{ color: "var(--text-2)" }}>
                 {formatMarketCap(stock.market_cap)}
               </span>
-              {index === 0 && (
+              {rank === 1 && (
                 <span className="block mt-1 text-[9px] truncate" style={{ color: "var(--text-3)" }}>
                   {formatStreak(leaderStreaks[stock.ticker])}
                 </span>
@@ -158,16 +155,18 @@ export function MarketInsights({
   assetType: InsightAssetType;
   leaderStreaks: Record<string, number>;
 }) {
-  const rows = stocks.filter((stock) => isType(stock, assetType));
+  // ETF tab deliberately reuses the stock-market view: ETF market-cap ranks rarely convey a useful change signal.
+  const insightAssetType: InsightAssetType = assetType === "etfs" ? "stocks" : assetType;
+  const rows = stocks.filter((stock) => isType(stock, insightAssetType));
   const marketCapLeaders = [...rows]
     .filter((stock) => stock.market_cap != null)
     .sort((a, b) => (b.market_cap ?? 0) - (a.market_cap ?? 0))
     .slice(0, 3);
   const leader = marketCapLeaders[0];
   const withPerformance = rows.filter((stock) => stock.change_30d != null);
-  const best = [...withPerformance].sort((a, b) => (b.change_30d ?? 0) - (a.change_30d ?? 0))[0];
-  const worst = [...withPerformance].sort((a, b) => (a.change_30d ?? 0) - (b.change_30d ?? 0))[0];
-  const cryptoIsAllDown = assetType === "crypto" && (best?.change_30d ?? 0) <= 0;
+  const best = [...withPerformance].sort((a, b) => (b.change_30d ?? 0) - (a.change_30d ?? 0)).slice(0, 3);
+  const worst = [...withPerformance].sort((a, b) => (a.change_30d ?? 0) - (b.change_30d ?? 0)).slice(0, 3);
+  const cryptoIsAllDown = assetType === "crypto" && (best[0]?.change_30d ?? 0) <= 0;
 
   if (!leader) return null;
 
@@ -175,8 +174,8 @@ export function MarketInsights({
     return (
       <section className="grid gap-2 xl:grid-cols-3" aria-label={`${assetType} market insights`}>
         <MarketCapPodium leaders={marketCapLeaders} leaderStreaks={leaderStreaks} />
-        <PerformanceCard title="Best · 30D" stock={best} tone="up" />
-        <PerformanceCard title="Worst · 30D" stock={worst} tone="down" />
+        <PerformanceCard title="Best 3 · 30D" stocks={best} tone="up" />
+        <PerformanceCard title="Worst 3 · 30D" stocks={worst} tone="down" />
       </section>
     );
   }
@@ -200,11 +199,11 @@ export function MarketInsights({
       </div>
 
       <PerformanceCard
-        title={cryptoIsAllDown ? "Least down · 30D" : "Best · 30D"}
-        stock={best}
-        tone={best && (best.change_30d ?? 0) < 0 ? "neutral" : "up"}
+        title={cryptoIsAllDown ? "Least down 3 · 30D" : "Best 3 · 30D"}
+        stocks={best}
+        tone={best[0] && (best[0].change_30d ?? 0) < 0 ? "neutral" : "up"}
       />
-      <PerformanceCard title="Worst · 30D" stock={worst} tone="down" />
+      <PerformanceCard title="Worst 3 · 30D" stocks={worst} tone="down" />
     </section>
   );
 }
