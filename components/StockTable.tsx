@@ -7,6 +7,7 @@ import { LogoImage } from "./LogoImage";
 import type { Stock, StockPrice } from "@/lib/types";
 import { fmtVol } from "@/lib/utils";
 import { PriceFreshnessBadge } from "./PriceFreshnessBadge";
+import { MarketInsights, type InsightAssetType } from "./MarketInsights";
 
 type StockRow = Stock & { price?: StockPrice; change_30d?: number | null };
 type SortKey = "ticker" | "name" | "market_cap" | "price" | "change_pct" | "change_30d" | "volume";
@@ -71,7 +72,13 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 }
 
 
-export function StockTable({ stocks }: { stocks: StockRow[] }) {
+export function StockTable({
+  stocks,
+  leaderStreaks = {},
+}: {
+  stocks: StockRow[];
+  leaderStreaks?: Record<string, number>;
+}) {
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({
     key: "market_cap",
     dir: "desc",
@@ -168,6 +175,12 @@ export function StockTable({ stocks }: { stocks: StockRow[] }) {
           </button>
         ))}
       </div>
+
+      <MarketInsights
+        stocks={stocks}
+        assetType={assetType as InsightAssetType}
+        leaderStreaks={leaderStreaks}
+      />
 
       {/* Controls */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">

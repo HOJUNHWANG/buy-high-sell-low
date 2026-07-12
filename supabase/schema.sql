@@ -34,6 +34,16 @@ CREATE TABLE IF NOT EXISTS stock_price_history (
 );
 CREATE INDEX IF NOT EXISTS idx_price_history ON stock_price_history (ticker, recorded_at DESC);
 
+-- Daily market-cap snapshots power leader-streak and ranking insights.
+CREATE TABLE IF NOT EXISTS market_cap_snapshots (
+  ticker      TEXT NOT NULL REFERENCES stocks(ticker),
+  date        DATE NOT NULL,
+  market_cap  BIGINT NOT NULL,
+  PRIMARY KEY (ticker, date)
+);
+CREATE INDEX IF NOT EXISTS idx_market_cap_snapshots_date
+  ON market_cap_snapshots (date DESC, market_cap DESC);
+
 -- News articles
 CREATE TABLE IF NOT EXISTS news_articles (
   id               BIGSERIAL PRIMARY KEY,
@@ -160,6 +170,7 @@ DROP POLICY IF EXISTS "users can delete own watchlist"    ON watchlist;
 DROP POLICY IF EXISTS "public read stocks"                ON stocks;
 DROP POLICY IF EXISTS "public read prices"                ON stock_prices;
 DROP POLICY IF EXISTS "public read price history"         ON stock_price_history;
+DROP POLICY IF EXISTS "public read market cap snapshots"  ON market_cap_snapshots;
 DROP POLICY IF EXISTS "public read news"                  ON news_articles;
 DROP POLICY IF EXISTS "public read active affiliates"     ON affiliate_links;
 DROP POLICY IF EXISTS "no public access fetch_logs"       ON fetch_logs;
@@ -196,6 +207,9 @@ ALTER TABLE fetch_logs ENABLE ROW LEVEL SECURITY;
 
 -- price_anomalies: internal only; service role access from ingestion/admin.
 ALTER TABLE price_anomalies ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE market_cap_snapshots ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "public read market cap snapshots" ON market_cap_snapshots FOR SELECT USING (true);
 
 -- ai_usage: users can only read their own usage
 DROP POLICY IF EXISTS "users can read own ai_usage" ON ai_usage;

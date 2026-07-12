@@ -9,6 +9,7 @@ import time
 import requests
 import urllib3
 import yfinance as yf
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from supabase import create_client
 
@@ -53,8 +54,14 @@ def rest_headers(extra: dict | None = None) -> dict:
 
 
 def update_market_cap(ticker: str, market_cap: int):
+    snapshot_date = datetime.now(timezone.utc).date().isoformat()
     try:
         supabase.table("stocks").update({"market_cap": market_cap}).eq("ticker", ticker).execute()
+        supabase.table("market_cap_snapshots").upsert({
+            "ticker": ticker,
+            "date": snapshot_date,
+            "market_cap": market_cap,
+        }, on_conflict="ticker,date").execute()
     except Exception:
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         res = requests.patch(
