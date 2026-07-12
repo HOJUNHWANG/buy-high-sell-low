@@ -15,13 +15,8 @@ function formatMarketCap(value: number | null | undefined) {
 }
 
 function formatStreak(days: number | undefined) {
-  if (!days) return "Tracking begins today";
-  if (days >= 14) {
-    const weeks = Math.floor(days / 7);
-    const remainder = days % 7;
-    return `Tracked #1 for ${weeks} week${weeks === 1 ? "" : "s"}${remainder ? ` ${remainder}d` : ""}`;
-  }
-  return `Tracked #1 for ${days} day${days === 1 ? "" : "s"}`;
+  if (!days) return "No. 1 today";
+  return `No. 1 for ${days} day${days === 1 ? "" : "s"}`;
 }
 
 function isType(stock: InsightStock, assetType: InsightAssetType) {
@@ -67,19 +62,26 @@ function PerformanceCard({
     <div className="rounded-xl p-3 min-w-0" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
       <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: "var(--text-3)" }}>{title}</p>
       {stocks.length ? (
-        <div className="mt-2 divide-y" style={{ borderColor: "var(--border)" }}>
+        <div className="grid grid-cols-3 gap-2 mt-2">
           {stocks.map((stock, index) => (
-            <Link key={stock.ticker} href={`/stock/${stock.ticker}`} className="flex items-center justify-between gap-2 py-2 first:pt-0 last:pb-0 group">
-              <span className="flex items-center gap-2 min-w-0">
-                <span className="w-3 text-[10px] tabular-nums shrink-0" style={{ color: "var(--text-3)" }}>{index + 1}</span>
+            <Link
+              key={stock.ticker}
+              href={`/stock/${stock.ticker}`}
+              className="rounded-lg p-2 min-w-0 transition-opacity hover:opacity-80"
+              style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}
+            >
+              <span className="flex items-center justify-between gap-1">
+                <span className="text-[10px] tabular-nums" style={{ color: "var(--text-3)" }}>#{index + 1}</span>
+                <span className="text-xs font-bold tabular-nums shrink-0" style={{ color }}>
+                  {stock.change_30d != null ? `${stock.change_30d >= 0 ? "+" : ""}${stock.change_30d.toFixed(1)}%` : "—"}
+                </span>
+              </span>
+              <span className="mt-2 flex items-center gap-1.5 min-w-0">
                 <AssetMark stock={stock} />
                 <span className="min-w-0">
                   <span className="block text-xs font-bold truncate" style={{ color: "var(--text)" }}>{stock.ticker}</span>
-                  <span className="block text-[10px] truncate" style={{ color: "var(--text-3)" }}>{stock.name}</span>
+                  <span className="block text-[9px] truncate" style={{ color: "var(--text-3)" }}>{stock.name}</span>
                 </span>
-              </span>
-              <span className="text-sm font-bold tabular-nums shrink-0" style={{ color }}>
-                {stock.change_30d != null ? `${stock.change_30d >= 0 ? "+" : ""}${stock.change_30d.toFixed(1)}%` : "—"}
               </span>
             </Link>
           ))}
@@ -99,9 +101,9 @@ function MarketCapPodium({
   leaderStreaks: Record<string, number>;
 }) {
   const podium = [
-    { stock: leaders[1], rank: 2, height: "min-h-[132px]" },
-    { stock: leaders[0], rank: 1, height: "min-h-[164px]" },
-    { stock: leaders[2], rank: 3, height: "min-h-[112px]" },
+    { stock: leaders[1], rank: 2, height: "h-14" },
+    { stock: leaders[0], rank: 1, height: "h-20" },
+    { stock: leaders[2], rank: 3, height: "h-10" },
   ];
 
   return (
@@ -122,22 +124,32 @@ function MarketCapPodium({
             <Link
               key={stock.ticker}
               href={`/stock/${stock.ticker}`}
-              className={`rounded-t-lg p-2 min-w-0 flex flex-col justify-end transition-opacity hover:opacity-80 ${height}`}
-              style={{ background: "var(--surface-2)", border: "1px solid var(--border-md)" }}
+              className="min-w-0 flex flex-col justify-end transition-opacity hover:opacity-80"
             >
-              <span className="text-[11px] font-bold tabular-nums" style={{ color: "var(--text-3)" }}>#{rank}</span>
-              <span className="mt-1.5 flex items-center gap-1.5 min-w-0">
-                <AssetMark stock={stock} />
-                <span className="text-xs font-bold truncate" style={{ color: "var(--text)" }}>{stock.ticker}</span>
-              </span>
-              <span className="block mt-1 text-[10px] font-medium tabular-nums truncate" style={{ color: "var(--text-2)" }}>
-                {formatMarketCap(stock.market_cap)}
-              </span>
-              {rank === 1 && (
-                <span className="block mt-1 text-[9px] truncate" style={{ color: "var(--text-3)" }}>
-                  {formatStreak(leaderStreaks[stock.ticker])}
+              <span
+                className="relative z-10 rounded-lg p-2 min-w-0"
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border-md)" }}
+              >
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <AssetMark stock={stock} />
+                  <span className="text-xs font-bold truncate" style={{ color: "var(--text)" }}>{stock.ticker}</span>
                 </span>
-              )}
+                <span className="block mt-1 text-[10px] font-medium tabular-nums truncate" style={{ color: "var(--text-2)" }}>
+                  {formatMarketCap(stock.market_cap)}
+                </span>
+                {rank === 1 && (
+                  <span className="block mt-1 text-[9px] truncate" style={{ color: "var(--text-3)" }}>
+                    {formatStreak(leaderStreaks[stock.ticker])}
+                  </span>
+                )}
+              </span>
+              <span
+                aria-hidden="true"
+                className={`-mt-px rounded-t-md flex items-start justify-center pt-2 ${height}`}
+                style={{ background: "var(--surface-3)", border: "1px solid var(--border-md)" }}
+              >
+                <span className="text-[11px] font-bold tabular-nums" style={{ color: "var(--text-3)" }}>#{rank}</span>
+              </span>
             </Link>
           );
         })}
