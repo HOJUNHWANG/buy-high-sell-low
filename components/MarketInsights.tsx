@@ -192,20 +192,42 @@ export function MarketInsights({
 
   return (
     <section className="grid gap-2 sm:grid-cols-3" aria-label={`${assetType} market insights`}>
-      <div className="rounded-xl p-3 min-w-0" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
-        <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: "var(--text-3)" }}>
-          Market leader
-        </p>
-        <Link href={`/stock/${leader.ticker}`} className="mt-2 flex items-center gap-2 group">
-          <AssetMark stock={leader} />
-          <span className="min-w-0">
-            <span className="block text-xs font-bold truncate" style={{ color: "var(--text)" }}>{leader.ticker}</span>
-            <span className="block text-[10px] truncate" style={{ color: "var(--text-3)" }}>{formatMarketCap(leader.market_cap)}</span>
+      <div className="rounded-xl p-3 min-w-0 h-full flex flex-col" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: "var(--text-3)" }}>
+            Market leader
+          </p>
+          <span className="text-[10px] font-semibold" style={{ color: "var(--text-3)" }}>#1 by market cap</span>
+        </div>
+        <Link href={`/stock/${leader.ticker}`} className="mt-3 flex items-center justify-between gap-2 group">
+          <span className="flex items-center gap-2 min-w-0">
+            <AssetMark stock={leader} />
+            <span className="min-w-0">
+              <span className="block text-sm font-bold truncate" style={{ color: "var(--text)" }}>{leader.ticker}</span>
+              <span className="block text-[10px] truncate" style={{ color: "var(--text-3)" }}>{leader.name}</span>
+            </span>
+          </span>
+          <span className="text-xs font-semibold tabular-nums shrink-0" style={{ color: "var(--text-2)" }}>
+            {formatMarketCap(leader.market_cap)}
           </span>
         </Link>
-        <p className="mt-2 text-[10px]" style={{ color: "var(--text-3)" }}>
-          Market-cap leader
-        </p>
+        <div className="grid grid-cols-2 gap-2 mt-auto pt-3">
+          <span className="rounded-lg px-2.5 py-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+            <span className="block text-[9px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Price</span>
+            <span className="block mt-0.5 text-xs font-bold tabular-nums" style={{ color: "var(--text)" }}>
+              {leader.price ? `$${leader.price.price.toFixed(2)}` : "—"}
+            </span>
+          </span>
+          <span className="rounded-lg px-2.5 py-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+            <span className="block text-[9px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>30D</span>
+            <span
+              className="block mt-0.5 text-xs font-bold tabular-nums"
+              style={{ color: (leader.change_30d ?? 0) >= 0 ? "var(--up)" : "var(--down)" }}
+            >
+              {leader.change_30d != null ? `${leader.change_30d >= 0 ? "+" : ""}${leader.change_30d.toFixed(1)}%` : "—"}
+            </span>
+          </span>
+        </div>
       </div>
 
       <PerformanceCard
