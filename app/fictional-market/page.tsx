@@ -27,6 +27,26 @@ function statBar(value: number) {
   return `${Math.min(100, Math.max(0, value))}%`;
 }
 
+function buildMarketIndex(
+  code: string,
+  name: string,
+  description: string,
+  baseLevel: number,
+  constituents: FictionalSnapshot[],
+) {
+  const marketCap = constituents.reduce((sum, row) => sum + row.marketCap, 0);
+  const changePct = constituents.reduce((sum, row) => sum + row.changePct * row.marketCap, 0) / marketCap;
+
+  return {
+    code,
+    name,
+    description,
+    constituentCount: constituents.length,
+    changePct,
+    level: baseLevel * (1 + changePct / 100),
+  };
+}
+
 type FictionalCompanyDbRow = {
   ticker: string;
   name: string;
@@ -116,15 +136,34 @@ async function getFictionalMarketData(): Promise<FictionalSnapshot[]> {
 
 export default async function FictionalMarketPage() {
   const rows = await getFictionalMarketData();
-  const totalMarketCap = rows.reduce((sum, row) => sum + row.marketCap, 0);
-  const weightedChange = rows.reduce((sum, row) => sum + row.changePct * row.marketCap, 0) / totalMarketCap;
-  const indexLevel = 10_000 * (1 + weightedChange / 100);
   const apexConstituents = [...rows].sort((a, b) => b.marketCap - a.marketCap).slice(0, 50);
-  const apexMarketCap = apexConstituents.reduce((sum, row) => sum + row.marketCap, 0);
-  const apexChange = apexConstituents.reduce((sum, row) => sum + row.changePct * row.marketCap, 0) / apexMarketCap;
-  const apexIndexLevel = 5_000 * (1 + apexChange / 100);
-  const advancers = rows.filter((row) => row.changePct > 0).length;
-  const decliners = rows.length - advancers;
+  const novaConstituents = rows
+    .filter((row) => ["Artificial Intelligence", "Biotech", "Cybernetics", "Space"].includes(row.sector))
+    .sort((a, b) => b.marketCap - a.marketCap)
+    .slice(0, 30);
+  const marketIndices = [
+    buildMarketIndex(
+      "OMNICAP 100",
+      "All-market benchmark",
+      "Every listed company across the three competing venues.",
+      10_000,
+      rows,
+    ),
+    buildMarketIndex(
+      "APEX 50",
+      "Megacap benchmark",
+      "The 50 largest listed companies, weighted by market capitalization.",
+      5_000,
+      apexConstituents,
+    ),
+    buildMarketIndex(
+      "NOVA 30",
+      "Frontier innovation benchmark",
+      "The 30 largest AI, biotech, cybernetics, and space companies, where FICTDAQ and LUNA compete most intensely.",
+      2_500,
+      novaConstituents,
+    ),
+  ];
   const largest = rows[0];
   const topMover = [...rows].sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))[0];
   const averageTech = rows.reduce((sum, row) => sum + row.technology, 0) / rows.length;
@@ -166,40 +205,22 @@ export default async function FictionalMarketPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:min-w-[520px]">
-            <div className="card p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
-                OMNICAP 100
-              </p>
-              <p className="text-lg font-bold mt-1" style={{ color: "var(--text)" }}>{formatIndex(indexLevel)}</p>
-              <p className="text-[11px] mt-0.5" style={{ color: weightedChange >= 0 ? "var(--up)" : "var(--down)" }}>
-                {weightedChange >= 0 ? "+" : ""}{weightedChange.toFixed(2)}%
-              </p>
-            </div>
-            <div className="card p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
-                APEX 50
-              </p>
-              <p className="text-lg font-bold mt-1" style={{ color: "var(--text)" }}>{formatIndex(apexIndexLevel)}</p>
-              <p className="text-[11px] mt-0.5" style={{ color: apexChange >= 0 ? "var(--up)" : "var(--down)" }}>
-                {apexChange >= 0 ? "+" : ""}{apexChange.toFixed(2)}% · largest 50
-              </p>
-            </div>
-            <div className="card p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
-                Breadth
-              </p>
-              <p className="text-lg font-bold mt-1" style={{ color: "var(--text)" }}>{advancers}/{decliners}</p>
-              <p className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>up/down</p>
-            </div>
-            <div className="card p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
-                Market cap
-              </p>
-              <p className="text-lg font-bold mt-1" style={{ color: "var(--text)" }}>{formatFictionalMarketCap(totalMarketCap)}</p>
-              <p className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>{rows.length} listings · 3 venues</p>
-           </div>
-         </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 lg:min-w-[650px]">
+            {marketIndices.map((index) => (
+              <div key={index.code} className="card p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
+                    {index.code}
+                  </p>
+                  <span className="text-[10px]" style={{ color: "var(--text-3)" }}>{index.constituentCount} names</span>
+                </div>
+                <p className="text-lg font-bold mt-1" style={{ color: "var(--text)" }}>{formatIndex(index.level)}</p>
+                <p className="text-[11px] mt-0.5" style={{ color: index.changePct >= 0 ? "var(--up)" : "var(--down)" }}>
+                  {index.changePct >= 0 ? "+" : ""}{index.changePct.toFixed(2)}% · {index.name}
+                </p>
+              </div>
+            ))}
+          </div>
 
         <section
           className="flex items-start gap-3 px-4 py-3 rounded-lg"
@@ -217,6 +238,27 @@ export default async function FictionalMarketPage() {
         </div>
 
         <section>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+            {marketIndices.map((index) => (
+              <article key={index.code} className="card p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--accent)" }}>{index.code}</p>
+                    <h2 className="text-sm font-semibold mt-1" style={{ color: "var(--text)" }}>{index.name}</h2>
+                  </div>
+                  <p className="text-sm font-bold" style={{ color: index.changePct >= 0 ? "var(--up)" : "var(--down)" }}>
+                    {index.changePct >= 0 ? "+" : ""}{index.changePct.toFixed(2)}%
+                  </p>
+                </div>
+                <p className="text-[11px] leading-relaxed mt-3 min-h-9" style={{ color: "var(--text-2)" }}>{index.description}</p>
+                <div className="flex items-center justify-between gap-3 mt-4 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+                  <span className="text-[11px]" style={{ color: "var(--text-3)" }}>{index.constituentCount} constituents</span>
+                  <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{formatIndex(index.level)}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-3">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
