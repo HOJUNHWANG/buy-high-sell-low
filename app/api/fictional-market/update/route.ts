@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { fictionalCompanies } from "@/data/fictional-market";
 import { priceFictionalCompany } from "@/lib/fictional-market-engine";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
@@ -122,6 +123,7 @@ async function updateFictionalMarket(request: NextRequest) {
   await supabase.from("fictional_price_history_daily").upsert(dailyUpserts, { onConflict: "ticker,date" }).throwOnError();
   await supabase.from("fictional_market_events").upsert(eventRows, { onConflict: "event_key" }).throwOnError();
   await supabase.rpc("cleanup_fictional_market_data").throwOnError();
+  revalidatePath("/fictional-market");
 
   const totalMarketCap = outputs.reduce((sum, output) => sum + output.marketCap, 0);
   const weightedChangePct = outputs.reduce((sum, output) => sum + output.marketCap * output.price.change_pct, 0) / totalMarketCap;
