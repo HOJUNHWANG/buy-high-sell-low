@@ -366,7 +366,7 @@ export default async function FictionalMarketPage() {
                       {venue.changePct >= 0 ? "+" : ""}{venue.changePct.toFixed(2)}%
                     </p>
                   </div>
-                  <p className="text-[11px] leading-relaxed mt-4 pt-3" style={{ color: "var(--text-3)", borderTop: "1px solid var(--border)" }}>
+                  <p className="text-[11px] leading-relaxed mt-4 pt-3 min-h-9" style={{ color: "var(--text-3)", borderTop: "1px solid var(--border)" }}>
                     {venue.rivalry}
                   </p>
                 </div>
