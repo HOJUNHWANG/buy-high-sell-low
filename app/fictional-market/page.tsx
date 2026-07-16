@@ -348,7 +348,7 @@ export default async function FictionalMarketPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {exchangeStats.map((venue) => (
               <section key={venue.exchange} className="space-y-2">
-                <div className="card p-4">
+                <div className="card p-4 min-h-[244px]">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--accent)" }}>{venue.exchange}</p>
