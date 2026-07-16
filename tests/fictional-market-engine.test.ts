@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fictionalCompanies } from "@/data/fictional-market";
+import { fictionalCompanies, fictionalExchangeOrder } from "@/data/fictional-market";
 import { priceFictionalCompany } from "@/lib/fictional-market-engine";
 
 describe("fictional market engine", () => {
@@ -27,5 +27,19 @@ describe("fictional market engine", () => {
     }).price.price);
 
     expect(new Set(prices).size).toBeGreaterThan(1);
+  });
+
+  it("spreads listings and market cap across the three competing exchanges", () => {
+    const venueStats = fictionalExchangeOrder.map((exchange) => ({
+      listings: fictionalCompanies.filter((company) => company.exchange === exchange).length,
+      marketCap: fictionalCompanies
+        .filter((company) => company.exchange === exchange)
+        .reduce((sum, company) => sum + company.marketCap, 0),
+    }));
+    const marketCaps = venueStats.map((venue) => venue.marketCap);
+
+    expect(venueStats.every((venue) => venue.listings > 0)).toBe(true);
+    expect(venueStats.reduce((sum, venue) => sum + venue.listings, 0)).toBe(fictionalCompanies.length);
+    expect(Math.max(...marketCaps) / Math.min(...marketCaps)).toBeLessThan(1.06);
   });
 });

@@ -105,7 +105,7 @@ const getFictionalStockData = cache(async function getFictionalStockData(ticker:
           ...canonical,
           name: dbCompany.name,
           source: dbCompany.source,
-          exchange: dbCompany.exchange,
+          exchange: canonical.exchange,
           sector: dbCompany.sector,
           risk: dbCompany.risk,
           marketCap: Number(dbCompany.market_cap),

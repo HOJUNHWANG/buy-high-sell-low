@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import type { FictionalSnapshot } from "@/data/fictional-market";
-import { buildFictionalMarketSnapshot, fictionalCompanies, formatFictionalMarketCap, getFictionalCompanyProfile } from "@/data/fictional-market";
+import {
+  buildFictionalMarketSnapshot,
+  fictionalCompanies,
+  fictionalExchangeOrder,
+  fictionalExchanges,
+  formatFictionalMarketCap,
+  getFictionalCompanyProfile,
+} from "@/data/fictional-market";
 import { FictionalMarketTable } from "@/components/FictionalMarketTable";
 import { FictionalTickerMark } from "@/components/FictionalTickerMark";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -75,7 +82,7 @@ async function getFictionalMarketData(): Promise<FictionalSnapshot[]> {
           name: company.name,
           source: company.source,
           sector: company.sector,
-          exchange: company.exchange,
+          exchange: canonical.exchange,
           marketCap: Number(company.market_cap),
           basePrice: Number(company.base_price),
           floatShares: Number(company.float_shares),
@@ -112,13 +119,22 @@ export default async function FictionalMarketPage() {
   const totalMarketCap = rows.reduce((sum, row) => sum + row.marketCap, 0);
   const weightedChange = rows.reduce((sum, row) => sum + row.changePct * row.marketCap, 0) / totalMarketCap;
   const indexLevel = 10_000 * (1 + weightedChange / 100);
+  const apexConstituents = [...rows].sort((a, b) => b.marketCap - a.marketCap).slice(0, 50);
+  const apexMarketCap = apexConstituents.reduce((sum, row) => sum + row.marketCap, 0);
+  const apexChange = apexConstituents.reduce((sum, row) => sum + row.changePct * row.marketCap, 0) / apexMarketCap;
+  const apexIndexLevel = 5_000 * (1 + apexChange / 100);
   const advancers = rows.filter((row) => row.changePct > 0).length;
   const decliners = rows.length - advancers;
   const largest = rows[0];
   const topMover = [...rows].sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))[0];
-  const riskiest = rows.filter((row) => row.risk === "Existential").length;
   const averageTech = rows.reduce((sum, row) => sum + row.technology, 0) / rows.length;
   const averageInfluence = rows.reduce((sum, row) => sum + row.influence, 0) / rows.length;
+  const exchangeStats = fictionalExchangeOrder.map((exchange) => {
+    const constituents = rows.filter((row) => row.exchange === exchange);
+    const marketCap = constituents.reduce((sum, row) => sum + row.marketCap, 0);
+    const changePct = constituents.reduce((sum, row) => sum + row.changePct * row.marketCap, 0) / marketCap;
+    return { exchange, ...fictionalExchanges[exchange], constituents, marketCap, changePct };
+  });
   const topSectors = Object.entries(rows.reduce<Record<string, number>>((counts, row) => {
     counts[row.sector] = (counts[row.sector] ?? 0) + 1;
     return counts;
@@ -162,10 +178,12 @@ export default async function FictionalMarketPage() {
             </div>
             <div className="card p-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
-                Market cap
+                APEX 50
               </p>
-              <p className="text-lg font-bold mt-1" style={{ color: "var(--text)" }}>{formatFictionalMarketCap(totalMarketCap)}</p>
-              <p className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>{rows.length} listings</p>
+              <p className="text-lg font-bold mt-1" style={{ color: "var(--text)" }}>{formatIndex(apexIndexLevel)}</p>
+              <p className="text-[11px] mt-0.5" style={{ color: apexChange >= 0 ? "var(--up)" : "var(--down)" }}>
+                {apexChange >= 0 ? "+" : ""}{apexChange.toFixed(2)}% · largest 50
+              </p>
             </div>
             <div className="card p-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
@@ -176,10 +194,10 @@ export default async function FictionalMarketPage() {
             </div>
             <div className="card p-3">
               <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
-                Avg tech
+                Market cap
               </p>
-              <p className="text-lg font-bold mt-1" style={{ color: "var(--text)" }}>{averageTech.toFixed(1)}</p>
-              <p className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>{riskiest} existential flags</p>
+              <p className="text-lg font-bold mt-1" style={{ color: "var(--text)" }}>{formatFictionalMarketCap(totalMarketCap)}</p>
+              <p className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>{rows.length} listings · 3 venues</p>
            </div>
          </div>
 
@@ -197,6 +215,46 @@ export default async function FictionalMarketPage() {
           </div>
         </section>
         </div>
+
+        <section>
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
+                Competing venues
+              </p>
+              <h2 className="text-lg font-semibold mt-1" style={{ color: "var(--text)" }}>Three exchanges, one contested market</h2>
+            </div>
+            <p className="text-[11px] max-w-md sm:text-right leading-relaxed" style={{ color: "var(--text-3)" }}>
+              Constituents are rebalanced by market cap so no board becomes the default home of the multiverse economy.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {exchangeStats.map((venue) => (
+              <section key={venue.exchange} className="card p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--accent)" }}>{venue.exchange}</p>
+                    <h3 className="text-sm font-semibold mt-1" style={{ color: "var(--text)" }}>{venue.name}</h3>
+                  </div>
+                  <span className="badge badge-muted">{venue.constituents.length} listed</span>
+                </div>
+                <p className="text-[11px] leading-relaxed mt-3 min-h-9" style={{ color: "var(--text-2)" }}>{venue.focus}</p>
+                <div className="flex items-end justify-between gap-3 mt-4">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Venue cap</p>
+                    <p className="text-base font-semibold mt-1" style={{ color: "var(--text)" }}>{formatFictionalMarketCap(venue.marketCap)}</p>
+                  </div>
+                  <p className="text-lg font-bold" style={{ color: venue.changePct >= 0 ? "var(--up)" : "var(--down)" }}>
+                    {venue.changePct >= 0 ? "+" : ""}{venue.changePct.toFixed(2)}%
+                  </p>
+                </div>
+                <p className="text-[11px] leading-relaxed mt-4 pt-3" style={{ color: "var(--text-3)", borderTop: "1px solid var(--border)" }}>
+                  {venue.rivalry}
+                </p>
+              </section>
+            ))}
+          </div>
+        </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-4">
           <section className="card p-4">

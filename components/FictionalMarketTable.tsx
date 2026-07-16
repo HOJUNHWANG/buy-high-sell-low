@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import type { FictionalRisk, FictionalSector, FictionalSnapshot } from "@/data/fictional-market";
-import { formatFictionalMarketCap, getFictionalCompanyProfile } from "@/data/fictional-market";
+import type { FictionalExchange, FictionalRisk, FictionalSector, FictionalSnapshot } from "@/data/fictional-market";
+import { fictionalExchangeOrder, formatFictionalMarketCap, getFictionalCompanyProfile } from "@/data/fictional-market";
 import { FictionalTickerMark } from "@/components/FictionalTickerMark";
 
 type SortKey = "marketCap" | "price" | "changePct" | "volume" | "technology" | "influence";
@@ -61,6 +61,7 @@ function riskClass(risk: FictionalRisk) {
 
 export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
   const [query, setQuery] = useState("");
+  const [exchange, setExchange] = useState<FictionalExchange | "All">("All");
   const [sector, setSector] = useState<FictionalSector | "All">("All");
   const [risk, setRisk] = useState<FictionalRisk | "All">("All");
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "marketCap", dir: "desc" });
@@ -72,6 +73,7 @@ export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
   const filteredRows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rows
+      .filter((row) => exchange === "All" || row.exchange === exchange)
       .filter((row) => sector === "All" || row.sector === sector)
       .filter((row) => risk === "All" || row.risk === risk)
       .filter((row) => {
@@ -87,7 +89,7 @@ export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
         const dir = sort.dir === "asc" ? 1 : -1;
         return (a[sort.key] - b[sort.key]) * dir;
       });
-  }, [query, risk, rows, sector, sort]);
+  }, [exchange, query, risk, rows, sector, sort]);
 
   function toggleSort(key: SortKey) {
     setSort((prev) => prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "desc" });
@@ -139,6 +141,20 @@ export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
         </div>
 
         <select
+          aria-label="Exchange"
+          value={exchange}
+          onChange={(event) => setExchange(event.target.value as FictionalExchange | "All")}
+          className="px-3 py-2 rounded-lg text-xs"
+          style={{ background: "var(--surface)", border: "1px solid var(--border-md)", color: "var(--text)" }}
+        >
+          <option value="All">All venues</option>
+          {fictionalExchangeOrder.map((item) => (
+            <option key={item} value={item}>{item}</option>
+          ))}
+        </select>
+
+        <select
+          aria-label="Sector"
           value={sector}
           onChange={(event) => setSector(event.target.value as FictionalSector | "All")}
           className="px-3 py-2 rounded-lg text-xs"
@@ -150,6 +166,7 @@ export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
         </select>
 
         <select
+          aria-label="Risk"
           value={risk}
           onChange={(event) => setRisk(event.target.value as FictionalRisk | "All")}
           className="px-3 py-2 rounded-lg text-xs"
@@ -210,7 +227,7 @@ export function FictionalMarketTable({ rows }: { rows: FictionalSnapshot[] }) {
                           {row.name}
                         </h3>
                         <p className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>
-                          {row.ticker} · {row.source}
+                          {row.ticker} · {row.exchange} · {row.source}
                         </p>
                       </div>
                       <span className={`badge ${riskClass(row.risk)}`}>{row.risk}</span>

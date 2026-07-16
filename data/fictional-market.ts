@@ -39,7 +39,36 @@ export type FictionalCompany = {
   note: string;
 };
 
-export type FictionalSnapshot = FictionalCompany & {
+export const fictionalExchangeOrder = ["OMNI", "FICTDAQ", "LUNA"] as const;
+export type FictionalExchange = (typeof fictionalExchangeOrder)[number];
+
+export const fictionalExchanges: Record<FictionalExchange, {
+  name: string;
+  focus: string;
+  rivalry: string;
+}> = {
+  OMNI: {
+    name: "Omni Mercantile Exchange",
+    focus: "Large-cap industry, energy, consumer, and financial infrastructure.",
+    rivalry: "Defends blue-chip liquidity and legacy mandates against FICTDAQ's growth premium.",
+  },
+  FICTDAQ: {
+    name: "Fictional Technology Exchange",
+    focus: "Technology, biotech, cybernetics, and high-conviction growth listings.",
+    rivalry: "Competes with OMNI for marquee IPOs and LUNA for deep-tech issuers.",
+  },
+  LUNA: {
+    name: "Luna Interstellar Exchange",
+    focus: "Aerospace, orbital infrastructure, and cross-system commercial activity.",
+    rivalry: "Uses cross-system settlement and frontier access to pull issuers from terrestrial boards.",
+  },
+};
+
+export type FictionalListedCompany = Omit<FictionalCompany, "exchange"> & {
+  exchange: FictionalExchange;
+};
+
+export type FictionalSnapshot = FictionalListedCompany & {
   price: number;
   changePct: number;
   volume: number;
@@ -284,7 +313,7 @@ function fictionalMarketScale(company: FictionalCompany) {
   return 1.35;
 }
 
-export const fictionalCompanies: FictionalCompany[] = rawFictionalCompanies.map((company) => {
+const scaledFictionalCompanies: FictionalCompany[] = rawFictionalCompanies.map((company) => {
   const scale = fictionalMarketScale(company);
   return {
     ...company,
@@ -292,6 +321,38 @@ export const fictionalCompanies: FictionalCompany[] = rawFictionalCompanies.map(
     floatShares: company.floatShares * scale,
   };
 });
+
+function preferredExchange(company: FictionalCompany): FictionalExchange {
+  if (company.exchange === "LUNA" || company.sector === "Space") return "LUNA";
+  if (["Artificial Intelligence", "Biotech", "Cybernetics"].includes(company.sector) || company.exchange === "FICTDAQ") return "FICTDAQ";
+  return "OMNI";
+}
+
+function distributeAcrossExchanges(companies: FictionalCompany[]): FictionalListedCompany[] {
+  const totals: Record<FictionalExchange, number> = { OMNI: 0, FICTDAQ: 0, LUNA: 0 };
+  const assignments = new Map<string, FictionalExchange>();
+
+  [...companies]
+    .sort((a, b) => b.marketCap - a.marketCap || a.ticker.localeCompare(b.ticker))
+    .forEach((company) => {
+      const preferred = preferredExchange(company);
+      const chosen = fictionalExchangeOrder.reduce((best, candidate) => {
+        const bestScore = totals[best] + (best === preferred ? 0 : company.marketCap * 0.018);
+        const candidateScore = totals[candidate] + (candidate === preferred ? 0 : company.marketCap * 0.018);
+        return candidateScore < bestScore ? candidate : best;
+      });
+
+      assignments.set(company.ticker, chosen);
+      totals[chosen] += company.marketCap;
+    });
+
+  return companies.map((company) => ({
+    ...company,
+    exchange: assignments.get(company.ticker) ?? preferredExchange(company),
+  }));
+}
+
+export const fictionalCompanies: FictionalListedCompany[] = distributeAcrossExchanges(scaledFictionalCompanies);
 
 const eventTemplates = [
   "announced a procurement win that surprised desk analysts",

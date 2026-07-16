@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_FILE = ROOT / "data" / "fictional-market.ts"
 T = 1_000_000_000_000
 B = 1_000_000_000
+EXCHANGE_ORDER = ("OMNI", "FICTDAQ", "LUNA")
 
 load_dotenv(dotenv_path=ROOT / ".env.local")
 load_dotenv()
@@ -78,6 +79,27 @@ def fictional_market_scale(row: dict) -> float:
     return 1.35
 
 
+def preferred_exchange(company: dict) -> str:
+    if company["exchange"] == "LUNA" or company["sector"] == "Space":
+        return "LUNA"
+    if company["sector"] in ("Artificial Intelligence", "Biotech", "Cybernetics") or company["exchange"] == "FICTDAQ":
+        return "FICTDAQ"
+    return "OMNI"
+
+
+def distribute_across_exchanges(companies: list[dict]) -> list[dict]:
+    totals = {exchange: 0 for exchange in EXCHANGE_ORDER}
+    for company in sorted(companies, key=lambda row: (-row["market_cap"], row["ticker"])):
+        preferred = preferred_exchange(company)
+        chosen = min(
+            EXCHANGE_ORDER,
+            key=lambda exchange: totals[exchange] + (0 if exchange == preferred else company["market_cap"] * 0.018),
+        )
+        company["exchange"] = chosen
+        totals[chosen] += company["market_cap"]
+    return companies
+
+
 def load_companies() -> list[dict]:
     companies = []
     pattern = re.compile(r"^\s*\{\s*ticker:\s*")
@@ -109,7 +131,7 @@ def load_companies() -> list[dict]:
         })
     if len(companies) != 100:
         raise RuntimeError(f"Expected 100 fictional companies, found {len(companies)}")
-    return companies
+    return distribute_across_exchanges(companies)
 
 
 def hash_string(value: str) -> int:
