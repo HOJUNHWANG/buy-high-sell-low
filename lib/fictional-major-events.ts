@@ -26,6 +26,11 @@ type MajorEventConfig = {
     maxDurationDays: number;
     cumulativeImpactCapPct: number;
   };
+  oneTimeEvents: Array<{
+    startDate: string;
+    definitionId: string;
+    truncatePreviousEvent: boolean;
+  }>;
   events: MajorEventDefinition[];
 };
 
@@ -46,6 +51,11 @@ type InternalCycleState = {
   rollPct: number | null;
   activeEvent: InternalCycleEvent | null;
   lastEventEndDate: string | null;
+};
+
+type PricedFictionalCompany = FictionalCompany & {
+  price?: number;
+  changePct?: number;
 };
 
 export type ActiveMajorEvent = {
@@ -96,6 +106,12 @@ export type MarketMajorEventSummary = {
   largestMovePct: number;
   largestCumulativeImpactPct: number;
   cumulativeImpactCapPct: number;
+  affectedStocks: Array<{
+    ticker: string;
+    name: string;
+    price: number | null;
+    changePct: number | null;
+  }>;
 };
 
 export type MajorEventCycleStatus = {
@@ -111,6 +127,7 @@ export type MajorEventCycleStatus = {
   lastEventEndDate: string | null;
   activeEvent: {
     eventKey: string;
+    definitionId: string;
     title: string;
     category: string;
     startDate: string;
@@ -125,6 +142,14 @@ const config = majorEventConfigJson as MajorEventConfig;
 const definitionsById = new Map(config.events.map((event) => [event.id, event]));
 const worldEvents = config.events.filter((event) => event.scope === "world");
 const companyEvents = config.events.filter((event) => event.scope === "company");
+const oneTimeEvents = [...config.oneTimeEvents].sort((a, b) => a.startDate.localeCompare(b.startDate));
+const oneTimeEventsByDate = new Map(oneTimeEvents.map((event) => [event.startDate, event]));
+
+for (const event of oneTimeEvents) {
+  if (!definitionsById.has(event.definitionId)) {
+    throw new Error(`Unknown one-time major event definition: ${event.definitionId}`);
+  }
+}
 
 const riskSensitivity: Record<FictionalRisk, number> = {
   Low: 0.78,
@@ -203,6 +228,37 @@ function eventTargetTicker(event: InternalCycleEvent, companies: FictionalCompan
   return stableTickerOrder[event.targetIndex % stableTickerOrder.length] ?? null;
 }
 
+function buildCycleEvent(
+  definition: MajorEventDefinition,
+  startDate: string,
+  triggerProbabilityPct: number,
+  namespace = "cycle",
+) {
+  const eventKey = `major:${namespace}:${startDate}:${definition.id}`;
+  const requestedDurationDays = integerFromSeed(
+    `${eventKey}:duration`,
+    config.cycle.minDurationDays,
+    config.cycle.maxDurationDays,
+  );
+  const naturalEndDate = shiftDate(startDate, requestedDurationDays - 1);
+  const nextReservedEvent = oneTimeEvents.find((event) => (
+    event.truncatePreviousEvent
+    && event.startDate > startDate
+    && event.startDate <= naturalEndDate
+  ));
+  const endDate = nextReservedEvent ? shiftDate(nextReservedEvent.startDate, -1) : naturalEndDate;
+
+  return {
+    eventKey,
+    definitionId: definition.id,
+    startDate,
+    endDate,
+    durationDays: daysBetween(startDate, endDate) + 1,
+    targetIndex: hashString(`${eventKey}:target`),
+    triggerProbabilityPct,
+  } satisfies InternalCycleEvent;
+}
+
 function ensureCycleSimulatedThrough(targetDate: string) {
   if (targetDate < config.cycle.anchorDate) {
     return {
@@ -217,8 +273,9 @@ function ensureCycleSimulatedThrough(targetDate: string) {
 
   while (simulatedThrough < targetDate) {
     const marketDate = shiftDate(simulatedThrough, 1);
+    const oneTimeEvent = oneTimeEventsByDate.get(marketDate) ?? null;
 
-    if (simulatedActiveEvent && marketDate <= simulatedActiveEvent.endDate) {
+    if (!oneTimeEvent && simulatedActiveEvent && marketDate <= simulatedActiveEvent.endDate) {
       cycleStateCache.set(marketDate, {
         marketDate,
         probabilityPct: 0,
@@ -236,40 +293,38 @@ function ensureCycleSimulatedThrough(targetDate: string) {
       simulatedActiveEvent = null;
     }
 
-    const evaluatedProbabilityPct = clamp(
-      simulatedProbabilityPct + config.cycle.dailyProbabilityIncrementPct,
-      0,
-      100,
-    );
-    const rollPct = seededNoise(`major:cycle:roll:${marketDate}`, 0, 100);
+    let evaluatedProbabilityPct: number;
+    let rollPct: number | null;
 
-    if (rollPct < evaluatedProbabilityPct) {
-      const definition = pickDefinition(`major:cycle:type:${marketDate}`);
-      const eventKey = `major:cycle:${marketDate}:${definition.id}`;
-      const durationDays = integerFromSeed(
-        `${eventKey}:duration`,
-        config.cycle.minDurationDays,
-        config.cycle.maxDurationDays,
-      );
-      simulatedActiveEvent = {
-        eventKey,
-        definitionId: definition.id,
-        startDate: marketDate,
-        endDate: shiftDate(marketDate, durationDays - 1),
-        durationDays,
-        targetIndex: hashString(`${eventKey}:target`),
-        triggerProbabilityPct: evaluatedProbabilityPct,
-      };
+    if (oneTimeEvent) {
+      const definition = definitionsById.get(oneTimeEvent.definitionId);
+      if (!definition) throw new Error(`Unknown one-time major event definition: ${oneTimeEvent.definitionId}`);
+      evaluatedProbabilityPct = 100;
+      rollPct = null;
+      simulatedActiveEvent = buildCycleEvent(definition, marketDate, 100, "scheduled");
       simulatedProbabilityPct = 0;
     } else {
-      simulatedProbabilityPct = evaluatedProbabilityPct;
+      evaluatedProbabilityPct = clamp(
+        simulatedProbabilityPct + config.cycle.dailyProbabilityIncrementPct,
+        0,
+        100,
+      );
+      rollPct = seededNoise(`major:cycle:roll:${marketDate}`, 0, 100);
+
+      if (rollPct < evaluatedProbabilityPct) {
+        const definition = pickDefinition(`major:cycle:type:${marketDate}`);
+        simulatedActiveEvent = buildCycleEvent(definition, marketDate, evaluatedProbabilityPct);
+        simulatedProbabilityPct = 0;
+      } else {
+        simulatedProbabilityPct = evaluatedProbabilityPct;
+      }
     }
 
     cycleStateCache.set(marketDate, {
       marketDate,
       probabilityPct: simulatedActiveEvent ? 0 : simulatedProbabilityPct,
       evaluatedProbabilityPct,
-      rollPct: round(rollPct),
+      rollPct: rollPct == null ? null : round(rollPct),
       activeEvent: simulatedActiveEvent,
       lastEventEndDate: simulatedLastEventEndDate,
     });
@@ -406,6 +461,7 @@ export function getMajorEventCycleStatus(
     activeEvent: internalEvent && definition
       ? {
           eventKey: internalEvent.eventKey,
+          definitionId: internalEvent.definitionId,
           title: definition.title,
           category: definition.category,
           startDate: internalEvent.startDate,
@@ -452,7 +508,7 @@ export function getMajorEventImpact(
 }
 
 export function getActiveMajorMarketEvents(
-  companies: FictionalCompany[],
+  companies: PricedFictionalCompany[],
   date: Date | string = new Date(),
 ): MarketMajorEventSummary[] {
   const summaries = new Map<string, MarketMajorEventSummary>();
@@ -460,8 +516,15 @@ export function getActiveMajorMarketEvents(
   for (const company of companies) {
     for (const event of getActiveMajorEvents(company, date, companies)) {
       const existing = summaries.get(event.eventKey);
+      const affectedStock = {
+        ticker: company.ticker,
+        name: company.name,
+        price: Number.isFinite(company.price) ? company.price ?? null : null,
+        changePct: Number.isFinite(company.changePct) ? company.changePct ?? null : null,
+      };
       if (existing) {
         existing.affectedCompanies += 1;
+        existing.affectedStocks.push(affectedStock);
         if (!existing.affectedSectors.includes(company.sector)) existing.affectedSectors.push(company.sector);
         if (Math.abs(event.currentImpactPct) > Math.abs(existing.largestMovePct)) {
           existing.largestMovePct = event.currentImpactPct;
@@ -490,11 +553,19 @@ export function getActiveMajorMarketEvents(
         largestMovePct: event.currentImpactPct,
         largestCumulativeImpactPct: event.cumulativeImpactPct,
         cumulativeImpactCapPct: event.cumulativeImpactCapPct,
+        affectedStocks: [affectedStock],
       });
     }
   }
 
-  return [...summaries.values()];
+  return [...summaries.values()].map((summary) => ({
+    ...summary,
+    affectedStocks: summary.affectedStocks.sort((left, right) => {
+      const changeDifference = (right.changePct ?? Number.NEGATIVE_INFINITY)
+        - (left.changePct ?? Number.NEGATIVE_INFINITY);
+      return changeDifference || left.ticker.localeCompare(right.ticker);
+    }),
+  }));
 }
 
 export const majorEventCatalogStats = {

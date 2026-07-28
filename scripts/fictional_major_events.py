@@ -13,6 +13,18 @@ DEFINITIONS = CONFIG["events"]
 DEFINITIONS_BY_ID = {event["id"]: event for event in DEFINITIONS}
 CYCLE = CONFIG["cycle"]
 ANCHOR_DATE = date.fromisoformat(CYCLE["anchorDate"])
+ONE_TIME_EVENTS = sorted(
+    (
+        {**event, "start_date": date.fromisoformat(event["startDate"])}
+        for event in CONFIG.get("oneTimeEvents", [])
+    ),
+    key=lambda event: event["start_date"],
+)
+ONE_TIME_EVENTS_BY_DATE = {event["start_date"]: event for event in ONE_TIME_EVENTS}
+
+for scheduled_event in ONE_TIME_EVENTS:
+    if scheduled_event["definitionId"] not in DEFINITIONS_BY_ID:
+        raise ValueError(f"Unknown one-time major event definition: {scheduled_event['definitionId']}")
 
 RISK_SENSITIVITY = {
     "Low": 0.78,
@@ -51,6 +63,47 @@ def integer_from_seed(seed: str, low: int, high: int) -> int:
     return math.floor(seeded_noise(seed, low, high + 1))
 
 
+def _build_cycle_event(
+    definition: dict,
+    start_date: date,
+    trigger_probability_pct: float,
+    namespace: str = "cycle",
+) -> dict:
+    day_key = start_date.isoformat()
+    event_key = f"major:{namespace}:{day_key}:{definition['id']}"
+    requested_duration_days = integer_from_seed(
+        f"{event_key}:duration",
+        CYCLE["minDurationDays"],
+        CYCLE["maxDurationDays"],
+    )
+    natural_end_date = start_date + timedelta(days=requested_duration_days - 1)
+    next_reserved_event = next(
+        (
+            event
+            for event in ONE_TIME_EVENTS
+            if event.get("truncatePreviousEvent", False)
+            and event["start_date"] > start_date
+            and event["start_date"] <= natural_end_date
+        ),
+        None,
+    )
+    end_date = (
+        next_reserved_event["start_date"] - timedelta(days=1)
+        if next_reserved_event
+        else natural_end_date
+    )
+
+    return {
+        "event_key": event_key,
+        "definition_id": definition["id"],
+        "start_date": start_date,
+        "end_date": end_date,
+        "duration_days": (end_date - start_date).days + 1,
+        "target_index": hash_string(f"{event_key}:target"),
+        "trigger_probability_pct": trigger_probability_pct,
+    }
+
+
 def _ensure_cycle_through(target_date: date) -> dict:
     global _simulated_through
     global _simulated_probability
@@ -69,8 +122,9 @@ def _ensure_cycle_through(target_date: date) -> dict:
 
     while _simulated_through < target_date:
         market_date = _simulated_through + timedelta(days=1)
+        one_time_event = ONE_TIME_EVENTS_BY_DATE.get(market_date)
 
-        if _simulated_active_event and market_date <= _simulated_active_event["end_date"]:
+        if not one_time_event and _simulated_active_event and market_date <= _simulated_active_event["end_date"]:
             _cycle_cache[market_date] = {
                 "market_date": market_date,
                 "probability_pct": 0,
@@ -86,40 +140,43 @@ def _ensure_cycle_through(target_date: date) -> dict:
             _simulated_last_event_end = _simulated_active_event["end_date"]
             _simulated_active_event = None
 
-        evaluated_probability = clamp(
-            _simulated_probability + CYCLE["dailyProbabilityIncrementPct"],
-            0,
-            100,
-        )
         day_key = market_date.isoformat()
-        roll_pct = seeded_noise(f"major:cycle:roll:{day_key}", 0, 100)
 
-        if roll_pct < evaluated_probability:
-            definition = DEFINITIONS[abs(hash_string(f"major:cycle:type:{day_key}")) % len(DEFINITIONS)]
-            event_key = f"major:cycle:{day_key}:{definition['id']}"
-            duration_days = integer_from_seed(
-                f"{event_key}:duration",
-                CYCLE["minDurationDays"],
-                CYCLE["maxDurationDays"],
+        if one_time_event:
+            definition = DEFINITIONS_BY_ID[one_time_event["definitionId"]]
+            evaluated_probability = 100
+            roll_pct = None
+            _simulated_active_event = _build_cycle_event(
+                definition,
+                market_date,
+                100,
+                "scheduled",
             )
-            _simulated_active_event = {
-                "event_key": event_key,
-                "definition_id": definition["id"],
-                "start_date": market_date,
-                "end_date": market_date + timedelta(days=duration_days - 1),
-                "duration_days": duration_days,
-                "target_index": hash_string(f"{event_key}:target"),
-                "trigger_probability_pct": evaluated_probability,
-            }
             _simulated_probability = 0
         else:
-            _simulated_probability = evaluated_probability
+            evaluated_probability = clamp(
+                _simulated_probability + CYCLE["dailyProbabilityIncrementPct"],
+                0,
+                100,
+            )
+            roll_pct = seeded_noise(f"major:cycle:roll:{day_key}", 0, 100)
+
+            if roll_pct < evaluated_probability:
+                definition = DEFINITIONS[abs(hash_string(f"major:cycle:type:{day_key}")) % len(DEFINITIONS)]
+                _simulated_active_event = _build_cycle_event(
+                    definition,
+                    market_date,
+                    evaluated_probability,
+                )
+                _simulated_probability = 0
+            else:
+                _simulated_probability = evaluated_probability
 
         _cycle_cache[market_date] = {
             "market_date": market_date,
             "probability_pct": 0 if _simulated_active_event else _simulated_probability,
             "evaluated_probability_pct": evaluated_probability,
-            "roll_pct": round(roll_pct, 4),
+            "roll_pct": None if roll_pct is None else round(roll_pct, 4),
             "active_event": _simulated_active_event,
             "last_event_end_date": _simulated_last_event_end,
         }

@@ -9,6 +9,7 @@ import {
   formatFictionalMarketCap,
 } from "@/data/fictional-market";
 import { FictionalMarketTable } from "@/components/FictionalMarketTable";
+import { FictionalMarketAutoRefresh } from "@/components/FictionalMarketAutoRefresh";
 import {
   getActiveMajorMarketEvents,
   getMajorEventCycleStatus,
@@ -130,7 +131,7 @@ function MajorEventAlert({ events }: { events: MarketMajorEventSummary[] }) {
               Major event in progress
             </p>
             <p className="text-[10px] mt-0.5" style={{ color: "var(--text-3)" }}>
-              Live market effects remain active until each event expires.
+              Affected-stock rankings follow the latest 30-minute price update.
             </p>
           </div>
         </div>
@@ -144,7 +145,6 @@ function MajorEventAlert({ events }: { events: MarketMajorEventSummary[] }) {
         style={{ background: "rgba(239,68,68,0.18)" }}
       >
         {events.slice(0, 4).map((event) => {
-          const progressPct = Math.min(100, Math.max(0, (event.dayNumber / event.durationDays) * 100));
           const visibleSectors = event.affectedSectors.slice(0, 5);
           const hiddenSectorCount = event.affectedSectors.length - visibleSectors.length;
 
@@ -153,9 +153,6 @@ function MajorEventAlert({ events }: { events: MarketMajorEventSummary[] }) {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="badge badge-down">{event.category}</span>
                 <span className="badge badge-muted">{event.scope === "world" ? "Market-wide" : event.targetTicker}</span>
-                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
-                  Day {event.dayNumber} of {event.durationDays}
-                </span>
               </div>
 
               <h2 className="text-lg font-bold mt-3" style={{ color: "var(--text)" }}>{event.title}</h2>
@@ -163,25 +160,11 @@ function MajorEventAlert({ events }: { events: MarketMajorEventSummary[] }) {
                 {event.headline.replace(/^\[MAJOR EVENT[^\]]*\]\s*/, "")}
               </p>
 
-              <div className="mt-4">
-                <div className="flex items-center justify-between gap-3 text-[10px] font-semibold">
-                  <span style={{ color: "var(--text-2)" }}>{progressPct.toFixed(0)}% elapsed</span>
-                  <span style={{ color: event.daysRemaining > 0 ? "var(--down)" : "var(--text-3)" }}>
-                    {event.daysRemaining > 0 ? `${event.daysRemaining} days remaining` : "Final day"}
-                  </span>
-                </div>
-                <div className="h-1.5 rounded-full mt-2 overflow-hidden" style={{ background: "rgba(239,68,68,0.14)" }}>
-                  <div className="h-full rounded-full" style={{ width: `${progressPct}%`, background: "var(--down)" }} />
-                </div>
-              </div>
-
-              <dl className="grid grid-cols-2 lg:grid-cols-5 gap-2 mt-4">
+              <dl className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
                 {[
-                  ["Duration", `${event.durationDays} days`],
-                  ["Active window", `${event.startDate} → ${event.endDate}`],
                   ["Companies", event.affectedCompanies.toLocaleString()],
                   ["Current daily effect", `${event.largestMovePct >= 0 ? "+" : ""}${event.largestMovePct.toFixed(2)}%`],
-                  ["Event total", `${event.largestCumulativeImpactPct >= 0 ? "+" : ""}${event.largestCumulativeImpactPct.toFixed(2)}% · ±${event.cumulativeImpactCapPct}% cap`],
+                  ["Event total", `${event.largestCumulativeImpactPct >= 0 ? "+" : ""}${event.largestCumulativeImpactPct.toFixed(2)}%`],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-lg px-3 py-2.5" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
                     <dt className="text-[9px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>{label}</dt>
@@ -195,6 +178,52 @@ function MajorEventAlert({ events }: { events: MarketMajorEventSummary[] }) {
                 {visibleSectors.map((sector) => <span key={sector} className="badge badge-muted">{sector}</span>)}
                 {hiddenSectorCount > 0 && <span className="badge badge-muted">+{hiddenSectorCount}</span>}
               </div>
+
+              <div className="mt-4 overflow-hidden rounded-lg" style={{ border: "1px solid var(--border)", background: "var(--surface-2)" }}>
+                <div className="flex items-center justify-between gap-3 px-3 py-2.5" style={{ borderBottom: "1px solid var(--border)" }}>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--text-2)" }}>
+                      Affected stocks
+                    </p>
+                    <p className="text-[9px] mt-0.5" style={{ color: "var(--text-3)" }}>
+                      Highest gainer to largest decliner
+                    </p>
+                  </div>
+                  <span className="badge badge-muted">30 min refresh</span>
+                </div>
+                <div
+                  className="max-h-[28rem] overflow-y-auto divide-y"
+                  style={{ borderColor: "var(--border)" }}
+                  aria-label={`${event.title} affected stocks ranked by daily change`}
+                >
+                  {event.affectedStocks.map((stock, index) => {
+                    const changeColor = stock.changePct == null
+                      ? "var(--text-3)"
+                      : stock.changePct >= 0 ? "var(--up)" : "var(--down)";
+                    return (
+                      <Link
+                        key={stock.ticker}
+                        href={`/fictional-market/${stock.ticker}`}
+                        className="grid grid-cols-[1.75rem_minmax(0,1fr)_auto] sm:grid-cols-[1.75rem_minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-2.5 transition-colors hover:bg-white/[0.025]"
+                      >
+                        <span className="text-[10px] font-semibold tabular-nums" style={{ color: "var(--text-3)" }}>
+                          {index + 1}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-[11px] font-semibold truncate" style={{ color: "var(--text)" }}>{stock.ticker}</span>
+                          <span className="block text-[9px] truncate mt-0.5" style={{ color: "var(--text-3)" }}>{stock.name}</span>
+                        </span>
+                        <span className="hidden sm:block text-[10px] tabular-nums text-right" style={{ color: "var(--text-2)" }}>
+                          {stock.price == null ? "—" : `$${stock.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        </span>
+                        <span className="text-[11px] font-bold tabular-nums text-right" style={{ color: changeColor }}>
+                          {stock.changePct == null ? "—" : `${stock.changePct >= 0 ? "+" : ""}${stock.changePct.toFixed(2)}%`}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
             </article>
           );
         })}
@@ -206,7 +235,7 @@ function MajorEventAlert({ events }: { events: MarketMajorEventSummary[] }) {
 function AdminMajorEventStatus({ status }: { status: MajorEventCycleStatus }) {
   const probabilityLabel = status.isActive ? "0%" : `${status.probabilityPct.toFixed(0)}%`;
   const secondaryText = status.isActive
-    ? `Accumulation paused · resumes ${status.accumulationResumesOn} at 1%`
+    ? "Accumulation paused while the event is active"
     : `Next midnight: ${status.nextProbabilityPct.toFixed(0)}% · ${status.nextEvaluationDate}`;
 
   return (
@@ -431,6 +460,7 @@ export default async function FictionalMarketPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-5 py-8">
+      <FictionalMarketAutoRefresh />
       {isAdmin && <AdminMajorEventStatus status={majorEventCycleStatus} />}
       {majorEvents.length > 0 && <MajorEventAlert events={majorEvents} />}
 

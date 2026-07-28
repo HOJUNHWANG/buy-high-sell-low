@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "cycle": {
     "anchorDate": "2000-01-01",
     "dailyProbabilityIncrementPct": 1,
@@ -7,6 +7,13 @@
     "maxDurationDays": 30,
     "cumulativeImpactCapPct": 40
   },
+  "oneTimeEvents": [
+    {
+      "startDate": "2026-07-28",
+      "definitionId": "quantum-cyberattack",
+      "truncatePreviousEvent": true
+    }
+  ],
   "events": [
     { "id": "orbital-war", "scope": "world", "category": "War", "title": "Orbital War", "headline": "Hostilities have closed major orbital corridors and triggered emergency procurement.", "durationDays": [9, 24], "impactPct": [1.1, 3.2], "volatility": [0.8, 1.7], "broadImpact": -0.55, "sectorImpacts": { "Aerospace & Defense": 1.45, "Security": 0.95, "Energy": 0.35, "Space": -0.95, "Transportation": -0.8, "Consumer": -0.45 } },
     { "id": "planetary-invasion", "scope": "world", "category": "War", "title": "Planetary Invasion", "headline": "An off-world invasion has forced governments and corporations onto a total-war footing.", "durationDays": [12, 28], "impactPct": [1.5, 3.8], "volatility": [1.0, 1.9], "broadImpact": -1.1, "sectorImpacts": { "Aerospace & Defense": 1.9, "Security": 1.35, "Industrial": 0.45, "Finance": -0.55, "Consumer": -0.75, "Transportation": -0.7 } },

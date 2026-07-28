@@ -3,6 +3,7 @@ import { fictionalCompanies, fictionalExchangeOrder } from "@/data/fictional-mar
 import { priceFictionalCompany } from "@/lib/fictional-market-engine";
 import {
   getActiveMajorEvents,
+  getActiveMajorMarketEvents,
   getMajorEventCycleStatus,
   majorEventCatalogStats,
 } from "@/lib/fictional-major-events";
@@ -97,6 +98,40 @@ describe("fictional market engine", () => {
     );
     expect(dayAfter.evaluatedProbabilityPct).toBe(1);
     expect(dayAfter.probabilityPct).toBeLessThanOrEqual(1);
+  });
+
+  it("ends today's event before the one-time event tomorrow, then resumes the normal cycle", () => {
+    const today = getMajorEventCycleStatus("2026-07-27", fictionalCompanies);
+    expect(today.activeEvent?.endDate).toBe("2026-07-27");
+
+    const tomorrow = getMajorEventCycleStatus("2026-07-28", fictionalCompanies);
+    expect(tomorrow.activeEvent).toMatchObject({
+      definitionId: "quantum-cyberattack",
+      startDate: "2026-07-28",
+      targetTicker: null,
+      triggerProbabilityPct: 100,
+    });
+
+    if (!tomorrow.activeEvent) return;
+    const firstEligibleDay = getMajorEventCycleStatus(
+      shiftDay(tomorrow.activeEvent.startDate, tomorrow.activeEvent.durationDays),
+      fictionalCompanies,
+    );
+    expect(firstEligibleDay.evaluatedProbabilityPct).toBe(1);
+    expect(firstEligibleDay.probabilityPct).toBeLessThanOrEqual(1);
+  });
+
+  it("ranks every affected stock from the largest gain to the largest decline", () => {
+    const changes = [-2.5, 4.25, 0.4];
+    const pricedCompanies = fictionalCompanies.slice(0, 3).map((company, index) => ({
+      ...company,
+      price: 100 + index,
+      changePct: changes[index],
+    }));
+    const event = getActiveMajorMarketEvents(pricedCompanies, "2026-07-28")[0];
+
+    expect(event).toBeDefined();
+    expect(event.affectedStocks.map((stock) => stock.changePct)).toEqual([4.25, 0.4, -2.5]);
   });
 
   it("varies the daily shock while keeping compounded event impact inside ±40%", () => {
