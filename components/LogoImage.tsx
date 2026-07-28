@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 
 interface LogoImageProps {
@@ -23,6 +24,7 @@ export function LogoImage({
   fallbackClassName,
   fallbackStyle,
   fallbackTextSize = "text-[9px]",
+  sizes,
 }: LogoImageProps) {
   const [error, setError] = useState(false);
 
@@ -51,12 +53,14 @@ export function LogoImage({
 
 
   return (
-    <img
+    <Image
       src={src}
       alt={ticker}
       width={width}
       height={height}
       className={className}
+      sizes={sizes}
+      unoptimized
       loading="lazy"
       decoding="async"
       onError={() => setError(true)}

@@ -92,7 +92,7 @@ export function NewsFilter({
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((article, idx) => {
+          {filtered.map((article) => {
             const unlocked = unlockedMap[article.id];
             const displaySummary = unlocked?.summary ?? article.ai_summary;
             const displayInsight = unlocked?.insight ?? article.ai_insight;

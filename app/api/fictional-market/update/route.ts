@@ -105,11 +105,18 @@ async function updateFictionalMarket(request: NextRequest) {
     date: output.marketDate,
     ...output.daily,
   }));
-  const eventRows = outputs
+  const majorEventOutputs = outputs
+    .filter((output) => output.event.isMajor)
+    .sort((a, b) => Math.abs(b.event.impactPct) - Math.abs(a.event.impactPct));
+  const routineEventOutputs = outputs
+    .filter((output) => !output.event.isMajor)
     .sort((a, b) => Math.abs(b.price.change_pct) - Math.abs(a.price.change_pct))
-    .slice(0, 12)
+    .slice(0, 12);
+  const eventRows = [...majorEventOutputs, ...routineEventOutputs]
     .map((output) => ({
-      event_key: `${output.marketDate}:${output.ticker}`,
+      event_key: output.event.isMajor
+        ? `${output.event.eventKey}:${output.ticker}`
+        : output.event.eventKey,
       ticker: output.ticker,
       headline: output.event.headline,
       impact_pct: output.event.impactPct,

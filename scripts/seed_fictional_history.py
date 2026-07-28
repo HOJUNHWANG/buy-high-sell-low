@@ -12,6 +12,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from supabase import create_client
+from fictional_major_events import major_event_impact
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_FILE = ROOT / "data" / "fictional-market.ts"
@@ -139,7 +140,7 @@ def trading_days(end: date, days_back: int = 366) -> list[date]:
     return days
 
 
-def daily_return(company: dict, day: date) -> float:
+def daily_return(company: dict, day: date, companies: list[dict]) -> tuple[float, dict]:
     day_key = day.isoformat()
     market = seeded_noise(f"hist:market:{day_key}", -0.55, 0.62)
     sector = seeded_noise(f"hist:sector:{company['sector']}:{day_key}", -0.42, 0.42)
@@ -151,25 +152,34 @@ def daily_return(company: dict, day: date) -> float:
         direction = 1 if seeded_noise(f"hist:event-dir:{company['ticker']}:{day_key}", -1, 1) >= 0 else -1
         event = direction * seeded_noise(f"hist:event-impact:{company['ticker']}:{day_key}", 1.1, company["volatility"] * 1.4 + 1.8)
     drift = (company["technology"] - 78) / 800
+    major_event = major_event_impact(company, day, companies)
     raw = market * (0.7 + company["influence"] / 210) + sector + company_pulse * company["volatility"] * 0.18 + event + drift
-    max_move = 12 if company["risk"] == "Existential" else 9 if company["risk"] == "Extreme" else 6
-    return max(-max_move, min(max_move, raw * risk_multiplier(company["risk"])))
+    base_max_move = 12 if company["risk"] == "Existential" else 9 if company["risk"] == "Extreme" else 6
+    max_move = min(18, base_max_move + 6) if major_event["primary_event"] else base_max_move
+    routine_damping = 0.35 if major_event["primary_event"] else 1
+    modeled_return = raw * risk_multiplier(company["risk"]) * routine_damping + major_event["impact_pct"]
+    return max(-max_move, min(max_move, modeled_return)), major_event
 
 
-def build_rows(company: dict, days: list[date]) -> list[dict]:
+def build_rows(company: dict, days: list[date], companies: list[dict]) -> list[dict]:
     anchor = len(days) - 1
     price = company["base_price"]
     reverse_rows = []
 
     # Walk backward first so today's generated close lands near the configured base price.
     for day in reversed(days):
-        ret = daily_return(company, day)
+        ret, major_event = daily_return(company, day, companies)
         prev_close = max(0.5, price / (1 + ret / 100))
         open_price = prev_close * (1 + seeded_noise(f"hist:gap:{company['ticker']}:{day}", -0.9, 0.9) / 100)
-        high = max(open_price, price) * (1 + abs(seeded_noise(f"hist:high:{company['ticker']}:{day}", 0.05, 1.4)) / 100)
-        low = min(open_price, price) * (1 - abs(seeded_noise(f"hist:low:{company['ticker']}:{day}", 0.05, 1.4)) / 100)
+        event_range_multiplier = 1 + major_event["volatility_boost"]
+        high = max(open_price, price) * (1 + abs(seeded_noise(f"hist:high:{company['ticker']}:{day}", 0.05, 1.4)) * event_range_multiplier / 100)
+        low = min(open_price, price) * (1 - abs(seeded_noise(f"hist:low:{company['ticker']}:{day}", 0.05, 1.4)) * event_range_multiplier / 100)
         volume_base = company["float_shares"] * (0.0012 + company["volatility"] / 1450)
-        volume = round(volume_base * (0.65 + abs(ret) / 11 + seeded_noise(f"hist:vol:{company['ticker']}:{day}", -0.18, 0.24)))
+        volume = round(
+            volume_base
+            * (0.65 + abs(ret) / 11 + seeded_noise(f"hist:vol:{company['ticker']}:{day}", -0.18, 0.24))
+            * major_event["volume_multiplier"]
+        )
         reverse_rows.append({
             "ticker": company["ticker"],
             "date": day.isoformat(),
@@ -189,7 +199,8 @@ def build_rows(company: dict, days: list[date]) -> list[dict]:
 
 def main():
     requested = {arg.upper() for arg in sys.argv[1:]}
-    companies = load_companies()
+    all_companies = load_companies()
+    companies = all_companies
     if requested:
         companies = [company for company in companies if company["ticker"] in requested]
     days = trading_days(datetime.now(timezone.utc).date())
@@ -197,7 +208,7 @@ def main():
 
     total = 0
     for company in companies:
-        rows = build_rows(company, days)
+        rows = build_rows(company, days, all_companies)
         for i in range(0, len(rows), CHUNK_INSERT):
             chunk = rows[i:i + CHUNK_INSERT]
             supabase.table("fictional_price_history_daily").upsert(

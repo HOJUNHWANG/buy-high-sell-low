@@ -52,9 +52,6 @@ function createQueryBuilder(table: string, initialData?: unknown[]) {
   const _filters: Record<string, unknown> = {};
   const _data = initialData ?? _mockData[table] ?? [];
   let _selectCount = false;
-  let _limit = 100;
-  let _ascending = false;
-  let _orderField = "";
   let _rangeStart = 0;
   let _rangeEnd = 99;
 
@@ -80,15 +77,8 @@ function createQueryBuilder(table: string, initialData?: unknown[]) {
     or: vi.fn(() => builder),
     ilike: vi.fn(() => builder),
     like: vi.fn(() => builder),
-    order: vi.fn((_col: string, opts?: { ascending?: boolean }) => {
-      _orderField = _col;
-      _ascending = opts?.ascending ?? false;
-      return builder;
-    }),
-    limit: vi.fn((n: number) => {
-      _limit = n;
-      return builder;
-    }),
+    order: vi.fn(() => builder),
+    limit: vi.fn(() => builder),
     range: vi.fn((start: number, end: number) => {
       _rangeStart = start;
       _rangeEnd = end;
@@ -176,7 +166,7 @@ vi.mock("@/lib/supabase/server", () => ({
         insert: (data: unknown) => createMutationBuilder(table, "insert", data),
         update: (data: unknown) => createMutationBuilder(table, "update", data),
         delete: () => createMutationBuilder(table, "delete"),
-        upsert: (data: unknown, _opts?: unknown) => createMutationBuilder(table, "upsert", data),
+        upsert: (data: unknown) => createMutationBuilder(table, "upsert", data),
       })),
     })
   ),
@@ -190,7 +180,7 @@ vi.mock("@/lib/supabase/admin", () => ({
       insert: (data: unknown) => createMutationBuilder(table, "insert", data),
       update: (data: unknown) => createMutationBuilder(table, "update", data),
       delete: () => createMutationBuilder(table, "delete"),
-      upsert: (data: unknown, _opts?: unknown) => createMutationBuilder(table, "upsert", data),
+      upsert: (data: unknown) => createMutationBuilder(table, "upsert", data),
     })),
   })),
 }));

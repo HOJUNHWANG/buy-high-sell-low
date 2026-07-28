@@ -1,3 +1,5 @@
+import { getMajorEventImpact } from "@/lib/fictional-major-events";
+
 export type FictionalSector =
   | "Aerospace & Defense"
   | "Artificial Intelligence"
@@ -404,10 +406,21 @@ export function buildFictionalMarketSnapshot(date = new Date()): FictionalSnapsh
     const sectorPulse = seededNoise(`${company.sector}:${day}`, -0.55, 0.55);
     const eventPulse = seededNoise(`event:${company.ticker}:${day}`, -1.4, 1.4);
     const riskMultiplier = company.risk === "Existential" ? 1.7 : company.risk === "Extreme" ? 1.35 : company.risk === "High" ? 1.12 : 0.82;
-    const changePct = Number(((marketPulse + sectorPulse + companyPulse * company.volatility + eventPulse) * riskMultiplier).toFixed(2));
+    const majorEvent = getMajorEventImpact(company, day, fictionalCompanies);
+    const routineDamping = majorEvent.primaryEvent ? 0.35 : 1;
+    const rawChangePct = (marketPulse + sectorPulse + companyPulse * company.volatility + eventPulse)
+      * riskMultiplier
+      * routineDamping
+      + majorEvent.impactPct;
+    const dailyMoveLimit = majorEvent.primaryEvent ? 18 : 30;
+    const changePct = Number(Math.max(-dailyMoveLimit, Math.min(dailyMoveLimit, rawChangePct)).toFixed(2));
     const price = Number(Math.max(0.5, company.basePrice * (1 + changePct / 100)).toFixed(2));
     const volumeBase = company.floatShares * (0.0018 + company.volatility / 1000);
-    const volume = Math.round(volumeBase * (1 + Math.abs(changePct) / 18 + seededNoise(`volume:${company.ticker}:${day}`, -0.18, 0.22)));
+    const volume = Math.round(
+      volumeBase
+        * (1 + Math.abs(changePct) / 18 + seededNoise(`volume:${company.ticker}:${day}`, -0.18, 0.22))
+        * majorEvent.volumeMultiplier,
+    );
     const peRatio = company.sector === "Finance" || company.risk === "Existential"
       ? null
       : Number((18 + company.technology / 6 + seededNoise(`pe:${company.ticker}:${day}`, -4, 5)).toFixed(1));
@@ -417,7 +430,8 @@ export function buildFictionalMarketSnapshot(date = new Date()): FictionalSnapsh
     const templateIndex = Math.abs(hashString(`news:${company.ticker}:${day}`)) % eventTemplates.length;
     const sparkline = Array.from({ length: 28 }, (_, point) => {
       const drift = (point - 14) * changePct * 0.003;
-      const wiggle = seededNoise(`spark:${company.ticker}:${day}:${point}`, -company.volatility, company.volatility);
+      const wiggle = seededNoise(`spark:${company.ticker}:${day}:${point}`, -company.volatility, company.volatility)
+        * (1 + majorEvent.volatilityBoost);
       return Number(Math.max(0.5, company.basePrice * (1 + (drift + wiggle) / 100)).toFixed(2));
     });
 
@@ -428,7 +442,7 @@ export function buildFictionalMarketSnapshot(date = new Date()): FictionalSnapsh
       volume,
       peRatio,
       dividendYield,
-      news: `${company.name} ${eventTemplates[templateIndex]}.`,
+      news: majorEvent.primaryEvent?.headline ?? `${company.name} ${eventTemplates[templateIndex]}.`,
       sparkline,
     };
   }).sort((a, b) => b.marketCap - a.marketCap || a.ticker.localeCompare(b.ticker));

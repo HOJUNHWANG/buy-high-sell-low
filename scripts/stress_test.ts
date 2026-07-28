@@ -101,7 +101,6 @@ function runTests() {
   console.log("TEST 3: Short to Long Switch Sequence");
   const acc3: Account = { cash_balance: 1000 };
   // Short 10 shares of MSFT @ 100
-  const costBasis = 10 * 100;
   const pos3: Position = { shares: 10, avg_cost: 100, borrowed: 0, leverage: 1, side: 'short' };
   acc3.cash_balance -= 1000; // margin locked
   

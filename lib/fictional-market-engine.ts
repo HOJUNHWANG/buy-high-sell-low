@@ -1,4 +1,5 @@
-import type { FictionalCompany, FictionalRisk } from "@/data/fictional-market";
+import { fictionalCompanies, type FictionalCompany, type FictionalRisk } from "@/data/fictional-market";
+import { getMajorEventImpact, type ActiveMajorEvent } from "@/lib/fictional-major-events";
 
 export type FictionalPriceSeed = {
   price: number;
@@ -30,9 +31,12 @@ export type FictionalEngineOutput = {
   daily: FictionalDailySeed;
   marketCap: number;
   event: {
+    eventKey: string;
     headline: string;
     impactPct: number;
     severity: "routine" | "material" | "chaotic";
+    isMajor: boolean;
+    majorEvent: ActiveMajorEvent | null;
   };
 };
 
@@ -132,12 +136,18 @@ function dailyTargetReturn(company: FictionalCompany, day: string) {
   const eventImpact = hasEvent
     ? eventDirection * seededNoise(`event-impact:${company.ticker}:${day}`, 0.85, company.volatility * 1.15 + 1.2)
     : 0;
-  const rawReturn = market * beta + sector + qualityDrift + companyPulse + eventImpact;
-  const maxMove = company.risk === "Existential" ? 18 : company.risk === "Extreme" ? 13 : company.risk === "High" ? 9 : 6;
+  const majorEvent = getMajorEventImpact(company, day, fictionalCompanies);
+  const routineDamping = majorEvent.primaryEvent ? 0.35 : 1;
+  const routineReturn = (market * beta + sector + qualityDrift + companyPulse + eventImpact)
+    * riskMultiplier[company.risk]
+    * routineDamping;
+  const baseMaxMove = company.risk === "Existential" ? 18 : company.risk === "Extreme" ? 13 : company.risk === "High" ? 9 : 6;
+  const maxMove = majorEvent.primaryEvent ? Math.min(18, baseMaxMove + 6) : baseMaxMove;
 
   return {
-    pct: clamp(rawReturn * riskMultiplier[company.risk], -maxMove, maxMove),
+    pct: clamp(routineReturn + majorEvent.impactPct, -maxMove, maxMove),
     eventImpactPct: eventImpact,
+    majorEvent,
   };
 }
 
@@ -158,16 +168,18 @@ export function priceFictionalCompany({
   const progress = marketProgress(now);
   const isRegularSession = minutes >= 9 * 60 + 30 && minutes <= 16 * 60;
   const open = existingDaily?.open ?? existingPrice?.price ?? company.basePrice;
-  const { pct: targetReturnPct, eventImpactPct } = dailyTargetReturn(company, marketDate);
+  const { pct: targetReturnPct, eventImpactPct, majorEvent } = dailyTargetReturn(company, marketDate);
   const intradayCurve = Math.sin(progress * Math.PI - Math.PI / 2) * 0.5 + 0.5;
   const sessionDamping = isRegularSession ? 1 : 0.55;
   const tickDamping = isRegularSession ? 0.45 : 0.22;
   const intradayNoise = seededNoise(`intraday:${company.ticker}:${marketDate}:${halfHourSlot}`, -0.38, 0.38)
     * company.volatility
+    * (1 + majorEvent.volatilityBoost)
     * (1 - progress * 0.35)
     * sessionDamping;
   const halfHourDrift = seededNoise(`tick:${company.ticker}:${marketDate}:${halfHourSlot}`, -0.18, 0.18)
     * company.volatility
+    * (1 + majorEvent.volatilityBoost * 0.8)
     * tickDamping;
   const meanReversion = clamp(((company.basePrice - open) / company.basePrice) * 100, -4, 4) * 0.08;
   const currentReturnPct = targetReturnPct * intradayCurve + intradayNoise + halfHourDrift + meanReversion;
@@ -176,7 +188,12 @@ export function priceFictionalCompany({
   const volumeBase = company.floatShares * (0.0012 + company.volatility / 1450);
   const volume = Math.max(
     1,
-    Math.round(volumeBase * (0.16 + progress * 0.98) * (1 + Math.abs(changePct) / 16))
+    Math.round(
+      volumeBase
+        * (0.16 + progress * 0.98)
+        * (1 + Math.abs(changePct) / 16)
+        * majorEvent.volumeMultiplier,
+    )
   );
   const peRatio = company.sector === "Finance" || company.risk === "Existential"
     ? null
@@ -186,7 +203,12 @@ export function priceFictionalCompany({
     : null;
   const high = roundPrice(Math.max(existingDaily?.high ?? open, open, price));
   const low = roundPrice(Math.min(existingDaily?.low ?? open, open, price));
-  const severity = Math.abs(changePct) >= 7 ? "chaotic" : Math.abs(changePct) >= 3.5 ? "material" : "routine";
+  const severity = majorEvent.primaryEvent || Math.abs(changePct) >= 7
+    ? "chaotic"
+    : Math.abs(changePct) >= 3.5
+      ? "material"
+      : "routine";
+  const primaryMajorEvent = majorEvent.primaryEvent;
 
   return {
     ticker: company.ticker,
@@ -207,9 +229,12 @@ export function priceFictionalCompany({
     },
     marketCap: Math.round(price * company.floatShares),
     event: {
-      headline: buildHeadline(company, marketDate, eventImpactPct || changePct),
+      eventKey: primaryMajorEvent?.eventKey ?? `routine:${marketDate}:${company.ticker}`,
+      headline: primaryMajorEvent?.headline ?? buildHeadline(company, marketDate, eventImpactPct || changePct),
       impactPct: changePct,
       severity,
+      isMajor: primaryMajorEvent != null,
+      majorEvent: primaryMajorEvent,
     },
   };
 }

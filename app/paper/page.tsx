@@ -235,9 +235,9 @@ export default function PaperTradingPage() {
       : "Check out my paper trading portfolio on Buy High Sell Low";
 
     if (navigator.share) {
-      navigator.share({ title: "My Paper Portfolio", text, url: window.location.origin + "/paper" });
+      navigator.share({ title: "My Paper Portfolio", text, url });
     } else {
-      navigator.clipboard.writeText(text + " " + window.location.origin + "/paper");
+      navigator.clipboard.writeText(`${text} ${url}`);
       setShareMsg("Copied to clipboard!");
       setTimeout(() => setShareMsg(""), 2000);
     }
@@ -863,7 +863,7 @@ export default function PaperTradingPage() {
                     setPortfolio((prev) => prev ? { ...prev, nickname: data.nickname } : prev);
                     setShowSettings(false);
                   }
-                } catch (e) {
+                } catch {
                   setNicknameError("Network error. Try again.");
                 } finally {
                   setUpdatingNickname(false);

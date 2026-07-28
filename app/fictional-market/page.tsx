@@ -9,6 +9,13 @@ import {
   formatFictionalMarketCap,
 } from "@/data/fictional-market";
 import { FictionalMarketTable } from "@/components/FictionalMarketTable";
+import {
+  getActiveMajorMarketEvents,
+  getMajorEventCycleStatus,
+  majorEventCatalogStats,
+  type MajorEventCycleStatus,
+  type MarketMajorEventSummary,
+} from "@/lib/fictional-major-events";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const revalidate = 900;
@@ -96,6 +103,136 @@ function VenuePerformanceCard({
         )}
       </div>
     </section>
+  );
+}
+
+function MajorEventAlert({ events }: { events: MarketMajorEventSummary[] }) {
+  return (
+    <section
+      className="mb-5 overflow-hidden rounded-xl"
+      style={{
+        border: "1px solid rgba(239,68,68,0.55)",
+        background: "linear-gradient(135deg, rgba(127,29,29,0.2), rgba(239,68,68,0.045) 58%, var(--surface))",
+        boxShadow: "0 12px 40px rgba(127,29,29,0.12)",
+      }}
+      role="alert"
+      aria-live="polite"
+      aria-label="Active major market events"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-3" style={{ borderBottom: "1px solid rgba(239,68,68,0.22)" }}>
+        <div className="flex items-center gap-2.5">
+          <span className="relative flex w-2.5 h-2.5 shrink-0">
+            <span className="absolute inline-flex w-full h-full rounded-full opacity-70 animate-ping" style={{ background: "var(--down)" }} />
+            <span className="relative inline-flex w-2.5 h-2.5 rounded-full" style={{ background: "var(--down)" }} />
+          </span>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: "var(--down)" }}>
+              Major event in progress
+            </p>
+            <p className="text-[10px] mt-0.5" style={{ color: "var(--text-3)" }}>
+              Live market effects remain active until each event expires.
+            </p>
+          </div>
+        </div>
+        <span className="badge badge-down shrink-0 self-start sm:self-auto">
+          {events.length} active · {majorEventCatalogStats.total} scenarios
+        </span>
+      </div>
+
+      <div
+        className={`grid grid-cols-1 ${events.length > 1 ? "xl:grid-cols-2" : ""} gap-px`}
+        style={{ background: "rgba(239,68,68,0.18)" }}
+      >
+        {events.slice(0, 4).map((event) => {
+          const progressPct = Math.min(100, Math.max(0, (event.dayNumber / event.durationDays) * 100));
+          const visibleSectors = event.affectedSectors.slice(0, 5);
+          const hiddenSectorCount = event.affectedSectors.length - visibleSectors.length;
+
+          return (
+            <article key={event.eventKey} className="p-4 sm:p-5" style={{ background: "var(--surface)" }}>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="badge badge-down">{event.category}</span>
+                <span className="badge badge-muted">{event.scope === "world" ? "Market-wide" : event.targetTicker}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
+                  Day {event.dayNumber} of {event.durationDays}
+                </span>
+              </div>
+
+              <h2 className="text-lg font-bold mt-3" style={{ color: "var(--text)" }}>{event.title}</h2>
+              <p className="text-xs leading-relaxed mt-1.5" style={{ color: "var(--text-2)" }}>
+                {event.headline.replace(/^\[MAJOR EVENT[^\]]*\]\s*/, "")}
+              </p>
+
+              <div className="mt-4">
+                <div className="flex items-center justify-between gap-3 text-[10px] font-semibold">
+                  <span style={{ color: "var(--text-2)" }}>{progressPct.toFixed(0)}% elapsed</span>
+                  <span style={{ color: event.daysRemaining > 0 ? "var(--down)" : "var(--text-3)" }}>
+                    {event.daysRemaining > 0 ? `${event.daysRemaining} days remaining` : "Final day"}
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full mt-2 overflow-hidden" style={{ background: "rgba(239,68,68,0.14)" }}>
+                  <div className="h-full rounded-full" style={{ width: `${progressPct}%`, background: "var(--down)" }} />
+                </div>
+              </div>
+
+              <dl className="grid grid-cols-2 lg:grid-cols-5 gap-2 mt-4">
+                {[
+                  ["Duration", `${event.durationDays} days`],
+                  ["Active window", `${event.startDate} → ${event.endDate}`],
+                  ["Companies", event.affectedCompanies.toLocaleString()],
+                  ["Current daily effect", `${event.largestMovePct >= 0 ? "+" : ""}${event.largestMovePct.toFixed(2)}%`],
+                  ["Event total", `${event.largestCumulativeImpactPct >= 0 ? "+" : ""}${event.largestCumulativeImpactPct.toFixed(2)}% · ±${event.cumulativeImpactCapPct}% cap`],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-lg px-3 py-2.5" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                    <dt className="text-[9px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>{label}</dt>
+                    <dd className="text-[11px] font-semibold mt-1 break-words" style={{ color: "var(--text)" }}>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                <span className="text-[9px] uppercase tracking-wider mr-1" style={{ color: "var(--text-3)" }}>Affected sectors</span>
+                {visibleSectors.map((sector) => <span key={sector} className="badge badge-muted">{sector}</span>)}
+                {hiddenSectorCount > 0 && <span className="badge badge-muted">+{hiddenSectorCount}</span>}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function AdminMajorEventStatus({ status }: { status: MajorEventCycleStatus }) {
+  const probabilityLabel = status.isActive ? "0%" : `${status.probabilityPct.toFixed(0)}%`;
+  const secondaryText = status.isActive
+    ? `Accumulation paused · resumes ${status.accumulationResumesOn} at 1%`
+    : `Next midnight: ${status.nextProbabilityPct.toFixed(0)}% · ${status.nextEvaluationDate}`;
+
+  return (
+    <aside
+      className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg px-4 py-3"
+      style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.32)" }}
+      aria-label="Admin major event probability"
+    >
+      <div className="flex items-center gap-3">
+        <span className="badge badge-warn shrink-0">Admin only</span>
+        <div>
+          <p className="text-xs font-semibold" style={{ color: "var(--text)" }}>
+            Major event probability <span style={{ color: "var(--warn)" }}>{probabilityLabel}</span>
+            {status.isActive ? " · event active" : " · today’s midnight roll completed"}
+          </p>
+          <p className="text-[10px] mt-1" style={{ color: "var(--text-3)" }}>{secondaryText}</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] sm:text-right" style={{ color: "var(--text-3)" }}>
+        {!status.isActive && status.rollPct != null && (
+          <span>Roll {status.rollPct.toFixed(2)} / trigger below {status.evaluatedProbabilityPct.toFixed(0)}</span>
+        )}
+        {status.activeEvent && <span>Triggered at {status.activeEvent.triggerProbabilityPct.toFixed(0)}%</span>}
+        <span>+{majorEventCatalogStats.dailyProbabilityIncrementPct}%p/day</span>
+      </div>
+    </aside>
   );
 }
 
@@ -228,8 +365,23 @@ async function getFictionalMarketData(): Promise<FictionalMarketData> {
   }
 }
 
+async function getIsAdmin() {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    return Boolean(process.env.ADMIN_EMAIL && user?.email === process.env.ADMIN_EMAIL);
+  } catch {
+    return false;
+  }
+}
+
 export default async function FictionalMarketPage() {
-  const { rows, thirtyDayChangeByTicker } = await getFictionalMarketData();
+  const [{ rows, thirtyDayChangeByTicker }, isAdmin] = await Promise.all([
+    getFictionalMarketData(),
+    getIsAdmin(),
+  ]);
+  const majorEvents = getActiveMajorMarketEvents(rows);
+  const majorEventCycleStatus = getMajorEventCycleStatus(new Date(), rows);
   const apexConstituents = [...rows].sort((a, b) => b.marketCap - a.marketCap).slice(0, 50);
   const novaConstituents = rows
     .filter((row) => ["Artificial Intelligence", "Biotech", "Cybernetics", "Space"].includes(row.sector))
@@ -279,6 +431,9 @@ export default async function FictionalMarketPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-5 py-8">
+      {isAdmin && <AdminMajorEventStatus status={majorEventCycleStatus} />}
+      {majorEvents.length > 0 && <MajorEventAlert events={majorEvents} />}
+
       <div className="flex flex-col gap-5 mb-7">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
           <div>

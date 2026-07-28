@@ -175,14 +175,12 @@ describe("Security: Rate Limiting (AI Roast)", () => {
   });
 
   it("allows first roast of the day", async () => {
-    const today = new Date().toISOString().split("T")[0];
     setMockData("paper_ai_usage", []); // no usage yet
     setMockData("paper_accounts", [{ user_id: USER.id, cash_balance: 1000 }]);
     setMockData("paper_positions", []);
     setMockData("stock_prices", []);
 
     const mod = await import("@/app/api/paper/roast/route");
-    const req = new Request("http://localhost:3000/api/paper/roast", { method: "POST" });
     const res = await mod.POST();
     expect(res.status).toBe(200);
     const data = await res.json();
@@ -196,7 +194,6 @@ describe("Security: Rate Limiting (AI Roast)", () => {
     setMockData("paper_ai_usage", [{ user_id: USER.id, date: today, count: 1 }]);
 
     const mod = await import("@/app/api/paper/roast/route");
-    const req = new Request("http://localhost:3000/api/paper/roast", { method: "POST" });
     const res = await mod.POST();
     expect(res.status).toBe(429);
     const data = await res.json();

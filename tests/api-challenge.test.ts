@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { setMockUser, setMockData, clearMockData, getInsertCalls, getUpdateCalls } from "./setup";
+import { setMockUser, setMockData, clearMockData } from "./setup";
 
 const USER = { id: "user-ch", email: "ch@test.com" };
 

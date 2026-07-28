@@ -13,6 +13,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from supabase import create_client
+from fictional_major_events import major_event_impact
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_FILE = ROOT / "data" / "fictional-market.ts"
@@ -148,20 +149,40 @@ def seeded_noise(seed: str, low: float = -1, high: float = 1) -> float:
     return low + fraction * (high - low)
 
 
-def build_price_row(company: dict, now: datetime) -> dict:
-    day = now.date().isoformat()
+def build_price_row(company: dict, now: datetime, companies: list[dict]) -> dict:
+    current_date = now.date()
+    day = current_date.isoformat()
     half_hour_slot = now.hour * 2 + now.minute // 30
     market_pulse = seeded_noise(f"market:{day}", -0.9, 0.9)
     company_pulse = seeded_noise(f"{company['ticker']}:{day}", -1, 1)
     sector_pulse = seeded_noise(f"{company['sector']}:{day}", -0.55, 0.55)
     event_pulse = seeded_noise(f"event:{company['ticker']}:{day}", -1.4, 1.4)
-    half_hour_pulse = seeded_noise(f"tick:{company['ticker']}:{day}:{half_hour_slot}", -0.18, 0.18) * company["volatility"]
+    major_event = major_event_impact(company, current_date, companies)
+    half_hour_pulse = (
+        seeded_noise(f"tick:{company['ticker']}:{day}:{half_hour_slot}", -0.18, 0.18)
+        * company["volatility"]
+        * (1 + major_event["volatility_boost"] * 0.8)
+    )
     risk = company["risk"]
     risk_multiplier = 1.7 if risk == "Existential" else 1.35 if risk == "Extreme" else 1.12 if risk == "High" else 0.82
-    change_pct = round((market_pulse + sector_pulse + company_pulse * company["volatility"] + event_pulse) * risk_multiplier + half_hour_pulse, 2)
+    base_max_move = 18 if risk == "Existential" else 13 if risk == "Extreme" else 9 if risk == "High" else 6
+    max_move = min(18, base_max_move + 6) if major_event["primary_event"] else base_max_move
+    routine_damping = 0.35 if major_event["primary_event"] else 1
+    raw_change_pct = (
+        (market_pulse + sector_pulse + company_pulse * company["volatility"] + event_pulse)
+        * risk_multiplier
+        * routine_damping
+        + half_hour_pulse
+        + major_event["impact_pct"]
+    )
+    change_pct = round(max(-max_move, min(max_move, raw_change_pct)), 2)
     price = round(max(0.5, company["base_price"] * (1 + change_pct / 100)), 2)
     volume_base = company["float_shares"] * (0.0018 + company["volatility"] / 1000)
-    volume = round(volume_base * (1 + abs(change_pct) / 18 + seeded_noise(f"volume:{company['ticker']}:{day}:{half_hour_slot}", -0.18, 0.22)))
+    volume = round(
+        volume_base
+        * (1 + abs(change_pct) / 18 + seeded_noise(f"volume:{company['ticker']}:{day}:{half_hour_slot}", -0.18, 0.22))
+        * major_event["volume_multiplier"]
+    )
     pe_ratio = None if company["sector"] == "Finance" or risk == "Existential" else round(18 + company["technology"] / 6 + seeded_noise(f"pe:{company['ticker']}:{day}", -4, 5), 1)
     dividend_yield = round(max(0, seeded_noise(f"yield:{company['ticker']}:{day}", 0.2, 3.6)), 2) if company["sector"] in ("Energy", "Finance", "Industrial") else None
     return {
@@ -172,13 +193,18 @@ def build_price_row(company: dict, now: datetime) -> dict:
         "pe_ratio": pe_ratio,
         "dividend_yield": dividend_yield,
         "fetched_at": now.isoformat(),
+        "_major_event": major_event["primary_event"],
     }
 
 
 def main():
     now = datetime.now(timezone.utc)
     companies = load_companies()
-    price_rows = [build_price_row(company, now) for company in companies]
+    price_rows = [build_price_row(company, now, companies) for company in companies]
+    price_db_rows = [
+        {key: value for key, value in row.items() if key != "_major_event"}
+        for row in price_rows
+    ]
     price_by_ticker = {row["ticker"]: row for row in price_rows}
     dynamic_companies = [
         {
@@ -209,20 +235,37 @@ def main():
         }
         for row in price_rows
     ]
-    event_rows = [
+    major_event_rows = [
         {
-            "event_key": f"{now.date().isoformat()}:{row['ticker']}",
+            "event_key": f"{row['_major_event']['event_key']}:{row['ticker']}",
+            "ticker": row["ticker"],
+            "headline": row["_major_event"]["headline"],
+            "impact_pct": row["change_pct"],
+            "severity": "chaotic",
+            "event_at": now.isoformat(),
+        }
+        for row in price_rows
+        if row["_major_event"]
+    ]
+    routine_event_rows = [
+        {
+            "event_key": f"routine:{now.date().isoformat()}:{row['ticker']}",
             "ticker": row["ticker"],
             "headline": f"{row['ticker']} moved {row['change_pct']:+.2f}% on fictional market flow.",
             "impact_pct": row["change_pct"],
             "severity": "chaotic" if abs(row["change_pct"]) >= 7 else "material" if abs(row["change_pct"]) >= 3.5 else "routine",
             "event_at": now.isoformat(),
         }
-        for row in sorted(price_rows, key=lambda item: abs(item["change_pct"]), reverse=True)[:12]
+        for row in sorted(
+            (item for item in price_rows if not item["_major_event"]),
+            key=lambda item: abs(item["change_pct"]),
+            reverse=True,
+        )[:12]
     ]
+    event_rows = major_event_rows + routine_event_rows
 
     supabase.table("fictional_companies").upsert(dynamic_companies, on_conflict="ticker").execute()
-    supabase.table("fictional_prices").upsert(price_rows, on_conflict="ticker").execute()
+    supabase.table("fictional_prices").upsert(price_db_rows, on_conflict="ticker").execute()
     supabase.table("fictional_price_history").insert(history_rows).execute()
     supabase.table("fictional_price_history_daily").upsert(daily_rows, on_conflict="ticker,date").execute()
     supabase.table("fictional_market_events").upsert(event_rows, on_conflict="event_key").execute()
