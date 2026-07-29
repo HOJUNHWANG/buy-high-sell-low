@@ -62,7 +62,7 @@ describe("fictional market engine", () => {
     expect(majorEventCatalogStats.categories).toBeGreaterThanOrEqual(20);
     expect(majorEventCatalogStats.dailyProbabilityIncrementPct).toBe(1);
     expect(majorEventCatalogStats.minDurationDays).toBe(3);
-    expect(majorEventCatalogStats.maxDurationDays).toBe(30);
+    expect(majorEventCatalogStats.maxDurationDays).toBe(7);
     expect(majorEventCatalogStats.cumulativeImpactCapPct).toBe(40);
   });
 
@@ -85,10 +85,10 @@ describe("fictional market engine", () => {
     }
 
     expect(starts.length).toBeGreaterThan(70);
-    expect(starts.length).toBeLessThan(180);
+    expect(starts.length).toBeLessThan(300);
     expect(starts.some((event) => event.triggerMode === "random" && event.triggerProbabilityPct < 100)).toBe(true);
     expect(new Set(starts.map((event) => event.durationDays)).size).toBeGreaterThan(1);
-    expect(starts.every((event) => event.durationDays >= 3 && event.durationDays <= 30)).toBe(true);
+    expect(starts.every((event) => event.durationDays >= 3 && event.durationDays <= 7)).toBe(true);
 
     const firstEvent = starts[0];
     for (let offset = 0; offset < firstEvent.durationDays; offset += 1) {
@@ -105,24 +105,22 @@ describe("fictional market engine", () => {
     expect(dayAfter.probabilityPct).toBeLessThanOrEqual(1);
   });
 
-  it("ends today's event before the one-time event tomorrow, then resumes the normal cycle", () => {
-    const today = getMajorEventCycleStatus("2026-07-27", fictionalCompanies);
-    expect(today.activeEvent?.endDate).toBe("2026-07-27");
-
-    const tomorrow = getMajorEventCycleStatus("2026-07-28", fictionalCompanies);
-    expect(tomorrow.activeEvent).toMatchObject({
+  it("runs the current one-time event for exactly three days, then resumes the normal cycle", () => {
+    const current = getMajorEventCycleStatus("2026-07-28", fictionalCompanies);
+    expect(current.activeEvent).toMatchObject({
       definitionId: "quantum-cyberattack",
       startDate: "2026-07-28",
+      endDate: "2026-07-30",
+      durationDays: 3,
       targetTicker: null,
       triggerProbabilityPct: 100,
       triggerMode: "scheduled",
     });
 
-    if (!tomorrow.activeEvent) return;
-    const firstEligibleDay = getMajorEventCycleStatus(
-      shiftDay(tomorrow.activeEvent.startDate, tomorrow.activeEvent.durationDays),
-      fictionalCompanies,
-    );
+    const finalDay = getMajorEventCycleStatus("2026-07-30", fictionalCompanies);
+    expect(finalDay.activeEvent?.eventKey).toBe(current.activeEvent?.eventKey);
+
+    const firstEligibleDay = getMajorEventCycleStatus("2026-07-31", fictionalCompanies);
     expect(firstEligibleDay.evaluatedProbabilityPct).toBe(1);
     expect(firstEligibleDay.probabilityPct).toBeLessThanOrEqual(1);
   });

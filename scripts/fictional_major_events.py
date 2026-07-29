@@ -25,6 +25,17 @@ ONE_TIME_EVENTS_BY_DATE = {event["start_date"]: event for event in ONE_TIME_EVEN
 for scheduled_event in ONE_TIME_EVENTS:
     if scheduled_event["definitionId"] not in DEFINITIONS_BY_ID:
         raise ValueError(f"Unknown one-time major event definition: {scheduled_event['definitionId']}")
+    duration_days = scheduled_event.get("durationDays")
+    if duration_days is not None and (
+        type(duration_days) is not int
+        or duration_days < CYCLE["minDurationDays"]
+        or duration_days > CYCLE["maxDurationDays"]
+    ):
+        raise ValueError(
+            "One-time major event duration must be an integer from "
+            f"{CYCLE['minDurationDays']} to {CYCLE['maxDurationDays']} days: "
+            f"{scheduled_event['definitionId']}"
+        )
 
 RISK_SENSITIVITY = {
     "Low": 0.78,
@@ -68,10 +79,11 @@ def _build_cycle_event(
     start_date: date,
     trigger_probability_pct: float,
     namespace: str = "cycle",
+    duration_days_override: int | None = None,
 ) -> dict:
     day_key = start_date.isoformat()
     event_key = f"major:{namespace}:{day_key}:{definition['id']}"
-    requested_duration_days = integer_from_seed(
+    requested_duration_days = duration_days_override or integer_from_seed(
         f"{event_key}:duration",
         CYCLE["minDurationDays"],
         CYCLE["maxDurationDays"],
@@ -152,6 +164,7 @@ def _ensure_cycle_through(target_date: date) -> dict:
                 market_date,
                 100,
                 "scheduled",
+                one_time_event.get("durationDays"),
             )
             _simulated_probability = 0
         else:

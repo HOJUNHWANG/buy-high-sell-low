@@ -1,16 +1,17 @@
 {
-  "version": 3,
+  "version": 4,
   "cycle": {
     "anchorDate": "2000-01-01",
     "dailyProbabilityIncrementPct": 1,
     "minDurationDays": 3,
-    "maxDurationDays": 30,
+    "maxDurationDays": 7,
     "cumulativeImpactCapPct": 40
   },
   "oneTimeEvents": [
     {
       "startDate": "2026-07-28",
       "definitionId": "quantum-cyberattack",
+      "durationDays": 3,
       "truncatePreviousEvent": true
     }
   ],

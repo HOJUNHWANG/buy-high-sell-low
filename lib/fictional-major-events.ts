@@ -29,6 +29,7 @@ type MajorEventConfig = {
   oneTimeEvents: Array<{
     startDate: string;
     definitionId: string;
+    durationDays?: number;
     truncatePreviousEvent: boolean;
   }>;
   events: MajorEventDefinition[];
@@ -158,6 +159,18 @@ for (const event of oneTimeEvents) {
   if (!definitionsById.has(event.definitionId)) {
     throw new Error(`Unknown one-time major event definition: ${event.definitionId}`);
   }
+  if (
+    event.durationDays != null
+    && (
+      !Number.isInteger(event.durationDays)
+      || event.durationDays < config.cycle.minDurationDays
+      || event.durationDays > config.cycle.maxDurationDays
+    )
+  ) {
+    throw new Error(
+      `One-time major event duration must be an integer from ${config.cycle.minDurationDays} to ${config.cycle.maxDurationDays} days: ${event.definitionId}`,
+    );
+  }
 }
 
 const riskSensitivity: Record<FictionalRisk, number> = {
@@ -242,9 +255,10 @@ function buildCycleEvent(
   startDate: string,
   triggerProbabilityPct: number,
   namespace = "cycle",
+  durationDaysOverride?: number,
 ) {
   const eventKey = `major:${namespace}:${startDate}:${definition.id}`;
-  const requestedDurationDays = integerFromSeed(
+  const requestedDurationDays = durationDaysOverride ?? integerFromSeed(
     `${eventKey}:duration`,
     config.cycle.minDurationDays,
     config.cycle.maxDurationDays,
@@ -311,7 +325,13 @@ function ensureCycleSimulatedThrough(targetDate: string) {
       if (!definition) throw new Error(`Unknown one-time major event definition: ${oneTimeEvent.definitionId}`);
       evaluatedProbabilityPct = 100;
       rollPct = null;
-      simulatedActiveEvent = buildCycleEvent(definition, marketDate, 100, "scheduled");
+      simulatedActiveEvent = buildCycleEvent(
+        definition,
+        marketDate,
+        100,
+        "scheduled",
+        oneTimeEvent.durationDays,
+      );
       simulatedProbabilityPct = 0;
     } else {
       evaluatedProbabilityPct = clamp(
