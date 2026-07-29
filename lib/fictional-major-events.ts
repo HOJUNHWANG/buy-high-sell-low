@@ -42,6 +42,7 @@ type InternalCycleEvent = {
   durationDays: number;
   targetIndex: number;
   triggerProbabilityPct: number;
+  triggerMode: "random" | "scheduled";
 };
 
 type InternalCycleState = {
@@ -88,6 +89,13 @@ export type MajorEventImpact = {
   primaryEvent: ActiveMajorEvent | null;
 };
 
+export type AffectedMajorEventStock = {
+  ticker: string;
+  name: string;
+  price: number | null;
+  changePct: number | null;
+};
+
 export type MarketMajorEventSummary = {
   eventKey: string;
   category: string;
@@ -106,12 +114,12 @@ export type MarketMajorEventSummary = {
   largestMovePct: number;
   largestCumulativeImpactPct: number;
   cumulativeImpactCapPct: number;
-  affectedStocks: Array<{
-    ticker: string;
-    name: string;
-    price: number | null;
-    changePct: number | null;
-  }>;
+  affectedStocks: AffectedMajorEventStock[];
+  topGainers: AffectedMajorEventStock[];
+  topDecliners: AffectedMajorEventStock[];
+  gainingCompanies: number;
+  decliningCompanies: number;
+  unchangedCompanies: number;
 };
 
 export type MajorEventCycleStatus = {
@@ -135,6 +143,7 @@ export type MajorEventCycleStatus = {
     durationDays: number;
     targetTicker: string | null;
     triggerProbabilityPct: number;
+    triggerMode: "random" | "scheduled";
   } | null;
 };
 
@@ -256,6 +265,7 @@ function buildCycleEvent(
     durationDays: daysBetween(startDate, endDate) + 1,
     targetIndex: hashString(`${eventKey}:target`),
     triggerProbabilityPct,
+    triggerMode: namespace === "scheduled" ? "scheduled" : "random",
   } satisfies InternalCycleEvent;
 }
 
@@ -469,6 +479,7 @@ export function getMajorEventCycleStatus(
           durationDays: internalEvent.durationDays,
           targetTicker,
           triggerProbabilityPct: internalEvent.triggerProbabilityPct,
+          triggerMode: internalEvent.triggerMode,
         }
       : null,
   };
@@ -554,18 +565,42 @@ export function getActiveMajorMarketEvents(
         largestCumulativeImpactPct: event.cumulativeImpactPct,
         cumulativeImpactCapPct: event.cumulativeImpactCapPct,
         affectedStocks: [affectedStock],
+        topGainers: [],
+        topDecliners: [],
+        gainingCompanies: 0,
+        decliningCompanies: 0,
+        unchangedCompanies: 0,
       });
     }
   }
 
-  return [...summaries.values()].map((summary) => ({
-    ...summary,
-    affectedStocks: summary.affectedStocks.sort((left, right) => {
+  return [...summaries.values()].map((summary) => {
+    const affectedStocks = summary.affectedStocks.sort((left, right) => {
       const changeDifference = (right.changePct ?? Number.NEGATIVE_INFINITY)
         - (left.changePct ?? Number.NEGATIVE_INFINITY);
       return changeDifference || left.ticker.localeCompare(right.ticker);
-    }),
-  }));
+    });
+    const topGainers = affectedStocks
+      .filter((stock) => (stock.changePct ?? 0) > 0)
+      .slice(0, 5);
+    const topDecliners = affectedStocks
+      .filter((stock) => (stock.changePct ?? 0) < 0)
+      .sort((left, right) => (
+        (left.changePct ?? 0) - (right.changePct ?? 0)
+        || left.ticker.localeCompare(right.ticker)
+      ))
+      .slice(0, 5);
+
+    return {
+      ...summary,
+      affectedStocks,
+      topGainers,
+      topDecliners,
+      gainingCompanies: affectedStocks.filter((stock) => (stock.changePct ?? 0) > 0).length,
+      decliningCompanies: affectedStocks.filter((stock) => (stock.changePct ?? 0) < 0).length,
+      unchangedCompanies: affectedStocks.filter((stock) => stock.changePct == null || stock.changePct === 0).length,
+    };
+  });
 }
 
 export const majorEventCatalogStats = {

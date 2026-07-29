@@ -74,6 +74,10 @@ describe("fictional market engine", () => {
       const day = shiftDay(firstDay, offset);
       const status = getMajorEventCycleStatus(day, fictionalCompanies);
       if (status.activeEvent?.startDate === day) starts.push(status.activeEvent);
+      if (status.activeEvent?.startDate === day && status.activeEvent.triggerMode === "random") {
+        expect(status.rollPct).not.toBeNull();
+        expect(status.rollPct ?? 100).toBeLessThan(status.evaluatedProbabilityPct);
+      }
       if (status.isActive) {
         expect(status.probabilityPct).toBe(0);
         expect(status.accumulationPaused).toBe(true);
@@ -82,6 +86,7 @@ describe("fictional market engine", () => {
 
     expect(starts.length).toBeGreaterThan(70);
     expect(starts.length).toBeLessThan(180);
+    expect(starts.some((event) => event.triggerMode === "random" && event.triggerProbabilityPct < 100)).toBe(true);
     expect(new Set(starts.map((event) => event.durationDays)).size).toBeGreaterThan(1);
     expect(starts.every((event) => event.durationDays >= 3 && event.durationDays <= 30)).toBe(true);
 
@@ -110,6 +115,7 @@ describe("fictional market engine", () => {
       startDate: "2026-07-28",
       targetTicker: null,
       triggerProbabilityPct: 100,
+      triggerMode: "scheduled",
     });
 
     if (!tomorrow.activeEvent) return;
@@ -121,9 +127,9 @@ describe("fictional market engine", () => {
     expect(firstEligibleDay.probabilityPct).toBeLessThanOrEqual(1);
   });
 
-  it("ranks every affected stock from the largest gain to the largest decline", () => {
-    const changes = [-2.5, 4.25, 0.4];
-    const pricedCompanies = fictionalCompanies.slice(0, 3).map((company, index) => ({
+  it("shows at most five gainers and decliners without padding smaller groups", () => {
+    const changes = [12, 8, 4, 2, 1, 0.5, 0, -0.2, -1, -2, -3, -4, -8];
+    const pricedCompanies = fictionalCompanies.slice(0, changes.length).map((company, index) => ({
       ...company,
       price: 100 + index,
       changePct: changes[index],
@@ -131,7 +137,22 @@ describe("fictional market engine", () => {
     const event = getActiveMajorMarketEvents(pricedCompanies, "2026-07-28")[0];
 
     expect(event).toBeDefined();
-    expect(event.affectedStocks.map((stock) => stock.changePct)).toEqual([4.25, 0.4, -2.5]);
+    expect(event.topGainers.map((stock) => stock.changePct)).toEqual([12, 8, 4, 2, 1]);
+    expect(event.topDecliners.map((stock) => stock.changePct)).toEqual([-8, -4, -3, -2, -1]);
+    expect([event.gainingCompanies, event.decliningCompanies, event.unchangedCompanies]).toEqual([6, 6, 1]);
+
+    const smallChanges = [2, -1, 0];
+    const smallGroup = getActiveMajorMarketEvents(
+      fictionalCompanies.slice(0, 3).map((company, index) => ({
+        ...company,
+        price: 100 + index,
+        changePct: smallChanges[index],
+      })),
+      "2026-07-28",
+    )[0];
+    expect(smallGroup.topGainers).toHaveLength(1);
+    expect(smallGroup.topDecliners).toHaveLength(1);
+    expect(smallGroup.unchangedCompanies).toBe(1);
   });
 
   it("varies the daily shock while keeping compounded event impact inside ±40%", () => {

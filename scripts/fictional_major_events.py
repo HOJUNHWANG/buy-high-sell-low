@@ -101,6 +101,7 @@ def _build_cycle_event(
         "duration_days": (end_date - start_date).days + 1,
         "target_index": hash_string(f"{event_key}:target"),
         "trigger_probability_pct": trigger_probability_pct,
+        "trigger_mode": "scheduled" if namespace == "scheduled" else "random",
     }
 
 

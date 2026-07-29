@@ -14,6 +14,7 @@ import {
   getActiveMajorMarketEvents,
   getMajorEventCycleStatus,
   majorEventCatalogStats,
+  type AffectedMajorEventStock,
   type MajorEventCycleStatus,
   type MarketMajorEventSummary,
 } from "@/lib/fictional-major-events";
@@ -107,6 +108,61 @@ function VenuePerformanceCard({
   );
 }
 
+function EventStockLeaders({
+  title,
+  stocks,
+  tone,
+}: {
+  title: string;
+  stocks: AffectedMajorEventStock[];
+  tone: "up" | "down";
+}) {
+  const color = tone === "up" ? "var(--up)" : "var(--down)";
+  const emptyLabel = tone === "up"
+    ? "No affected stocks are up in this update."
+    : "No affected stocks are down in this update.";
+
+  return (
+    <section className="overflow-hidden rounded-lg" style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
+      <div className="flex items-center justify-between gap-2 px-3 py-2.5" style={{ borderBottom: "1px solid var(--border)" }}>
+        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color }}>{title}</p>
+        <span
+          className="text-[9px] font-semibold"
+          style={{ color: "var(--text-3)" }}
+          aria-label={stocks.length ? `${stocks.length} shown` : "No stocks"}
+        >
+          {stocks.length || "—"}
+        </span>
+      </div>
+      {stocks.length ? (
+        <div className="divide-y" style={{ borderColor: "var(--border)" }}>
+          {stocks.map((stock, index) => (
+            <Link
+              key={stock.ticker}
+              href={`/fictional-market/${stock.ticker}`}
+              className="grid grid-cols-[1.5rem_minmax(0,1fr)_auto] sm:grid-cols-[1.5rem_minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-2.5 transition-colors hover:bg-white/[0.025]"
+            >
+              <span className="text-[10px] font-semibold tabular-nums" style={{ color: "var(--text-3)" }}>{index + 1}</span>
+              <span className="min-w-0">
+                <span className="block text-[11px] font-semibold truncate" style={{ color: "var(--text)" }}>{stock.ticker}</span>
+                <span className="block text-[9px] truncate mt-0.5" style={{ color: "var(--text-3)" }}>{stock.name}</span>
+              </span>
+              <span className="hidden sm:block text-[10px] tabular-nums text-right" style={{ color: "var(--text-2)" }}>
+                {stock.price == null ? "—" : `$${stock.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              </span>
+              <span className="text-[11px] font-bold tabular-nums text-right" style={{ color }}>
+                {stock.changePct == null ? "—" : `${stock.changePct >= 0 ? "+" : ""}${stock.changePct.toFixed(2)}%`}
+              </span>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <p className="px-3 py-5 text-[10px] text-center" style={{ color: "var(--text-3)" }}>{emptyLabel}</p>
+      )}
+    </section>
+  );
+}
+
 function MajorEventAlert({ events }: { events: MarketMajorEventSummary[] }) {
   return (
     <section
@@ -180,48 +236,28 @@ function MajorEventAlert({ events }: { events: MarketMajorEventSummary[] }) {
               </div>
 
               <div className="mt-4 overflow-hidden rounded-lg" style={{ border: "1px solid var(--border)", background: "var(--surface-2)" }}>
-                <div className="flex items-center justify-between gap-3 px-3 py-2.5" style={{ borderBottom: "1px solid var(--border)" }}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2.5" style={{ borderBottom: "1px solid var(--border)" }}>
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--text-2)" }}>
                       Affected stocks
                     </p>
                     <p className="text-[9px] mt-0.5" style={{ color: "var(--text-3)" }}>
-                      Highest gainer to largest decliner
+                      Up to five leaders and laggards from the latest price update
                     </p>
                   </div>
-                  <span className="badge badge-muted">30 min refresh</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="badge badge-up">{event.gainingCompanies} up</span>
+                    <span className="badge badge-down">{event.decliningCompanies} down</span>
+                    {event.unchangedCompanies > 0 && <span className="badge badge-muted">{event.unchangedCompanies} flat</span>}
+                    <span className="badge badge-muted">30 min refresh</span>
+                  </div>
                 </div>
                 <div
-                  className="max-h-[28rem] overflow-y-auto divide-y"
-                  style={{ borderColor: "var(--border)" }}
-                  aria-label={`${event.title} affected stocks ranked by daily change`}
+                  className={`grid ${event.affectedCompanies > 5 ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-2"} gap-2 p-2`}
+                  aria-label={`${event.title} affected stock leaders and laggards`}
                 >
-                  {event.affectedStocks.map((stock, index) => {
-                    const changeColor = stock.changePct == null
-                      ? "var(--text-3)"
-                      : stock.changePct >= 0 ? "var(--up)" : "var(--down)";
-                    return (
-                      <Link
-                        key={stock.ticker}
-                        href={`/fictional-market/${stock.ticker}`}
-                        className="grid grid-cols-[1.75rem_minmax(0,1fr)_auto] sm:grid-cols-[1.75rem_minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-2.5 transition-colors hover:bg-white/[0.025]"
-                      >
-                        <span className="text-[10px] font-semibold tabular-nums" style={{ color: "var(--text-3)" }}>
-                          {index + 1}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block text-[11px] font-semibold truncate" style={{ color: "var(--text)" }}>{stock.ticker}</span>
-                          <span className="block text-[9px] truncate mt-0.5" style={{ color: "var(--text-3)" }}>{stock.name}</span>
-                        </span>
-                        <span className="hidden sm:block text-[10px] tabular-nums text-right" style={{ color: "var(--text-2)" }}>
-                          {stock.price == null ? "—" : `$${stock.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                        </span>
-                        <span className="text-[11px] font-bold tabular-nums text-right" style={{ color: changeColor }}>
-                          {stock.changePct == null ? "—" : `${stock.changePct >= 0 ? "+" : ""}${stock.changePct.toFixed(2)}%`}
-                        </span>
-                      </Link>
-                    );
-                  })}
+                  <EventStockLeaders title="Top gainers" stocks={event.topGainers} tone="up" />
+                  <EventStockLeaders title="Top decliners" stocks={event.topDecliners} tone="down" />
                 </div>
               </div>
             </article>
@@ -235,8 +271,8 @@ function MajorEventAlert({ events }: { events: MarketMajorEventSummary[] }) {
 function AdminMajorEventStatus({ status }: { status: MajorEventCycleStatus }) {
   const probabilityLabel = status.isActive ? "0%" : `${status.probabilityPct.toFixed(0)}%`;
   const secondaryText = status.isActive
-    ? "Accumulation paused while the event is active"
-    : `Next midnight: ${status.nextProbabilityPct.toFixed(0)}% · ${status.nextEvaluationDate}`;
+    ? "Chance accumulation is paused. Normal midnight rolls resume after this event."
+    : `Next midnight: ${status.nextProbabilityPct.toFixed(0)}% chance · event starts if the roll is below ${status.nextProbabilityPct.toFixed(0)}`;
 
   return (
     <aside
@@ -256,10 +292,15 @@ function AdminMajorEventStatus({ status }: { status: MajorEventCycleStatus }) {
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] sm:text-right" style={{ color: "var(--text-3)" }}>
         {!status.isActive && status.rollPct != null && (
-          <span>Roll {status.rollPct.toFixed(2)} / trigger below {status.evaluatedProbabilityPct.toFixed(0)}</span>
+          <span>Today&apos;s roll {status.rollPct.toFixed(2)} · needed below {status.evaluatedProbabilityPct.toFixed(0)}</span>
         )}
-        {status.activeEvent && <span>Triggered at {status.activeEvent.triggerProbabilityPct.toFixed(0)}%</span>}
-        <span>+{majorEventCatalogStats.dailyProbabilityIncrementPct}%p/day</span>
+        {status.activeEvent?.triggerMode === "scheduled" && (
+          <span>One-time scheduled start · not a 100% threshold</span>
+        )}
+        {status.activeEvent?.triggerMode === "random" && (
+          <span>Started on a {status.activeEvent.triggerProbabilityPct.toFixed(0)}% daily chance</span>
+        )}
+        <span>Normal rule: +{majorEventCatalogStats.dailyProbabilityIncrementPct}%p/day, random roll at midnight</span>
       </div>
     </aside>
   );
