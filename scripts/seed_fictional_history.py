@@ -155,8 +155,12 @@ def daily_return(company: dict, day: date, companies: list[dict]) -> tuple[float
     major_event = major_event_impact(company, day, companies)
     raw = market * (0.7 + company["influence"] / 210) + sector + company_pulse * company["volatility"] * 0.18 + event + drift
     base_max_move = 12 if company["risk"] == "Existential" else 9 if company["risk"] == "Extreme" else 6
-    max_move = min(18, base_max_move + 6) if major_event["primary_event"] else base_max_move
-    routine_damping = 0.35 if major_event["primary_event"] else 1
+    max_move = (
+        min(18, base_max_move + 6)
+        if major_event["primary_event"]
+        else min(15, base_max_move + 2) if major_event["aftermath"] else base_max_move
+    )
+    routine_damping = 0.35 if major_event["primary_event"] else 0.68 if major_event["aftermath"] else 1
     modeled_return = raw * risk_multiplier(company["risk"]) * routine_damping + major_event["impact_pct"]
     return max(-max_move, min(max_move, modeled_return)), major_event
 

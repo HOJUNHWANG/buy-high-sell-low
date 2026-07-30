@@ -13,10 +13,12 @@ import { FictionalMarketAutoRefresh } from "@/components/FictionalMarketAutoRefr
 import {
   getActiveMajorMarketEvents,
   getMajorEventCycleStatus,
+  getMostRecentMajorMarketEvent,
   majorEventCatalogStats,
   type AffectedMajorEventStock,
   type MajorEventCycleStatus,
   type MarketMajorEventSummary,
+  type RecentMajorMarketEventSummary,
 } from "@/lib/fictional-major-events";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -112,15 +114,17 @@ function EventStockLeaders({
   title,
   stocks,
   tone,
+  emptyLabel,
 }: {
   title: string;
   stocks: AffectedMajorEventStock[];
   tone: "up" | "down";
+  emptyLabel?: string;
 }) {
   const color = tone === "up" ? "var(--up)" : "var(--down)";
-  const emptyLabel = tone === "up"
+  const resolvedEmptyLabel = emptyLabel ?? (tone === "up"
     ? "No affected stocks are up in this update."
-    : "No affected stocks are down in this update.";
+    : "No affected stocks are down in this update.");
 
   return (
     <section className="overflow-hidden rounded-lg" style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
@@ -157,7 +161,7 @@ function EventStockLeaders({
           ))}
         </div>
       ) : (
-        <p className="px-3 py-5 text-[10px] text-center" style={{ color: "var(--text-3)" }}>{emptyLabel}</p>
+        <p className="px-3 py-5 text-[10px] text-center" style={{ color: "var(--text-3)" }}>{resolvedEmptyLabel}</p>
       )}
     </section>
   );
@@ -264,6 +268,92 @@ function MajorEventAlert({ events }: { events: MarketMajorEventSummary[] }) {
           );
         })}
       </div>
+    </section>
+  );
+}
+
+function RecentMajorEventAlert({ event }: { event: RecentMajorMarketEventSummary | null }) {
+  const timing = event?.daysSinceEnd === 0
+    ? "Ended today"
+    : event?.daysSinceEnd === 1
+      ? "Ended 1 day ago"
+      : event
+        ? `Ended ${event.daysSinceEnd} days ago`
+        : "No completed event yet";
+
+  return (
+    <section
+      className="mb-5 overflow-hidden rounded-xl"
+      style={{
+        border: "1px solid rgba(124,108,252,0.42)",
+        background: "linear-gradient(135deg, rgba(76,65,160,0.16), rgba(124,108,252,0.035) 58%, var(--surface))",
+        boxShadow: "0 12px 40px rgba(76,65,160,0.09)",
+      }}
+      aria-label="Most recent major market event"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-5 py-3" style={{ borderBottom: "1px solid rgba(124,108,252,0.2)" }}>
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex w-2.5 h-2.5 shrink-0 rounded-full" style={{ background: "var(--accent)" }} />
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: "var(--accent)" }}>
+              Most recent major event
+            </p>
+            <p className="text-[10px] mt-0.5" style={{ color: "var(--text-3)" }}>
+              {timing} · rankings preserve the event&apos;s full cumulative impact.
+            </p>
+          </div>
+        </div>
+        <span className="badge badge-muted shrink-0 self-start sm:self-auto">Historical event snapshot</span>
+      </div>
+
+      {event ? (
+        <article className="p-4 sm:p-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="badge badge-muted">{event.category}</span>
+            <span className="badge badge-muted">{event.scope === "world" ? "Market-wide" : event.targetTicker}</span>
+            <span className="badge badge-muted">{timing}</span>
+          </div>
+
+          <h2 className="text-lg font-bold mt-3" style={{ color: "var(--text)" }}>{event.title}</h2>
+          <p className="text-xs leading-relaxed mt-1.5" style={{ color: "var(--text-2)" }}>{event.headline}</p>
+
+          <div className="flex flex-wrap items-center gap-1.5 mt-3">
+            <span className="badge badge-up">{event.gainingCompanies} gained</span>
+            <span className="badge badge-down">{event.decliningCompanies} declined</span>
+            {event.unchangedCompanies > 0 && <span className="badge badge-muted">{event.unchangedCompanies} flat</span>}
+            <span className="badge badge-muted">{event.affectedCompanies} affected</span>
+          </div>
+
+          <div className="mt-4 overflow-hidden rounded-lg" style={{ border: "1px solid var(--border)", background: "var(--surface-2)" }}>
+            <div className="px-3 py-2.5" style={{ borderBottom: "1px solid var(--border)" }}>
+              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--text-2)" }}>
+                Full-event leaders and laggards
+              </p>
+              <p className="text-[9px] mt-0.5" style={{ color: "var(--text-3)" }}>
+                Top five cumulative moves from event start through its final update
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2" aria-label={`${event.title} completed-event leaders and laggards`}>
+              <EventStockLeaders
+                title="Top 5 gainers"
+                stocks={event.topGainers}
+                tone="up"
+                emptyLabel="No stocks finished this event higher."
+              />
+              <EventStockLeaders
+                title="Top 5 decliners"
+                stocks={event.topDecliners}
+                tone="down"
+                emptyLabel="No stocks finished this event lower."
+              />
+            </div>
+          </div>
+        </article>
+      ) : (
+        <p className="px-5 py-6 text-xs" style={{ color: "var(--text-3)" }}>
+          The first completed major event will remain here with its top five gainers and decliners.
+        </p>
+      )}
     </section>
   );
 }
@@ -452,6 +542,9 @@ export default async function FictionalMarketPage() {
   ]);
   const majorEvents = getActiveMajorMarketEvents(rows);
   const majorEventCycleStatus = getMajorEventCycleStatus(new Date(), rows);
+  const recentMajorEvent = majorEvents.length === 0
+    ? getMostRecentMajorMarketEvent(rows)
+    : null;
   const apexConstituents = [...rows].sort((a, b) => b.marketCap - a.marketCap).slice(0, 50);
   const novaConstituents = rows
     .filter((row) => ["Artificial Intelligence", "Biotech", "Cybernetics", "Space"].includes(row.sector))
@@ -503,7 +596,9 @@ export default async function FictionalMarketPage() {
     <div className="max-w-7xl mx-auto px-5 py-8">
       <FictionalMarketAutoRefresh />
       {isAdmin && <AdminMajorEventStatus status={majorEventCycleStatus} />}
-      {majorEvents.length > 0 && <MajorEventAlert events={majorEvents} />}
+      {majorEvents.length > 0
+        ? <MajorEventAlert events={majorEvents} />
+        : <RecentMajorEventAlert event={recentMajorEvent} />}
 
       <div className="flex flex-col gap-5 mb-7">
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">

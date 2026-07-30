@@ -88,6 +88,23 @@ export type MajorEventImpact = {
   volumeMultiplier: number;
   activeEvents: ActiveMajorEvent[];
   primaryEvent: ActiveMajorEvent | null;
+  aftermath: MajorEventAftermath | null;
+};
+
+export type MajorEventAftermath = {
+  eventKey: string;
+  ticker: string;
+  definitionId: string;
+  category: string;
+  title: string;
+  reaction: "profit-taking" | "dip-buying";
+  rank: number;
+  sourceEndDate: string;
+  sourceCumulativeImpactPct: number;
+  impactPct: number;
+  volatilityBoost: number;
+  volumeMultiplier: number;
+  headline: string;
 };
 
 export type AffectedMajorEventStock = {
@@ -116,6 +133,25 @@ export type MarketMajorEventSummary = {
   largestCumulativeImpactPct: number;
   cumulativeImpactCapPct: number;
   affectedStocks: AffectedMajorEventStock[];
+  topGainers: AffectedMajorEventStock[];
+  topDecliners: AffectedMajorEventStock[];
+  gainingCompanies: number;
+  decliningCompanies: number;
+  unchangedCompanies: number;
+};
+
+export type RecentMajorMarketEventSummary = {
+  eventKey: string;
+  definitionId: string;
+  category: string;
+  title: string;
+  headline: string;
+  scope: MajorEventScope;
+  targetTicker: string | null;
+  endDate: string;
+  daysSinceEnd: number;
+  affectedCompanies: number;
+  affectedSectors: FictionalSector[];
   topGainers: AffectedMajorEventStock[];
   topDecliners: AffectedMajorEventStock[];
   gainingCompanies: number;
@@ -182,6 +218,11 @@ const riskSensitivity: Record<FictionalRisk, number> = {
 };
 
 const cycleStateCache = new Map<string, InternalCycleState>();
+const aftermathRankingCache = new Map<string, Map<string, {
+  reaction: MajorEventAftermath["reaction"];
+  rank: number;
+  cumulativeImpactPct: number;
+}>>();
 let simulatedThrough = shiftDate(config.cycle.anchorDate, -1);
 let simulatedProbabilityPct = 0;
 let simulatedActiveEvent: InternalCycleEvent | null = null;
@@ -425,6 +466,62 @@ function cappedImpactPath(
   };
 }
 
+function aftermathRankings(
+  definition: MajorEventDefinition,
+  event: InternalCycleEvent,
+  companies: FictionalCompany[],
+) {
+  const universeKey = companies.map((company) => company.ticker).sort((a, b) => a.localeCompare(b)).join(",");
+  const cacheKey = `${event.eventKey}:${universeKey}`;
+  const cached = aftermathRankingCache.get(cacheKey);
+  if (cached) return cached;
+
+  const targetTicker = eventTargetTicker(event, companies);
+  const impacts = companies
+    .filter((company) => definition.scope === "world" || company.ticker === targetTicker)
+    .map((company) => ({
+      ticker: company.ticker,
+      cumulativeImpactPct: cappedImpactPath(
+        definition,
+        event,
+        company,
+        event.durationDays - 1,
+      ).cumulativeImpactPct,
+    }));
+  const gainers = impacts
+    .filter((impact) => impact.cumulativeImpactPct > 0)
+    .sort((left, right) => (
+      right.cumulativeImpactPct - left.cumulativeImpactPct
+      || left.ticker.localeCompare(right.ticker)
+    ))
+    .slice(0, 10);
+  const decliners = impacts
+    .filter((impact) => impact.cumulativeImpactPct < 0)
+    .sort((left, right) => (
+      left.cumulativeImpactPct - right.cumulativeImpactPct
+      || left.ticker.localeCompare(right.ticker)
+    ))
+    .slice(0, 10);
+  const rankings = new Map<string, {
+    reaction: MajorEventAftermath["reaction"];
+    rank: number;
+    cumulativeImpactPct: number;
+  }>();
+
+  gainers.forEach((impact, index) => rankings.set(impact.ticker, {
+    reaction: "profit-taking",
+    rank: index + 1,
+    cumulativeImpactPct: impact.cumulativeImpactPct,
+  }));
+  decliners.forEach((impact, index) => rankings.set(impact.ticker, {
+    reaction: "dip-buying",
+    rank: index + 1,
+    cumulativeImpactPct: impact.cumulativeImpactPct,
+  }));
+  aftermathRankingCache.set(cacheKey, rankings);
+  return rankings;
+}
+
 function buildActiveEvent(
   definition: MajorEventDefinition,
   event: InternalCycleEvent,
@@ -446,7 +543,7 @@ function buildActiveEvent(
     scope: definition.scope,
     category: definition.category,
     title: definition.title,
-    headline: `[MAJOR EVENT · ${definition.category} · Day ${dayNumber}/${event.durationDays}] ${baseHeadline}`,
+    headline: `[MAJOR EVENT · ${definition.category}] ${baseHeadline}`,
     startDate: event.startDate,
     endDate: event.endDate,
     durationDays: event.durationDays,
@@ -521,6 +618,70 @@ export function getActiveMajorEvents(
   return event ? [event] : [];
 }
 
+function mostRecentEndedCycleEvent(state: InternalCycleState | null) {
+  if (!state?.lastEventEndDate) return null;
+  const endedEvent = cycleStateCache.get(state.lastEventEndDate)?.activeEvent ?? null;
+  return endedEvent?.endDate === state.lastEventEndDate ? endedEvent : null;
+}
+
+export function getMajorEventAftermath(
+  company: FictionalCompany,
+  date: Date | string = new Date(),
+  companies: FictionalCompany[] = [company],
+): MajorEventAftermath | null {
+  const currentDate = marketDateKey(date);
+  const state = ensureCycleSimulatedThrough(currentDate);
+  if (!state || state.activeEvent || !state.lastEventEndDate) return null;
+
+  const endedEvent = mostRecentEndedCycleEvent(state);
+  if (!endedEvent) return null;
+  const daysSinceEnd = daysBetween(endedEvent.endDate, currentDate);
+  const durationDays = integerFromSeed(`${endedEvent.eventKey}:aftermath-duration`, 2, 4);
+  if (daysSinceEnd < 1 || daysSinceEnd > durationDays) return null;
+
+  const definition = definitionsById.get(endedEvent.definitionId);
+  if (!definition) return null;
+  const ranking = aftermathRankings(definition, endedEvent, companies).get(company.ticker);
+  if (!ranking) return null;
+
+  const elapsedDay = daysSinceEnd - 1;
+  const decayWeights = Array.from({ length: durationDays }, (_, index) => Math.exp(-0.62 * index));
+  const normalizedDayWeight = decayWeights[elapsedDay] / decayWeights.reduce((sum, weight) => sum + weight, 0);
+  const rankWeight = 1 - (ranking.rank - 1) * 0.025;
+  const volatilityMidpoint = (definition.volatility[0] + definition.volatility[1]) / 2;
+  const eventIntensity = clamp(0.84 + volatilityMidpoint * 0.11, 0.9, 1.08);
+  const reversalFraction = seededNoise(
+    `${endedEvent.eventKey}:${company.ticker}:aftermath-fraction`,
+    ranking.reaction === "dip-buying" ? 0.16 : 0.12,
+    ranking.reaction === "dip-buying" ? 0.3 : 0.24,
+  ) * eventIntensity;
+  const magnitude = clamp(
+    Math.abs(ranking.cumulativeImpactPct) * reversalFraction * rankWeight * normalizedDayWeight,
+    0,
+    5,
+  );
+  const impactPct = round(ranking.reaction === "dip-buying" ? magnitude : -magnitude);
+  const headline = ranking.reaction === "dip-buying"
+    ? `${company.name} rebounded as dip buyers returned after ${definition.title}.`
+    : `${company.name} eased as investors took profits after ${definition.title}.`;
+
+  return {
+    eventKey: endedEvent.eventKey,
+    ticker: company.ticker,
+    definitionId: definition.id,
+    category: definition.category,
+    title: definition.title,
+    reaction: ranking.reaction,
+    rank: ranking.rank,
+    sourceEndDate: endedEvent.endDate,
+    sourceCumulativeImpactPct: ranking.cumulativeImpactPct,
+    impactPct,
+    volatilityBoost: round(clamp(0.12 + magnitude * 0.2, 0.12, 1)),
+    volumeMultiplier: round(clamp(1.05 + magnitude / 7, 1.05, 1.8), 3),
+    headline,
+  };
+}
+
 export function getMajorEventImpact(
   company: FictionalCompany,
   date: Date | string = new Date(),
@@ -528,13 +689,15 @@ export function getMajorEventImpact(
 ): MajorEventImpact {
   const activeEvents = getActiveMajorEvents(company, date, companies);
   const primaryEvent = activeEvents[0] ?? null;
+  const aftermath = primaryEvent ? null : getMajorEventAftermath(company, date, companies);
   return {
-    impactPct: primaryEvent?.currentImpactPct ?? 0,
-    cumulativeImpactPct: primaryEvent?.cumulativeImpactPct ?? 0,
-    volatilityBoost: primaryEvent?.volatilityBoost ?? 0,
-    volumeMultiplier: primaryEvent?.volumeMultiplier ?? 1,
+    impactPct: primaryEvent?.currentImpactPct ?? aftermath?.impactPct ?? 0,
+    cumulativeImpactPct: primaryEvent?.cumulativeImpactPct ?? aftermath?.sourceCumulativeImpactPct ?? 0,
+    volatilityBoost: primaryEvent?.volatilityBoost ?? aftermath?.volatilityBoost ?? 0,
+    volumeMultiplier: primaryEvent?.volumeMultiplier ?? aftermath?.volumeMultiplier ?? 1,
     activeEvents,
     primaryEvent,
+    aftermath,
   };
 }
 
@@ -621,6 +784,78 @@ export function getActiveMajorMarketEvents(
       unchangedCompanies: affectedStocks.filter((stock) => stock.changePct == null || stock.changePct === 0).length,
     };
   });
+}
+
+export function getMostRecentMajorMarketEvent(
+  companies: PricedFictionalCompany[],
+  date: Date | string = new Date(),
+): RecentMajorMarketEventSummary | null {
+  const currentDate = marketDateKey(date);
+  const state = ensureCycleSimulatedThrough(currentDate);
+  const endedEvent = mostRecentEndedCycleEvent(state);
+  if (!endedEvent) return null;
+  const definition = definitionsById.get(endedEvent.definitionId);
+  if (!definition) return null;
+
+  const targetTicker = eventTargetTicker(endedEvent, companies);
+  const affectedStocks = companies
+    .filter((company) => definition.scope === "world" || company.ticker === targetTicker)
+    .map((company) => ({
+      company,
+      stock: {
+        ticker: company.ticker,
+        name: company.name,
+        price: Number.isFinite(company.price) ? company.price ?? null : null,
+        changePct: cappedImpactPath(
+          definition,
+          endedEvent,
+          company,
+          endedEvent.durationDays - 1,
+        ).cumulativeImpactPct,
+      } satisfies AffectedMajorEventStock,
+    }));
+  const topGainers = affectedStocks
+    .map(({ stock }) => stock)
+    .filter((stock) => (stock.changePct ?? 0) > 0)
+    .sort((left, right) => (
+      (right.changePct ?? 0) - (left.changePct ?? 0)
+      || left.ticker.localeCompare(right.ticker)
+    ))
+    .slice(0, 5);
+  const topDecliners = affectedStocks
+    .map(({ stock }) => stock)
+    .filter((stock) => (stock.changePct ?? 0) < 0)
+    .sort((left, right) => (
+      (left.changePct ?? 0) - (right.changePct ?? 0)
+      || left.ticker.localeCompare(right.ticker)
+    ))
+    .slice(0, 5);
+  const targetCompany = targetTicker
+    ? companies.find((company) => company.ticker === targetTicker) ?? null
+    : null;
+  const baseHeadline = definition.headline.replaceAll(
+    "{company}",
+    targetCompany?.name ?? targetTicker ?? "The affected company",
+  );
+
+  return {
+    eventKey: endedEvent.eventKey,
+    definitionId: definition.id,
+    category: definition.category,
+    title: definition.title,
+    headline: baseHeadline,
+    scope: definition.scope,
+    targetTicker,
+    endDate: endedEvent.endDate,
+    daysSinceEnd: daysBetween(endedEvent.endDate, currentDate),
+    affectedCompanies: affectedStocks.length,
+    affectedSectors: [...new Set(affectedStocks.map(({ company }) => company.sector))],
+    topGainers,
+    topDecliners,
+    gainingCompanies: affectedStocks.filter(({ stock }) => (stock.changePct ?? 0) > 0).length,
+    decliningCompanies: affectedStocks.filter(({ stock }) => (stock.changePct ?? 0) < 0).length,
+    unchangedCompanies: affectedStocks.filter(({ stock }) => stock.changePct == null || stock.changePct === 0).length,
+  };
 }
 
 export const majorEventCatalogStats = {

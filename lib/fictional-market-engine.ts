@@ -137,12 +137,16 @@ function dailyTargetReturn(company: FictionalCompany, day: string) {
     ? eventDirection * seededNoise(`event-impact:${company.ticker}:${day}`, 0.85, company.volatility * 1.15 + 1.2)
     : 0;
   const majorEvent = getMajorEventImpact(company, day, fictionalCompanies);
-  const routineDamping = majorEvent.primaryEvent ? 0.35 : 1;
+  const routineDamping = majorEvent.primaryEvent ? 0.35 : majorEvent.aftermath ? 0.68 : 1;
   const routineReturn = (market * beta + sector + qualityDrift + companyPulse + eventImpact)
     * riskMultiplier[company.risk]
     * routineDamping;
   const baseMaxMove = company.risk === "Existential" ? 18 : company.risk === "Extreme" ? 13 : company.risk === "High" ? 9 : 6;
-  const maxMove = majorEvent.primaryEvent ? Math.min(18, baseMaxMove + 6) : baseMaxMove;
+  const maxMove = majorEvent.primaryEvent
+    ? Math.min(18, baseMaxMove + 6)
+    : majorEvent.aftermath
+      ? Math.min(15, baseMaxMove + 2)
+      : baseMaxMove;
 
   return {
     pct: clamp(routineReturn + majorEvent.impactPct, -maxMove, maxMove),
@@ -209,6 +213,7 @@ export function priceFictionalCompany({
       ? "material"
       : "routine";
   const primaryMajorEvent = majorEvent.primaryEvent;
+  const aftermath = majorEvent.aftermath;
 
   return {
     ticker: company.ticker,
@@ -229,8 +234,11 @@ export function priceFictionalCompany({
     },
     marketCap: Math.round(price * company.floatShares),
     event: {
-      eventKey: primaryMajorEvent?.eventKey ?? `routine:${marketDate}:${company.ticker}`,
-      headline: primaryMajorEvent?.headline ?? buildHeadline(company, marketDate, eventImpactPct || changePct),
+      eventKey: primaryMajorEvent?.eventKey
+        ?? (aftermath ? `aftermath:${aftermath.eventKey}:${marketDate}:${company.ticker}` : `routine:${marketDate}:${company.ticker}`),
+      headline: primaryMajorEvent?.headline
+        ?? aftermath?.headline
+        ?? buildHeadline(company, marketDate, eventImpactPct || changePct),
       impactPct: changePct,
       severity,
       isMajor: primaryMajorEvent != null,

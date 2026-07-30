@@ -4,7 +4,9 @@ import { priceFictionalCompany } from "@/lib/fictional-market-engine";
 import {
   getActiveMajorEvents,
   getActiveMajorMarketEvents,
+  getMajorEventAftermath,
   getMajorEventCycleStatus,
+  getMostRecentMajorMarketEvent,
   majorEventCatalogStats,
 } from "@/lib/fictional-major-events";
 
@@ -123,6 +125,107 @@ describe("fictional market engine", () => {
     const firstEligibleDay = getMajorEventCycleStatus("2026-07-31", fictionalCompanies);
     expect(firstEligibleDay.evaluatedProbabilityPct).toBe(1);
     expect(firstEligibleDay.probabilityPct).toBeLessThanOrEqual(1);
+  });
+
+  it("hides event duration from tape headlines", () => {
+    const company = fictionalCompanies.find((item) => item.ticker === "CHOAM") ?? fictionalCompanies[0];
+    const event = getActiveMajorEvents(company, "2026-07-30", fictionalCompanies)[0];
+
+    expect(event).toBeDefined();
+    expect(event?.headline).toContain("[MAJOR EVENT · Cyberattack]");
+    expect(event?.headline).not.toMatch(/Day\s+\d+\/\d+/i);
+  });
+
+  it("fades profit-taking and dip-buying across the event's top ten movers", () => {
+    const finalDayImpacts = fictionalCompanies.map((company) => ({
+      ticker: company.ticker,
+      cumulativeImpactPct: getActiveMajorEvents(company, "2026-07-30", fictionalCompanies)[0]
+        ?.cumulativeImpactPct ?? 0,
+    }));
+    const expectedProfitTakers = finalDayImpacts
+      .filter((impact) => impact.cumulativeImpactPct > 0)
+      .sort((left, right) => right.cumulativeImpactPct - left.cumulativeImpactPct || left.ticker.localeCompare(right.ticker))
+      .slice(0, 10)
+      .map((impact) => impact.ticker);
+    const expectedDipBuyers = finalDayImpacts
+      .filter((impact) => impact.cumulativeImpactPct < 0)
+      .sort((left, right) => left.cumulativeImpactPct - right.cumulativeImpactPct || left.ticker.localeCompare(right.ticker))
+      .slice(0, 10)
+      .map((impact) => impact.ticker);
+    const firstDayReactions = fictionalCompanies
+      .map((company) => getMajorEventAftermath(company, "2026-07-31", fictionalCompanies))
+      .filter((aftermath) => aftermath != null);
+    const profitTakers = firstDayReactions
+      .filter((aftermath) => aftermath.reaction === "profit-taking")
+      .sort((left, right) => left.rank - right.rank);
+    const dipBuyers = firstDayReactions
+      .filter((aftermath) => aftermath.reaction === "dip-buying")
+      .sort((left, right) => left.rank - right.rank);
+
+    expect(profitTakers.map((aftermath) => aftermath.ticker)).toEqual(expectedProfitTakers);
+    expect(dipBuyers.map((aftermath) => aftermath.ticker)).toEqual(expectedDipBuyers);
+    expect(profitTakers.every((aftermath) => aftermath.impactPct < 0 && aftermath.sourceCumulativeImpactPct > 0)).toBe(true);
+    expect(dipBuyers.every((aftermath) => aftermath.impactPct > 0 && aftermath.sourceCumulativeImpactPct < 0)).toBe(true);
+    expect(profitTakers).toHaveLength(Math.min(10, expectedProfitTakers.length));
+    expect(dipBuyers).toHaveLength(Math.min(10, expectedDipBuyers.length));
+
+    const reactionByTicker = new Map(firstDayReactions.map((aftermath) => [aftermath.ticker, aftermath.reaction]));
+    const aftermathPrices = fictionalCompanies
+      .filter((company) => reactionByTicker.has(company.ticker))
+      .map((company) => ({
+        reaction: reactionByTicker.get(company.ticker),
+        changePct: priceFictionalCompany({
+          company,
+          now: new Date("2026-07-31T20:00:00Z"),
+          existingPrice: { price: company.basePrice, change_pct: 0 },
+        }).price.change_pct,
+      }));
+    const profitTakingPrices = aftermathPrices.filter((price) => price.reaction === "profit-taking");
+    const dipBuyingPrices = aftermathPrices.filter((price) => price.reaction === "dip-buying");
+    expect(profitTakingPrices.filter((price) => price.changePct < 0).length)
+      .toBeGreaterThan(profitTakingPrices.length / 2);
+    expect(dipBuyingPrices.filter((price) => price.changePct > 0).length)
+      .toBeGreaterThan(dipBuyingPrices.length / 2);
+
+    const sampleCompany = fictionalCompanies.find((company) => (
+      getMajorEventAftermath(company, "2026-07-31", fictionalCompanies)?.reaction === "dip-buying"
+    ));
+    expect(sampleCompany).toBeDefined();
+    if (!sampleCompany) return;
+    const firstDay = getMajorEventAftermath(sampleCompany, "2026-07-31", fictionalCompanies);
+    const secondDay = getMajorEventAftermath(sampleCompany, "2026-08-01", fictionalCompanies);
+    expect(secondDay).not.toBeNull();
+    expect(Math.abs(secondDay?.impactPct ?? 0)).toBeLessThan(Math.abs(firstDay?.impactPct ?? 0));
+  });
+
+  it("keeps the most recent completed event and its cumulative top five visible", () => {
+    const recentEvent = getMostRecentMajorMarketEvent(fictionalCompanies, "2026-07-31");
+    const finalDayImpacts = fictionalCompanies.map((company) => ({
+      ticker: company.ticker,
+      cumulativeImpactPct: getActiveMajorEvents(company, "2026-07-30", fictionalCompanies)[0]
+        ?.cumulativeImpactPct ?? 0,
+    }));
+    const expectedGainers = finalDayImpacts
+      .filter((impact) => impact.cumulativeImpactPct > 0)
+      .sort((left, right) => right.cumulativeImpactPct - left.cumulativeImpactPct || left.ticker.localeCompare(right.ticker))
+      .slice(0, 5)
+      .map((impact) => impact.ticker);
+    const expectedDecliners = finalDayImpacts
+      .filter((impact) => impact.cumulativeImpactPct < 0)
+      .sort((left, right) => left.cumulativeImpactPct - right.cumulativeImpactPct || left.ticker.localeCompare(right.ticker))
+      .slice(0, 5)
+      .map((impact) => impact.ticker);
+
+    expect(recentEvent).toMatchObject({
+      definitionId: "quantum-cyberattack",
+      title: "Quantum Ledger Attack",
+      endDate: "2026-07-30",
+      daysSinceEnd: 1,
+    });
+    expect(recentEvent?.topGainers.map((stock) => stock.ticker)).toEqual(expectedGainers);
+    expect(recentEvent?.topDecliners.map((stock) => stock.ticker)).toEqual(expectedDecliners);
+    expect(recentEvent?.topGainers.every((stock) => (stock.changePct ?? 0) > 0)).toBe(true);
+    expect(recentEvent?.topDecliners.every((stock) => (stock.changePct ?? 0) < 0)).toBe(true);
   });
 
   it("shows at most five gainers and decliners without padding smaller groups", () => {

@@ -166,8 +166,12 @@ def build_price_row(company: dict, now: datetime, companies: list[dict]) -> dict
     risk = company["risk"]
     risk_multiplier = 1.7 if risk == "Existential" else 1.35 if risk == "Extreme" else 1.12 if risk == "High" else 0.82
     base_max_move = 18 if risk == "Existential" else 13 if risk == "Extreme" else 9 if risk == "High" else 6
-    max_move = min(18, base_max_move + 6) if major_event["primary_event"] else base_max_move
-    routine_damping = 0.35 if major_event["primary_event"] else 1
+    max_move = (
+        min(18, base_max_move + 6)
+        if major_event["primary_event"]
+        else min(15, base_max_move + 2) if major_event["aftermath"] else base_max_move
+    )
+    routine_damping = 0.35 if major_event["primary_event"] else 0.68 if major_event["aftermath"] else 1
     raw_change_pct = (
         (market_pulse + sector_pulse + company_pulse * company["volatility"] + event_pulse)
         * risk_multiplier

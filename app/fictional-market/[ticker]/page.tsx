@@ -265,7 +265,9 @@ export default async function FictionalStockDetailPage({ params }: Props) {
                       {Number(event.impact_pct) >= 0 ? "+" : ""}{Number(event.impact_pct).toFixed(2)}%
                     </span>
                   </div>
-                  <p className="text-xs leading-relaxed mt-2" style={{ color: "var(--text-2)" }}>{event.headline}</p>
+                  <p className="text-xs leading-relaxed mt-2" style={{ color: "var(--text-2)" }}>
+                    {event.headline.replace(/\s*·\s*Day\s+\d+\/\d+(?=\])/i, "")}
+                  </p>
                 </div>
               )) : (
                 <p className="text-xs" style={{ color: "var(--text-3)" }}>No ticker-specific events yet.</p>
