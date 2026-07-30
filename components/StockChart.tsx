@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import type { StockPriceHistory } from "@/lib/types";
+import { useTheme } from "@/components/ThemeProvider";
 
 interface Props {
   ticker: string;
@@ -73,6 +74,7 @@ function getRangeStats(data: StockPriceHistory[]) {
 
 export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
   const chartRef = useRef<HTMLDivElement>(null);
+  const { theme } = useTheme();
   const [range, setRange] = useState<Range>("1M");
   const [chartError, setChartError] = useState(false);
   const allRanges: Range[] = ["1D", "1W", "1M", "3M", "6M", "1Y"];
@@ -115,7 +117,14 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
       }
       if (!chartRef.current) return;
 
-      const accentColor = isUp ? "#4ade80" : "#f87171";
+      const styles = getComputedStyle(document.documentElement);
+      const themeColor = (name: string) => styles.getPropertyValue(name).trim();
+      const accentColor = isUp ? themeColor("--up") : themeColor("--down");
+      const chartSurface = themeColor("--surface");
+      const chartText = themeColor("--text-3");
+      const chartGrid = themeColor("--border");
+      const chartLine = themeColor("--border-lg");
+      const chartLabel = themeColor("--surface-3");
 
       // Show time (HH:MM) only for intraday views
       const showTime = range === "1D" || range === "1W";
@@ -124,24 +133,24 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
         width: chartRef.current.clientWidth,
         height: 280,
         layout: {
-          background: { type: ColorType.Solid, color: "#0f0f0f" },
-          textColor: "#555",
+          background: { type: ColorType.Solid, color: chartSurface },
+          textColor: chartText,
         },
         grid: {
-          vertLines: { color: "rgba(255,255,255,0.02)" },
-          horzLines: { color: "rgba(255,255,255,0.04)" },
+          vertLines: { color: chartGrid },
+          horzLines: { color: chartGrid },
         },
         crosshair: {
           mode: 1,
-          vertLine: { color: "rgba(255,255,255,0.15)", labelBackgroundColor: "#1c1c1c" },
-          horzLine: { color: "rgba(255,255,255,0.15)", labelBackgroundColor: "#1c1c1c" },
+          vertLine: { color: chartLine, labelBackgroundColor: chartLabel },
+          horzLine: { color: chartLine, labelBackgroundColor: chartLabel },
         },
         rightPriceScale: {
-          borderColor: "rgba(255,255,255,0.06)",
-          textColor: "#555",
+          borderColor: chartGrid,
+          textColor: chartText,
         },
         timeScale: {
-          borderColor: "rgba(255,255,255,0.06)",
+          borderColor: chartGrid,
           timeVisible: showTime,
           secondsVisible: false,
           fixLeftEdge: true,
@@ -198,7 +207,7 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
     return () => {
       chart?.remove();
     };
-  }, [historyWithCurrent, range, isUp]);
+  }, [historyWithCurrent, range, isUp, theme]);
 
   return (
     <div
@@ -218,7 +227,7 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
                 className="px-2.5 py-1 text-[11px] font-medium rounded-md transition-all"
                 style={{
                   background: range === r ? "var(--accent)" : "transparent",
-                  color: range === r ? "#fff" : "var(--text-2)",
+                  color: range === r ? "var(--on-accent)" : "var(--text-2)",
                   cursor: "pointer",
                 }}
               >

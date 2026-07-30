@@ -24,7 +24,10 @@ export async function Navbar() {
       <div className="max-w-7xl mx-auto px-5 h-14 flex items-center gap-5">
         {/* Logo */}
         <Link href="/" className="text-sm font-bold tracking-tight shrink-0 flex items-center gap-1.5">
-          <span className="w-5 h-5 rounded-md gradient-accent flex items-center justify-center text-[9px] font-black text-white">
+          <span
+            className="w-5 h-5 rounded-md gradient-accent flex items-center justify-center text-[9px] font-black"
+            style={{ color: "var(--on-accent)" }}
+          >
             B
           </span>
           <span>

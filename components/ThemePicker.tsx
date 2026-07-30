@@ -46,7 +46,7 @@ export function ThemePicker({ mobile = false }: { mobile?: boolean }) {
                 Appearance
               </p>
             </div>
-            <div className="px-1.5 pb-1.5">
+            <div className="theme-menu-options px-1.5 pb-1.5">
               {THEMES.map((option) => {
                 const selected = theme === option.id;
                 return (

@@ -60,7 +60,7 @@ export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
           {/* Backdrop */}
           <div
             className="sm:hidden fixed inset-0 z-40"
-            style={{ top: "56px", background: "rgba(0,0,0,0.6)" }}
+            style={{ top: "56px", background: "var(--overlay)" }}
             onClick={() => setMenuOpen(false)}
           />
           {/* Dropdown panel — positioned absolutely below the sticky header */}
