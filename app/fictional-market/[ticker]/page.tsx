@@ -9,7 +9,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { StockPriceHistory } from "@/lib/types";
 import type { FictionalCompany, FictionalRisk, FictionalSector } from "@/data/fictional-market";
 import { buildFictionalMarketSnapshot, fictionalCompanies, formatFictionalMarketCap, getFictionalCompanyProfile } from "@/data/fictional-market";
-import { buildFictionalTapeHistory } from "@/lib/fictional-market-engine";
+import { buildFictionalNewswireHistory } from "@/lib/fictional-market-engine";
 
 type Props = {
   params: Promise<{ ticker: string }>;
@@ -50,7 +50,6 @@ type DailyHistoryRow = {
 
 type IntradayHistoryRow = {
   price: number;
-  change_pct: number;
   recorded_at: string;
 };
 
@@ -88,7 +87,7 @@ const getFictionalStockData = cache(async function getFictionalStockData(ticker:
       supabase.from("fictional_prices").select("*").eq("ticker", ticker).maybeSingle(),
       supabase
         .from("fictional_price_history")
-        .select("price, change_pct, recorded_at")
+        .select("price, recorded_at")
         .eq("ticker", ticker)
         .gte("recorded_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
         .order("recorded_at", { ascending: false }),
@@ -103,7 +102,7 @@ const getFictionalStockData = cache(async function getFictionalStockData(ticker:
         .select("headline, impact_pct, severity, event_at")
         .eq("ticker", ticker)
         .order("event_at", { ascending: false })
-        .limit(8),
+        .limit(200),
     ]);
 
     const dbCompany = companyRes.data as FictionalCompanyRow | null;
@@ -161,13 +160,7 @@ const getFictionalStockData = cache(async function getFictionalStockData(ticker:
     const history = [...intraday, ...dailyFiltered].sort(
       (a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
     );
-    const tapeHistory = buildFictionalTapeHistory(
-      ticker,
-      intradayRows.slice(0, 12).map((row) => ({
-        price: Number(row.price),
-        changePct: Number(row.change_pct),
-        recordedAt: row.recorded_at,
-      })),
+    const newswireHistory = buildFictionalNewswireHistory(
       ((eventsRes.data ?? []) as EventDbRow[]).map((event) => ({
         headline: event.headline,
         impactPct: Number(event.impact_pct),
@@ -180,7 +173,7 @@ const getFictionalStockData = cache(async function getFictionalStockData(ticker:
       company,
       price,
       history,
-      events: tapeHistory,
+      events: newswireHistory,
     };
   } catch {
     return {
@@ -279,7 +272,10 @@ export default async function FictionalStockDetailPage({ params }: Props) {
           />
 
           <section className="card rounded-xl p-5">
-            <h2 className="text-sm font-semibold" style={{ color: "var(--text)" }}>Latest fictional tape</h2>
+            <h2 className="text-sm font-semibold" style={{ color: "var(--text)" }}>Fictional Newswire</h2>
+            <p className="text-[11px] leading-relaxed mt-1" style={{ color: "var(--text-3)" }}>
+              Daily catalysts and major-event headlines matched to each stock&apos;s modeled market reaction.
+            </p>
             <div className="mt-4 space-y-3">
               {events.length > 0 ? events.map((event) => (
                 <div key={`${event.eventAt}-${event.headline}`} className="pb-3 last:pb-0" style={{ borderBottom: "1px solid var(--border)" }}>
@@ -290,13 +286,21 @@ export default async function FictionalStockDetailPage({ params }: Props) {
                         {new Date(event.eventAt).toLocaleString("en-US", {
                           month: "short",
                           day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
+                          year: "numeric",
                           timeZone: "America/New_York",
-                        })} ET
+                        })}
                       </span>
-                      <span className="text-xs font-semibold" style={{ color: event.impactPct >= 0 ? "var(--up)" : "var(--down)" }}>
-                        {event.impactPct >= 0 ? "+" : ""}{event.impactPct.toFixed(2)}%
+                      <span
+                        className="text-xs font-semibold"
+                        style={{
+                          color: event.impactPct > 0
+                            ? "var(--up)"
+                            : event.impactPct < 0
+                              ? "var(--down)"
+                              : "var(--text-3)",
+                        }}
+                      >
+                        {event.impactPct > 0 ? "+" : ""}{event.impactPct.toFixed(2)}%
                       </span>
                     </div>
                   </div>
@@ -305,7 +309,7 @@ export default async function FictionalStockDetailPage({ params }: Props) {
                   </p>
                 </div>
               )) : (
-                <p className="text-xs" style={{ color: "var(--text-3)" }}>No ticker-specific events yet.</p>
+                <p className="text-xs" style={{ color: "var(--text-3)" }}>No market-moving headlines yet.</p>
               )}
             </div>
           </section>

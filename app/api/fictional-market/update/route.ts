@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { fictionalCompanies } from "@/data/fictional-market";
-import { buildFictionalTapeEventKey, priceFictionalCompany } from "@/lib/fictional-market-engine";
+import { buildFictionalNewswireEventKey, priceFictionalCompany } from "@/lib/fictional-market-engine";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 
 type ExistingPrice = {
@@ -105,27 +105,14 @@ async function updateFictionalMarket(request: NextRequest) {
     date: output.marketDate,
     ...output.daily,
   }));
-  const majorEventOutputs = outputs
-    .filter((output) => output.event.isMajor)
-    .sort((a, b) => Math.abs(b.event.impactPct) - Math.abs(a.event.impactPct));
-  const routineEventOutputs = outputs
-    .filter((output) => !output.event.isMajor)
-    .sort((a, b) => Math.abs(b.price.change_pct) - Math.abs(a.price.change_pct))
-    .slice(0, 12);
-  const eventRows = [...majorEventOutputs, ...routineEventOutputs]
-    .map((output) => {
-      const baseEventKey = output.event.isMajor
-        ? `${output.event.eventKey}:${output.ticker}`
-        : output.event.eventKey;
-      return {
-        event_key: buildFictionalTapeEventKey(baseEventKey, now),
-        ticker: output.ticker,
-        headline: output.event.headline,
-        impact_pct: output.event.impactPct,
-        severity: output.event.severity,
-        event_at: now.toISOString(),
-      };
-    });
+  const eventRows = outputs.map((output) => ({
+    event_key: buildFictionalNewswireEventKey(output.ticker, output.marketDate),
+    ticker: output.ticker,
+    headline: output.event.headline,
+    impact_pct: output.event.impactPct,
+    severity: output.event.severity,
+    event_at: now.toISOString(),
+  }));
 
   await supabase.from("fictional_companies").upsert(companyRows, { onConflict: "ticker" }).throwOnError();
   await supabase.from("fictional_prices").upsert(priceRows, { onConflict: "ticker" }).throwOnError();

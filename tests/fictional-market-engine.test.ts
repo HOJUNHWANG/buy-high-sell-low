@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { fictionalCompanies, fictionalExchangeOrder } from "@/data/fictional-market";
 import {
-  buildFictionalTapeEventKey,
-  buildFictionalTapeHistory,
+  buildFictionalMarketHeadline,
+  buildFictionalNewswireEventKey,
+  buildFictionalNewswireHistory,
   priceFictionalCompany,
 } from "@/lib/fictional-market-engine";
 import {
@@ -21,37 +22,71 @@ function shiftDay(day: string, offset: number) {
 }
 
 describe("fictional market engine", () => {
-  it("keeps one tape snapshot per 30-minute slot instead of overwriting the event history", () => {
-    const baseEventKey = "major:scheduled:2026-07-28:quantum-cyberattack:CHOAM";
-    const first = buildFictionalTapeEventKey(baseEventKey, new Date("2026-07-31T01:01:00Z"));
-    const sameSlot = buildFictionalTapeEventKey(baseEventKey, new Date("2026-07-31T01:29:59Z"));
-    const nextSlot = buildFictionalTapeEventKey(baseEventKey, new Date("2026-07-31T01:30:00Z"));
+  it("keeps one newswire row per ticker and market date", () => {
+    const first = buildFictionalNewswireEventKey("CHOAM", "2026-07-30");
+    const repeated = buildFictionalNewswireEventKey("CHOAM", "2026-07-30");
+    const nextDay = buildFictionalNewswireEventKey("CHOAM", "2026-07-31");
 
-    expect(first).toBe(sameSlot);
-    expect(nextSlot).not.toBe(first);
-    expect(nextSlot).toContain(":tape-");
+    expect(first).toBe("newswire:2026-07-30:CHOAM");
+    expect(repeated).toBe(first);
+    expect(nextDay).not.toBe(first);
   });
 
-  it("fills missing tape slots from price history and prefers event context when available", () => {
-    const tape = buildFictionalTapeHistory(
-      "CHOAM",
-      [
-        { price: 1094.49, changePct: -5.23, recordedAt: "2026-07-31T01:30:12.733Z" },
-        { price: 1103.53, changePct: -4.45, recordedAt: "2026-07-31T01:00:16.189Z" },
-        { price: 1106.04, changePct: -4.23, recordedAt: "2026-07-31T00:30:13.373Z" },
-      ],
-      [{
-        headline: "A quantum exploit hit settlement ledgers.",
+  it("collapses legacy 30-minute rows into the latest headline for each ET market date", () => {
+    const newswire = buildFictionalNewswireHistory([
+      {
+        headline: "The latest daily catalyst remained in focus.",
         impactPct: -5.23,
         severity: "chaotic",
         eventAt: "2026-07-31T01:30:12.733Z",
-      }],
-    );
+      },
+      {
+        headline: "An older update from the same market date.",
+        impactPct: -4.45,
+        severity: "material",
+        eventAt: "2026-07-31T01:00:16.189Z",
+      },
+      {
+        headline: "The previous market date's catalyst.",
+        impactPct: 2.1,
+        severity: "routine",
+        eventAt: "2026-07-30T01:30:12.733Z",
+      },
+    ]);
 
-    expect(tape.map((row) => row.impactPct)).toEqual([-5.23, -4.45, -4.23]);
-    expect(tape[0].headline).toContain("quantum exploit");
-    expect(tape[1].headline).toContain("30-minute fictional tape");
-    expect(tape[1].severity).toBe("material");
+    expect(newswire).toHaveLength(2);
+    expect(newswire.map((row) => row.impactPct)).toEqual([-5.23, 2.1]);
+    expect(newswire[0].headline).toContain("latest daily catalyst");
+  });
+
+  it("matches routine news tone to the stock's actual price direction", () => {
+    const company = fictionalCompanies.find((item) => item.ticker === "CHOAM") ?? fictionalCompanies[0];
+    const positive = buildFictionalMarketHeadline(company, "2026-08-04", 2.4);
+    const negative = buildFictionalMarketHeadline(company, "2026-08-04", -2.4);
+    const neutral = buildFictionalMarketHeadline(company, "2026-08-04", 0);
+
+    expect(positive).toMatch(/raised|secured|won|cleared|stronger|accelerated|buyback|joint venture|resolved|upgrades/i);
+    expect(negative).toMatch(/cut|delayed|regulatory|higher|disruption|pressure|lost|departure|recall|downgrades/i);
+    expect(neutral).toMatch(/unchanged|flat/i);
+
+    let routineOutput: ReturnType<typeof priceFictionalCompany> | null = null;
+    for (let offset = 0; offset < 365 && !routineOutput; offset += 1) {
+      const marketDate = shiftDay("2026-08-04", offset);
+      const output = priceFictionalCompany({
+        company,
+        now: new Date(`${marketDate}T20:00:00Z`),
+        existingPrice: { price: company.basePrice, change_pct: 0 },
+      });
+      if (!output.event.isMajor && !getMajorEventAftermath(company, marketDate, fictionalCompanies)) {
+        routineOutput = output;
+      }
+    }
+
+    expect(routineOutput).not.toBeNull();
+    if (!routineOutput) return;
+    expect(routineOutput.event.headline).toBe(
+      buildFictionalMarketHeadline(company, routineOutput.marketDate, routineOutput.price.change_pct),
+    );
   });
 
   it("keeps after-hours prices moving on 30-minute cron slots", () => {

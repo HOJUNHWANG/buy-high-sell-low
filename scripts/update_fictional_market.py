@@ -10,6 +10,7 @@ import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from supabase import create_client
@@ -20,6 +21,35 @@ DATA_FILE = ROOT / "data" / "fictional-market.ts"
 T = 1_000_000_000_000
 B = 1_000_000_000
 EXCHANGE_ORDER = ("OMNI", "FICTDAQ", "LUNA")
+MARKET_TIME_ZONE = ZoneInfo("America/New_York")
+POSITIVE_HEADLINES = (
+    "raised full-year guidance after demand exceeded its prior outlook",
+    "secured a long-term supply agreement with favorable pricing",
+    "won a major strategic contract after a competitive review",
+    "cleared a key regulatory milestone ahead of schedule",
+    "reported stronger margins as operating costs eased",
+    "accelerated a product rollout following better-than-expected trials",
+    "announced a buyback after cash generation topped forecasts",
+    "formed a joint venture that expands access to new markets",
+    "resolved a production bottleneck and restored shipment guidance",
+    "drew analyst upgrades after improving its forward outlook",
+)
+NEGATIVE_HEADLINES = (
+    "cut full-year guidance after demand softened",
+    "delayed a flagship program because of supply constraints",
+    "fell under regulatory review over legacy business practices",
+    "disclosed higher security and remediation costs",
+    "reported a production disruption at a key facility",
+    "warned that margin pressure will persist into next quarter",
+    "lost a major contract during a competitive rebid",
+    "slid after an unexpected executive departure",
+    "announced a product recall following quality-control failures",
+    "drew analyst downgrades after weakening its forward outlook",
+)
+NEUTRAL_HEADLINES = (
+    "held near unchanged as investors balanced fresh operating updates",
+    "traded flat while the market reassessed its near-term outlook",
+)
 
 load_dotenv(dotenv_path=ROOT / ".env.local")
 load_dotenv()
@@ -149,10 +179,21 @@ def seeded_noise(seed: str, low: float = -1, high: float = 1) -> float:
     return low + fraction * (high - low)
 
 
+def build_market_headline(company: dict, day: str, impact_pct: float) -> str:
+    templates = (
+        POSITIVE_HEADLINES
+        if impact_pct > 0
+        else NEGATIVE_HEADLINES if impact_pct < 0 else NEUTRAL_HEADLINES
+    )
+    template = templates[hash_string(f"headline:{company['ticker']}:{day}") % len(templates)]
+    return f"{company['name']} {template}."
+
+
 def build_price_row(company: dict, now: datetime, companies: list[dict]) -> dict:
-    current_date = now.date()
+    market_now = now.astimezone(MARKET_TIME_ZONE)
+    current_date = market_now.date()
     day = current_date.isoformat()
-    half_hour_slot = now.hour * 2 + now.minute // 30
+    half_hour_slot = market_now.hour * 2 + market_now.minute // 30
     market_pulse = seeded_noise(f"market:{day}", -0.9, 0.9)
     company_pulse = seeded_noise(f"{company['ticker']}:{day}", -1, 1)
     sector_pulse = seeded_noise(f"{company['sector']}:{day}", -0.55, 0.55)
@@ -203,7 +244,7 @@ def build_price_row(company: dict, now: datetime, companies: list[dict]) -> dict
 
 def main():
     now = datetime.now(timezone.utc)
-    tape_slot = int(now.timestamp() // (30 * 60))
+    market_date = now.astimezone(MARKET_TIME_ZONE).date().isoformat()
     companies = load_companies()
     price_rows = [build_price_row(company, now, companies) for company in companies]
     price_db_rows = [
@@ -231,7 +272,7 @@ def main():
     daily_rows = [
         {
             "ticker": row["ticker"],
-            "date": now.date().isoformat(),
+            "date": market_date,
             "open": next(company["base_price"] for company in companies if company["ticker"] == row["ticker"]),
             "high": max(row["price"], next(company["base_price"] for company in companies if company["ticker"] == row["ticker"])),
             "low": min(row["price"], next(company["base_price"] for company in companies if company["ticker"] == row["ticker"])),
@@ -240,34 +281,26 @@ def main():
         }
         for row in price_rows
     ]
-    major_event_rows = [
+    company_by_ticker = {company["ticker"]: company for company in companies}
+    event_rows = [
         {
-            "event_key": f"{row['_major_event']['event_key']}:{row['ticker']}:tape-{tape_slot}",
+            "event_key": f"newswire:{market_date}:{row['ticker']}",
             "ticker": row["ticker"],
-            "headline": row["_major_event"]["headline"],
+            "headline": (
+                row["_major_event"]["headline"]
+                if row["_major_event"]
+                else build_market_headline(company_by_ticker[row["ticker"]], market_date, row["change_pct"])
+            ),
             "impact_pct": row["change_pct"],
-            "severity": "chaotic",
+            "severity": (
+                "chaotic"
+                if row["_major_event"] or abs(row["change_pct"]) >= 7
+                else "material" if abs(row["change_pct"]) >= 3.5 else "routine"
+            ),
             "event_at": now.isoformat(),
         }
         for row in price_rows
-        if row["_major_event"]
     ]
-    routine_event_rows = [
-        {
-            "event_key": f"routine:{now.date().isoformat()}:{row['ticker']}:tape-{tape_slot}",
-            "ticker": row["ticker"],
-            "headline": f"{row['ticker']} moved {row['change_pct']:+.2f}% on fictional market flow.",
-            "impact_pct": row["change_pct"],
-            "severity": "chaotic" if abs(row["change_pct"]) >= 7 else "material" if abs(row["change_pct"]) >= 3.5 else "routine",
-            "event_at": now.isoformat(),
-        }
-        for row in sorted(
-            (item for item in price_rows if not item["_major_event"]),
-            key=lambda item: abs(item["change_pct"]),
-            reverse=True,
-        )[:12]
-    ]
-    event_rows = major_event_rows + routine_event_rows
 
     supabase.table("fictional_companies").upsert(dynamic_companies, on_conflict="ticker").execute()
     supabase.table("fictional_prices").upsert(price_db_rows, on_conflict="ticker").execute()

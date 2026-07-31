@@ -50,73 +50,44 @@ const riskMultiplier: Record<FictionalRisk, number> = {
 
 const eventTemplates = {
   positive: [
-    "secured a contract that widened the market's fantasy TAM model",
-    "announced a breakthrough that forced analysts to rewrite the deck",
-    "raised guidance after demand outran the base case",
-    "won a strategic procurement round with unusually quiet terms",
-    "launched a product cycle that pulled forward next-quarter estimates",
+    "raised full-year guidance after demand exceeded its prior outlook",
+    "secured a long-term supply agreement with favorable pricing",
+    "won a major strategic contract after a competitive review",
+    "cleared a key regulatory milestone ahead of schedule",
+    "reported stronger margins as operating costs eased",
+    "accelerated a product rollout following better-than-expected trials",
+    "announced a buyback after cash generation topped forecasts",
+    "formed a joint venture that expands access to new markets",
+    "resolved a production bottleneck and restored shipment guidance",
+    "drew analyst upgrades after improving its forward outlook",
   ],
   negative: [
-    "fell after a containment headline hit the tape",
-    "slipped as regulators opened a review into legacy incidents",
-    "delayed a flagship program and blamed classified supply constraints",
-    "guided cautiously after security costs surprised the Street",
-    "sold off as governance risk returned to the front page",
+    "cut full-year guidance after demand softened",
+    "delayed a flagship program because of supply constraints",
+    "fell under regulatory review over legacy business practices",
+    "disclosed higher security and remediation costs",
+    "reported a production disruption at a key facility",
+    "warned that margin pressure will persist into next quarter",
+    "lost a major contract during a competitive rebid",
+    "slid after an unexpected executive departure",
+    "announced a product recall following quality-control failures",
+    "drew analyst downgrades after weakening its forward outlook",
+  ],
+  neutral: [
+    "held near unchanged as investors balanced fresh operating updates",
+    "traded flat while the market reassessed its near-term outlook",
   ],
 };
 
-const FICTIONAL_TAPE_INTERVAL_MS = 30 * 60 * 1000;
-
-function fictionalTapeSlot(value: Date | string) {
-  const timestamp = value instanceof Date ? value.getTime() : new Date(value).getTime();
-  return Math.floor(timestamp / FICTIONAL_TAPE_INTERVAL_MS);
-}
-
-export function buildFictionalTapeEventKey(baseEventKey: string, now: Date) {
-  return `${baseEventKey}:tape-${fictionalTapeSlot(now)}`;
-}
-
-export type FictionalTapeHistoryRow = {
+export type FictionalNewswireHistoryRow = {
   headline: string;
   impactPct: number;
   severity: "routine" | "material" | "chaotic";
   eventAt: string;
 };
 
-export function buildFictionalTapeHistory(
-  ticker: string,
-  priceHistory: Array<{ price: number; changePct: number; recordedAt: string }>,
-  eventHistory: FictionalTapeHistoryRow[],
-  limit = 8,
-) {
-  const rowsBySlot = new Map<number, FictionalTapeHistoryRow>();
-
-  for (const point of priceHistory) {
-    if (!Number.isFinite(point.price) || !Number.isFinite(point.changePct)) continue;
-    const slot = fictionalTapeSlot(point.recordedAt);
-    if (!Number.isFinite(slot)) continue;
-    const severity = Math.abs(point.changePct) >= 7
-      ? "chaotic"
-      : Math.abs(point.changePct) >= 3.5
-        ? "material"
-        : "routine";
-    rowsBySlot.set(slot, {
-      headline: `${ticker} printed $${point.price.toFixed(2)} on the 30-minute fictional tape.`,
-      impactPct: point.changePct,
-      severity,
-      eventAt: point.recordedAt,
-    });
-  }
-
-  for (const event of eventHistory) {
-    const slot = fictionalTapeSlot(event.eventAt);
-    if (!Number.isFinite(slot)) continue;
-    rowsBySlot.set(slot, event);
-  }
-
-  return [...rowsBySlot.values()]
-    .sort((left, right) => new Date(right.eventAt).getTime() - new Date(left.eventAt).getTime())
-    .slice(0, limit);
+export function buildFictionalNewswireEventKey(ticker: string, marketDate: string) {
+  return `newswire:${marketDate}:${ticker}`;
 }
 
 function hashString(value: string) {
@@ -150,6 +121,25 @@ function etParts(date: Date) {
     minutes: get("hour") * 60 + get("minute"),
     halfHourSlot: Math.floor((get("hour") * 60 + get("minute")) / 30),
   };
+}
+
+export function buildFictionalNewswireHistory(
+  eventHistory: FictionalNewswireHistoryRow[],
+  limit = 8,
+) {
+  const latestByMarketDate = new Map<string, FictionalNewswireHistoryRow>();
+  const newestFirst = [...eventHistory].sort(
+    (left, right) => new Date(right.eventAt).getTime() - new Date(left.eventAt).getTime(),
+  );
+
+  for (const event of newestFirst) {
+    const eventDate = new Date(event.eventAt);
+    if (!Number.isFinite(eventDate.getTime())) continue;
+    const marketDate = etParts(eventDate).date;
+    if (!latestByMarketDate.has(marketDate)) latestByMarketDate.set(marketDate, event);
+  }
+
+  return [...latestByMarketDate.values()].slice(0, limit);
 }
 
 function marketProgress(date: Date) {
@@ -204,13 +194,12 @@ function dailyTargetReturn(company: FictionalCompany, day: string) {
 
   return {
     pct: clamp(routineReturn + majorEvent.impactPct, -maxMove, maxMove),
-    eventImpactPct: eventImpact,
     majorEvent,
   };
 }
 
-function buildHeadline(company: FictionalCompany, day: string, impactPct: number) {
-  const direction = impactPct >= 0 ? "positive" : "negative";
+export function buildFictionalMarketHeadline(company: FictionalCompany, day: string, impactPct: number) {
+  const direction = impactPct > 0 ? "positive" : impactPct < 0 ? "negative" : "neutral";
   const templates = eventTemplates[direction];
   const template = templates[Math.abs(hashString(`headline:${company.ticker}:${day}`)) % templates.length];
   return `${company.name} ${template}.`;
@@ -226,7 +215,7 @@ export function priceFictionalCompany({
   const progress = marketProgress(now);
   const isRegularSession = minutes >= 9 * 60 + 30 && minutes <= 16 * 60;
   const open = existingDaily?.open ?? existingPrice?.price ?? company.basePrice;
-  const { pct: targetReturnPct, eventImpactPct, majorEvent } = dailyTargetReturn(company, marketDate);
+  const { pct: targetReturnPct, majorEvent } = dailyTargetReturn(company, marketDate);
   const intradayCurve = Math.sin(progress * Math.PI - Math.PI / 2) * 0.5 + 0.5;
   const sessionDamping = isRegularSession ? 1 : 0.55;
   const tickDamping = isRegularSession ? 0.45 : 0.22;
@@ -268,6 +257,9 @@ export function priceFictionalCompany({
       : "routine";
   const primaryMajorEvent = majorEvent.primaryEvent;
   const aftermath = majorEvent.aftermath;
+  const alignedAftermath = aftermath && Math.sign(aftermath.impactPct) === Math.sign(changePct)
+    ? aftermath
+    : null;
 
   return {
     ticker: company.ticker,
@@ -291,8 +283,8 @@ export function priceFictionalCompany({
       eventKey: primaryMajorEvent?.eventKey
         ?? (aftermath ? `aftermath:${aftermath.eventKey}:${marketDate}:${company.ticker}` : `routine:${marketDate}:${company.ticker}`),
       headline: primaryMajorEvent?.headline
-        ?? aftermath?.headline
-        ?? buildHeadline(company, marketDate, eventImpactPct || changePct),
+        ?? alignedAftermath?.headline
+        ?? buildFictionalMarketHeadline(company, marketDate, changePct),
       impactPct: changePct,
       severity,
       isMajor: primaryMajorEvent != null,
