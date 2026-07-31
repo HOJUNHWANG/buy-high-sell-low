@@ -3,11 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { FictionalTickerMark } from "@/components/FictionalTickerMark";
+import { FictionalMarketAutoRefresh } from "@/components/FictionalMarketAutoRefresh";
 import { StockChart } from "@/components/StockChart";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { StockPriceHistory } from "@/lib/types";
 import type { FictionalCompany, FictionalRisk, FictionalSector } from "@/data/fictional-market";
 import { buildFictionalMarketSnapshot, fictionalCompanies, formatFictionalMarketCap, getFictionalCompanyProfile } from "@/data/fictional-market";
+import { buildFictionalTapeHistory } from "@/lib/fictional-market-engine";
 
 type Props = {
   params: Promise<{ ticker: string }>;
@@ -46,7 +48,13 @@ type DailyHistoryRow = {
   date: string;
 };
 
-type EventRow = {
+type IntradayHistoryRow = {
+  price: number;
+  change_pct: number;
+  recorded_at: string;
+};
+
+type EventDbRow = {
   headline: string;
   impact_pct: number;
   severity: "routine" | "material" | "chaotic";
@@ -80,7 +88,7 @@ const getFictionalStockData = cache(async function getFictionalStockData(ticker:
       supabase.from("fictional_prices").select("*").eq("ticker", ticker).maybeSingle(),
       supabase
         .from("fictional_price_history")
-        .select("price, recorded_at")
+        .select("price, change_pct, recorded_at")
         .eq("ticker", ticker)
         .gte("recorded_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
         .order("recorded_at", { ascending: false }),
@@ -132,7 +140,8 @@ const getFictionalStockData = cache(async function getFictionalStockData(ticker:
         }
       : null);
 
-    const intraday = ((intradayRes.data ?? []) as StockPriceHistory[]).map((row, index) => ({
+    const intradayRows = (intradayRes.data ?? []) as IntradayHistoryRow[];
+    const intraday = intradayRows.map((row, index) => ({
       id: index,
       ticker,
       price: Number(row.price),
@@ -152,12 +161,26 @@ const getFictionalStockData = cache(async function getFictionalStockData(ticker:
     const history = [...intraday, ...dailyFiltered].sort(
       (a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
     );
+    const tapeHistory = buildFictionalTapeHistory(
+      ticker,
+      intradayRows.slice(0, 12).map((row) => ({
+        price: Number(row.price),
+        changePct: Number(row.change_pct),
+        recordedAt: row.recorded_at,
+      })),
+      ((eventsRes.data ?? []) as EventDbRow[]).map((event) => ({
+        headline: event.headline,
+        impactPct: Number(event.impact_pct),
+        severity: event.severity,
+        eventAt: event.event_at,
+      })),
+    );
 
     return {
       company,
       price,
       history,
-      events: (eventsRes.data ?? []) as EventRow[],
+      events: tapeHistory,
     };
   } catch {
     return {
@@ -199,6 +222,7 @@ export default async function FictionalStockDetailPage({ params }: Props) {
 
   return (
     <div className="max-w-7xl mx-auto px-5 py-8">
+      <FictionalMarketAutoRefresh />
       <div className="mb-5">
         <Link href="/fictional-market" className="nav-link text-xs">
           Back to Fictional Market
@@ -258,12 +282,23 @@ export default async function FictionalStockDetailPage({ params }: Props) {
             <h2 className="text-sm font-semibold" style={{ color: "var(--text)" }}>Latest fictional tape</h2>
             <div className="mt-4 space-y-3">
               {events.length > 0 ? events.map((event) => (
-                <div key={`${event.event_at}-${event.headline}`} className="pb-3 last:pb-0" style={{ borderBottom: "1px solid var(--border)" }}>
+                <div key={`${event.eventAt}-${event.headline}`} className="pb-3 last:pb-0" style={{ borderBottom: "1px solid var(--border)" }}>
                   <div className="flex items-center justify-between gap-3">
                     <span className="badge badge-muted">{event.severity}</span>
-                    <span className="text-xs font-semibold" style={{ color: Number(event.impact_pct) >= 0 ? "var(--up)" : "var(--down)" }}>
-                      {Number(event.impact_pct) >= 0 ? "+" : ""}{Number(event.impact_pct).toFixed(2)}%
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
+                        {new Date(event.eventAt).toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          timeZone: "America/New_York",
+                        })} ET
+                      </span>
+                      <span className="text-xs font-semibold" style={{ color: event.impactPct >= 0 ? "var(--up)" : "var(--down)" }}>
+                        {event.impactPct >= 0 ? "+" : ""}{event.impactPct.toFixed(2)}%
+                      </span>
+                    </div>
                   </div>
                   <p className="text-xs leading-relaxed mt-2" style={{ color: "var(--text-2)" }}>
                     {event.headline.replace(/\s*·\s*Day\s+\d+\/\d+(?=\])/i, "")}

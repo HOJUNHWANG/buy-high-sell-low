@@ -65,6 +65,60 @@ const eventTemplates = {
   ],
 };
 
+const FICTIONAL_TAPE_INTERVAL_MS = 30 * 60 * 1000;
+
+function fictionalTapeSlot(value: Date | string) {
+  const timestamp = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Math.floor(timestamp / FICTIONAL_TAPE_INTERVAL_MS);
+}
+
+export function buildFictionalTapeEventKey(baseEventKey: string, now: Date) {
+  return `${baseEventKey}:tape-${fictionalTapeSlot(now)}`;
+}
+
+export type FictionalTapeHistoryRow = {
+  headline: string;
+  impactPct: number;
+  severity: "routine" | "material" | "chaotic";
+  eventAt: string;
+};
+
+export function buildFictionalTapeHistory(
+  ticker: string,
+  priceHistory: Array<{ price: number; changePct: number; recordedAt: string }>,
+  eventHistory: FictionalTapeHistoryRow[],
+  limit = 8,
+) {
+  const rowsBySlot = new Map<number, FictionalTapeHistoryRow>();
+
+  for (const point of priceHistory) {
+    if (!Number.isFinite(point.price) || !Number.isFinite(point.changePct)) continue;
+    const slot = fictionalTapeSlot(point.recordedAt);
+    if (!Number.isFinite(slot)) continue;
+    const severity = Math.abs(point.changePct) >= 7
+      ? "chaotic"
+      : Math.abs(point.changePct) >= 3.5
+        ? "material"
+        : "routine";
+    rowsBySlot.set(slot, {
+      headline: `${ticker} printed $${point.price.toFixed(2)} on the 30-minute fictional tape.`,
+      impactPct: point.changePct,
+      severity,
+      eventAt: point.recordedAt,
+    });
+  }
+
+  for (const event of eventHistory) {
+    const slot = fictionalTapeSlot(event.eventAt);
+    if (!Number.isFinite(slot)) continue;
+    rowsBySlot.set(slot, event);
+  }
+
+  return [...rowsBySlot.values()]
+    .sort((left, right) => new Date(right.eventAt).getTime() - new Date(left.eventAt).getTime())
+    .slice(0, limit);
+}
+
 function hashString(value: string) {
   let hash = 2166136261;
   for (let i = 0; i < value.length; i += 1) {

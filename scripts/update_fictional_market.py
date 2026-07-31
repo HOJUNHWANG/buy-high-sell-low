@@ -203,6 +203,7 @@ def build_price_row(company: dict, now: datetime, companies: list[dict]) -> dict
 
 def main():
     now = datetime.now(timezone.utc)
+    tape_slot = int(now.timestamp() // (30 * 60))
     companies = load_companies()
     price_rows = [build_price_row(company, now, companies) for company in companies]
     price_db_rows = [
@@ -241,7 +242,7 @@ def main():
     ]
     major_event_rows = [
         {
-            "event_key": f"{row['_major_event']['event_key']}:{row['ticker']}",
+            "event_key": f"{row['_major_event']['event_key']}:{row['ticker']}:tape-{tape_slot}",
             "ticker": row["ticker"],
             "headline": row["_major_event"]["headline"],
             "impact_pct": row["change_pct"],
@@ -253,7 +254,7 @@ def main():
     ]
     routine_event_rows = [
         {
-            "event_key": f"routine:{now.date().isoformat()}:{row['ticker']}",
+            "event_key": f"routine:{now.date().isoformat()}:{row['ticker']}:tape-{tape_slot}",
             "ticker": row["ticker"],
             "headline": f"{row['ticker']} moved {row['change_pct']:+.2f}% on fictional market flow.",
             "impact_pct": row["change_pct"],

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { fictionalCompanies, fictionalExchangeOrder } from "@/data/fictional-market";
-import { priceFictionalCompany } from "@/lib/fictional-market-engine";
+import {
+  buildFictionalTapeEventKey,
+  buildFictionalTapeHistory,
+  priceFictionalCompany,
+} from "@/lib/fictional-market-engine";
 import {
   getActiveMajorEvents,
   getActiveMajorMarketEvents,
@@ -17,6 +21,39 @@ function shiftDay(day: string, offset: number) {
 }
 
 describe("fictional market engine", () => {
+  it("keeps one tape snapshot per 30-minute slot instead of overwriting the event history", () => {
+    const baseEventKey = "major:scheduled:2026-07-28:quantum-cyberattack:CHOAM";
+    const first = buildFictionalTapeEventKey(baseEventKey, new Date("2026-07-31T01:01:00Z"));
+    const sameSlot = buildFictionalTapeEventKey(baseEventKey, new Date("2026-07-31T01:29:59Z"));
+    const nextSlot = buildFictionalTapeEventKey(baseEventKey, new Date("2026-07-31T01:30:00Z"));
+
+    expect(first).toBe(sameSlot);
+    expect(nextSlot).not.toBe(first);
+    expect(nextSlot).toContain(":tape-");
+  });
+
+  it("fills missing tape slots from price history and prefers event context when available", () => {
+    const tape = buildFictionalTapeHistory(
+      "CHOAM",
+      [
+        { price: 1094.49, changePct: -5.23, recordedAt: "2026-07-31T01:30:12.733Z" },
+        { price: 1103.53, changePct: -4.45, recordedAt: "2026-07-31T01:00:16.189Z" },
+        { price: 1106.04, changePct: -4.23, recordedAt: "2026-07-31T00:30:13.373Z" },
+      ],
+      [{
+        headline: "A quantum exploit hit settlement ledgers.",
+        impactPct: -5.23,
+        severity: "chaotic",
+        eventAt: "2026-07-31T01:30:12.733Z",
+      }],
+    );
+
+    expect(tape.map((row) => row.impactPct)).toEqual([-5.23, -4.45, -4.23]);
+    expect(tape[0].headline).toContain("quantum exploit");
+    expect(tape[1].headline).toContain("30-minute fictional tape");
+    expect(tape[1].severity).toBe("material");
+  });
+
   it("keeps after-hours prices moving on 30-minute cron slots", () => {
     const company = fictionalCompanies.find((item) => item.ticker === "CHOAM") ?? fictionalCompanies[0];
     const existingDaily = {

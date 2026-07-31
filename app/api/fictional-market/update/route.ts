@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { fictionalCompanies } from "@/data/fictional-market";
-import { priceFictionalCompany } from "@/lib/fictional-market-engine";
+import { buildFictionalTapeEventKey, priceFictionalCompany } from "@/lib/fictional-market-engine";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 
 type ExistingPrice = {
@@ -113,16 +113,19 @@ async function updateFictionalMarket(request: NextRequest) {
     .sort((a, b) => Math.abs(b.price.change_pct) - Math.abs(a.price.change_pct))
     .slice(0, 12);
   const eventRows = [...majorEventOutputs, ...routineEventOutputs]
-    .map((output) => ({
-      event_key: output.event.isMajor
+    .map((output) => {
+      const baseEventKey = output.event.isMajor
         ? `${output.event.eventKey}:${output.ticker}`
-        : output.event.eventKey,
-      ticker: output.ticker,
-      headline: output.event.headline,
-      impact_pct: output.event.impactPct,
-      severity: output.event.severity,
-      event_at: now.toISOString(),
-    }));
+        : output.event.eventKey;
+      return {
+        event_key: buildFictionalTapeEventKey(baseEventKey, now),
+        ticker: output.ticker,
+        headline: output.event.headline,
+        impact_pct: output.event.impactPct,
+        severity: output.event.severity,
+        event_at: now.toISOString(),
+      };
+    });
 
   await supabase.from("fictional_companies").upsert(companyRows, { onConflict: "ticker" }).throwOnError();
   await supabase.from("fictional_prices").upsert(priceRows, { onConflict: "ticker" }).throwOnError();
@@ -131,6 +134,7 @@ async function updateFictionalMarket(request: NextRequest) {
   await supabase.from("fictional_market_events").upsert(eventRows, { onConflict: "event_key" }).throwOnError();
   await supabase.rpc("cleanup_fictional_market_data").throwOnError();
   revalidatePath("/fictional-market");
+  revalidatePath("/fictional-market/[ticker]", "page");
 
   const totalMarketCap = outputs.reduce((sum, output) => sum + output.marketCap, 0);
   const weightedChangePct = outputs.reduce((sum, output) => sum + output.marketCap * output.price.change_pct, 0) / totalMarketCap;
