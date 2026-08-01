@@ -34,6 +34,13 @@ def provider_quote_observed_at(
         fallback = fallback.replace(tzinfo=timezone.utc)
     fallback = fallback.astimezone(timezone.utc)
 
+    # Twelve Data's crypto quote timestamp can identify the UTC daily session
+    # boundary rather than the instant represented by the latest quote. The
+    # endpoint response is current, so use ingestion time for 24/7 assets; the
+    # independent CoinGecko audit still detects cached or divergent prices.
+    if is_crypto:
+        return fallback.isoformat()
+
     observed: datetime | None = None
     raw_timestamp = data.get("timestamp")
     if raw_timestamp not in (None, ""):
@@ -51,7 +58,7 @@ def provider_quote_observed_at(
             raise ValueError("provider datetime is invalid") from exc
         if local_time.tzinfo is None:
             local_time = local_time.replace(
-                tzinfo=timezone.utc if is_crypto else ZoneInfo("America/New_York")
+                tzinfo=ZoneInfo("America/New_York")
             )
         observed = local_time.astimezone(timezone.utc)
 

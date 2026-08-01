@@ -37,10 +37,17 @@ class ProviderQuoteTimestampTests(unittest.TestCase):
 
     def test_prefers_provider_epoch_timestamp(self):
         observed = provider_quote_observed_at(
-            {"timestamp": 1785582000}, fallback=self.now, is_crypto=True
+            {"timestamp": 1785582000}, fallback=self.now, is_crypto=False
         )
 
         self.assertEqual(observed, "2026-08-01T11:00:00+00:00")
+
+    def test_crypto_uses_ingestion_time_not_daily_session_timestamp(self):
+        observed = provider_quote_observed_at(
+            {"timestamp": 1785542400}, fallback=self.now, is_crypto=True
+        )
+
+        self.assertEqual(observed, "2026-08-01T12:00:00+00:00")
 
     def test_interprets_equity_datetime_in_new_york(self):
         observed = provider_quote_observed_at(
@@ -54,9 +61,9 @@ class ProviderQuoteTimestampTests(unittest.TestCase):
     def test_rejects_materially_future_provider_timestamp(self):
         with self.assertRaisesRegex(ValueError, "in the future"):
             provider_quote_observed_at(
-                {"datetime": "2026-08-01 12:10:00"},
+                {"timestamp": self.now.timestamp() + 600},
                 fallback=self.now,
-                is_crypto=True,
+                is_crypto=False,
             )
 
     def test_falls_back_to_provider_for_invalid_close(self):
