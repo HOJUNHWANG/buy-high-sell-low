@@ -1,4 +1,5 @@
 export const MARKET_DATA_AUDIT_JOB = "market_data_audit";
+export const MARKET_DATA_REMEDIATION_JOB = "market_data_remediation";
 export const PERSISTENT_AUDIT_FAILURE_THRESHOLD = 2;
 
 export type MarketDataAuditLog = {
@@ -31,6 +32,17 @@ export type MarketDataAuditHealth = {
   state: "unknown" | "healthy" | "failing" | "persistent";
   consecutiveFailures: number;
   latest: MarketDataAuditLog | null;
+};
+
+export type MarketDataRemediationDetails = {
+  stage: "started" | "finished" | "skipped";
+  triggerAuditId: number | null;
+  priceTargets: string[];
+  marketCapTargets: string[];
+  reason: string | null;
+  priceUpdated: number;
+  marketCapUpdated: number;
+  errors: string[];
 };
 
 function asFiniteNumber(value: unknown): number {
@@ -96,6 +108,51 @@ export function parseMarketDataAuditDetails(
       marketCapReferenceCoverage: asFiniteNumber(
         summaryRecord.market_cap_reference_coverage,
       ),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+export function parseMarketDataRemediationDetails(
+  value: string | null | undefined,
+): MarketDataRemediationDetails | null {
+  if (!value) return null;
+
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    const stage = parsed.stage;
+    if (stage !== "started" && stage !== "finished" && stage !== "skipped") {
+      return null;
+    }
+    const targets =
+      parsed.targets && typeof parsed.targets === "object"
+        ? (parsed.targets as Record<string, unknown>)
+        : {};
+    const result =
+      parsed.result && typeof parsed.result === "object"
+        ? (parsed.result as Record<string, unknown>)
+        : {};
+    const triggerAuditId = parsed.trigger_audit_id;
+
+    return {
+      stage,
+      triggerAuditId:
+        typeof triggerAuditId === "number" && Number.isFinite(triggerAuditId)
+          ? triggerAuditId
+          : null,
+      priceTargets: asStringArray(targets.price),
+      marketCapTargets: asStringArray(targets.market_cap),
+      reason: typeof parsed.reason === "string" ? parsed.reason : null,
+      priceUpdated: asFiniteNumber(result.price_updated),
+      marketCapUpdated: asFiniteNumber(result.market_cap_updated),
+      errors: asStringArray(result.errors),
     };
   } catch {
     return null;

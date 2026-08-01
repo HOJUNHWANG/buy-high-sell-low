@@ -11,6 +11,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import pytz
 from datetime import datetime, timedelta
+from typing import Sequence
 from dotenv import load_dotenv
 from supabase import create_client
 
@@ -52,6 +53,14 @@ adapter = HTTPAdapter(max_retries=retry_strategy)
 http_session = requests.Session()
 http_session.mount("https://", adapter)
 http_session.mount("http://", adapter)
+
+
+def safe_provider_error(error: Exception) -> str:
+    """Bound provider errors and redact the API key before logs or stdout."""
+    message = str(error)
+    if TWELVE_DATA_API_KEY:
+        message = message.replace(TWELVE_DATA_API_KEY, "[redacted]")
+    return message[:500]
 
 
 def is_market_open(now_et: datetime | None = None) -> bool:
@@ -332,6 +341,73 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
     return fetched, failed
 
 
+def fetch_selected_prices(
+    tickers: Sequence[str], *, force_history: bool = True
+) -> tuple[int, list[str]]:
+    """Refresh an explicit set of DB tickers, regardless of market hours.
+
+    This is intentionally separate from ``main`` so the audit remediator can
+    retry only the affected rows. Provider symbols are converted back to the
+    application's ticker format in every failure path.
+    """
+    requested = list(
+        dict.fromkeys(str(ticker).strip().upper() for ticker in tickers if ticker)
+    )
+    crypto = [ticker for ticker in requested if ticker in CRYPTO_TICKERS]
+    stocks = [ticker for ticker in requested if ticker not in CRYPTO_TICKERS]
+    total_fetched = 0
+    failed_db_tickers: list[str] = []
+
+    def refresh_batches(
+        db_tickers: list[str], batch_size: int, *, crypto_symbols: bool
+    ) -> None:
+        nonlocal total_fetched
+        if not db_tickers:
+            return
+
+        api_tickers = (
+            [to_twelve_data_crypto(ticker) for ticker in db_tickers]
+            if crypto_symbols
+            else db_tickers
+        )
+        ticker_map = (
+            {
+                to_twelve_data_crypto(ticker): ticker
+                for ticker in db_tickers
+            }
+            if crypto_symbols
+            else {}
+        )
+        for offset in range(0, len(api_tickers), batch_size):
+            batch = api_tickers[offset : offset + batch_size]
+            try:
+                results = fetch_batch(batch)
+                returned = set(results) if isinstance(results, dict) else set()
+                missing = [symbol for symbol in batch if symbol not in returned]
+                if not isinstance(results, dict):
+                    results = {}
+                fetched, failed = upsert_prices(
+                    results,
+                    force_history=force_history,
+                    ticker_map=ticker_map or None,
+                )
+                total_fetched += fetched
+                for symbol in [*missing, *failed]:
+                    failed_db_tickers.append(ticker_map.get(symbol, symbol))
+            except Exception as exc:
+                print(
+                    "  Targeted price refresh failed for "
+                    f"{', '.join(batch)}: {safe_provider_error(exc)}"
+                )
+                failed_db_tickers.extend(
+                    ticker_map.get(symbol, symbol) for symbol in batch
+                )
+
+    refresh_batches(stocks, BATCH_SIZE, crypto_symbols=False)
+    refresh_batches(crypto, CRYPTO_BATCH_SIZE, crypto_symbols=True)
+    return total_fetched, sorted(set(failed_db_tickers))
+
+
 def log_result(job: str, status: str, fetched: int, failed: list[str], error: str = ""):
     supabase.table("fetch_logs").insert({
         "job_name":        job,
@@ -375,8 +451,8 @@ def fetch_crypto_twelve_data() -> tuple[int, list[str]]:
                 print(f"    Waiting {sleep_time:.1f}s...")
                 time.sleep(sleep_time)
         except Exception as e:
-            err_msg = str(e)
-            print(f"    Error details: {repr(e)}")
+            err_msg = safe_provider_error(e)
+            print(f"    Error details: {err_msg}")
             if "Max retries exceeded" in err_msg or "Read timed out" in err_msg:
                 print(f"    ⚠️ Timeout/Retry Error for batch {i+1} (Twelve Data server status: DOWN/SLOW)")
             else:
@@ -439,8 +515,8 @@ def main() -> int:
                 print(f"    Waiting {sleep_time:.1f}s...")
                 time.sleep(sleep_time)
         except Exception as e:
-            err_msg = str(e)
-            print(f"    Error details: {repr(e)}")
+            err_msg = safe_provider_error(e)
+            print(f"    Error details: {err_msg}")
             if "Max retries exceeded" in err_msg or "Read timed out" in err_msg:
                 print(f"    ⚠️ Timeout/Retry Error for batch {i+1} (Twelve Data server status: DOWN/SLOW)")
             else:

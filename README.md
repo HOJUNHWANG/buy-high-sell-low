@@ -125,10 +125,18 @@ instead of GitHub's scheduled trigger to avoid delayed starts.
 | `fetch_prices.py` | Every 10 min (market hours; script skips closed stock market) | Stock + ETF + crypto prices |
 | `fetch_news.py` | Every 30 min | News aggregation + AI summarization |
 | `update_market_caps.py` | Daily | Market cap refresh |
-| `audit_market_data.py` | Daily | Read-only market-data verification; full audits append an operational result to `fetch_logs` for Data Health |
+| `audit_with_remediation.py` | Daily | Full market-data audit; on the second consecutive failure, refresh only affected canonical price/cap fields once and re-audit |
 | `seed_history.py` | Manual/bootstrap | 1Y daily chart history via yfinance |
 | `seed_etfs.py` | Manual/bootstrap | ETF metadata + 1Y daily history via Twelve Data, with yfinance fallback |
 | `cleanup.py` | Daily | Data retention (30d intraday, 1Y daily, 90d news) |
+
+The audit wrapper never copies its independent reference values into the
+database. The first failure is observation-only. A second consecutive failure
+creates a durable attempt marker, calls the existing Twelve Data price and/or
+validated market-cap updater only for affected tickers, and runs one final full
+audit. If that re-audit still fails, the updater is not repeated during the same
+failure streak and the persistent state plus remediation outcome remain visible
+in `/admin/data-health`.
 
 ---
 

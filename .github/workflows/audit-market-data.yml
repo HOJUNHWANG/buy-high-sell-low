@@ -22,8 +22,9 @@ jobs:
           cache: "pip"
           cache-dependency-path: scripts/requirements.txt
       - run: pip install -r scripts/requirements.txt
-      - name: Compare stored prices and market values with external references
-        run: python scripts/audit_market_data.py
+      - name: Audit and remediate persistent market-data failures
+        run: python scripts/audit_with_remediation.py
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}

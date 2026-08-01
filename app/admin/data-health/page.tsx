@@ -5,7 +5,9 @@ import { formatAssetPrice } from "@/lib/price-format";
 import {
   getMarketDataAuditHealth,
   MARKET_DATA_AUDIT_JOB,
+  MARKET_DATA_REMEDIATION_JOB,
   parseMarketDataAuditDetails,
+  parseMarketDataRemediationDetails,
   PERSISTENT_AUDIT_FAILURE_THRESHOLD,
   type MarketDataAuditLog,
 } from "@/lib/market-data-audit";
@@ -186,6 +188,7 @@ export default async function DataHealthPage() {
   const [
     { data: logs },
     { data: auditLogs },
+    { data: remediationLogs },
     { data: prices },
     { data: anomalies },
   ] = await Promise.all([
@@ -196,12 +199,19 @@ export default async function DataHealthPage() {
       .eq("job_name", MARKET_DATA_AUDIT_JOB)
       .order("executed_at", { ascending: false })
       .limit(10),
+    admin
+      .from("fetch_logs")
+      .select("*")
+      .eq("job_name", MARKET_DATA_REMEDIATION_JOB)
+      .order("executed_at", { ascending: false })
+      .limit(1),
     admin.from("stock_prices").select("ticker, price, fetched_at, stocks(name, sector)").order("fetched_at", { ascending: true }).limit(500),
     admin.from("price_anomalies").select("*").order("detected_at", { ascending: false }).limit(50),
   ]);
 
   const typedLogs = (logs ?? []) as FetchLog[];
   const typedAuditLogs = (auditLogs ?? []) as MarketDataAuditLog[];
+  const latestRemediation = ((remediationLogs ?? []) as FetchLog[])[0] ?? null;
   const typedPrices = (prices ?? []) as unknown as PriceRow[];
   const typedAnomalies = ((anomalies ?? []) as PriceAnomaly[]).sort((a, b) => {
     if (a.status === b.status) return 0;
@@ -220,6 +230,9 @@ export default async function DataHealthPage() {
   const auditHealth = getMarketDataAuditHealth(typedAuditLogs);
   const latestAudit = auditHealth.latest;
   const auditDetails = parseMarketDataAuditDetails(latestAudit?.error_message);
+  const remediationDetails = parseMarketDataRemediationDetails(
+    latestRemediation?.error_message,
+  );
   const auditPresentation = {
     unknown: {
       label: "No audit log",
@@ -266,7 +279,7 @@ export default async function DataHealthPage() {
               Market Data Audit
             </h2>
             <p className="text-[11px] mt-1" style={{ color: "var(--text-3)" }}>
-              Two consecutive critical or incomplete runs are treated as a persistent failure.
+              A second consecutive failure triggers one targeted refresh and one full re-audit.
             </p>
           </div>
           <span
@@ -331,6 +344,51 @@ export default async function DataHealthPage() {
           <p className="text-[11px] mt-3" style={{ color: "var(--down)" }}>
             Provider: {auditDetails.providerErrors.slice(0, 3).join(" · ")}
           </p>
+        )}
+
+        {latestRemediation && remediationDetails && (
+          <div
+            className="mt-4 rounded-lg px-3 py-3"
+            style={{ background: "var(--surface-2)" }}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-3)" }}>
+                Last automatic remediation
+              </p>
+              <p
+                className="text-[10px] font-semibold"
+                style={{
+                  color:
+                    latestRemediation.status === "success"
+                      ? "var(--up)"
+                      : latestRemediation.status === "running"
+                        ? "var(--accent)"
+                        : "var(--down)",
+                }}
+              >
+                {latestRemediation.status} · {fmtTime(latestRemediation.executed_at)}
+              </p>
+            </div>
+            <p className="text-[11px] mt-2" style={{ color: "var(--text-2)" }}>
+              {remediationDetails.stage === "finished"
+                ? `Updated ${latestRemediation.records_fetched ?? 0} field operation(s); ${latestRemediation.records_failed ?? 0} failed.`
+                : remediationDetails.stage === "started"
+                  ? "The attempt marker was recorded, but no final outcome was saved. It will not repeat automatically in this failure streak."
+                  : remediationDetails.reason ?? "No safe automatic repair target was available."}
+            </p>
+            {(remediationDetails.priceTargets.length > 0 ||
+              remediationDetails.marketCapTargets.length > 0) && (
+              <p className="text-[11px] mt-1.5" style={{ color: "var(--text-3)" }}>
+                Price: {remediationDetails.priceTargets.join(", ") || "—"}
+                {" · "}Cap/AUM: {remediationDetails.marketCapTargets.join(", ") || "—"}
+              </p>
+            )}
+            {remediationDetails.errors.length > 0 && (
+              <p className="text-[11px] mt-1.5" style={{ color: "var(--down)" }}>
+                {remediationDetails.errors.slice(0, 2).join(" · ")}
+              </p>
+            )}
+          </div>
         )}
 
         {typedAuditLogs.length > 0 && (

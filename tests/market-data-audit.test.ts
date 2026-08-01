@@ -3,6 +3,7 @@ import {
   getMarketDataAuditHealth,
   MARKET_DATA_AUDIT_JOB,
   parseMarketDataAuditDetails,
+  parseMarketDataRemediationDetails,
   type MarketDataAuditLog,
 } from "@/lib/market-data-audit";
 
@@ -101,5 +102,38 @@ describe("market data audit details", () => {
   it("rejects malformed or unrelated log details", () => {
     expect(parseMarketDataAuditDetails("not-json")).toBeNull();
     expect(parseMarketDataAuditDetails('{"status":"success"}')).toBeNull();
+  });
+});
+
+describe("market data remediation details", () => {
+  it("parses a finished targeted remediation result", () => {
+    const details = parseMarketDataRemediationDetails(
+      JSON.stringify({
+        stage: "finished",
+        trigger_audit_id: 42,
+        targets: { price: ["BTC-USD"], market_cap: ["MU"] },
+        result: {
+          price_updated: 1,
+          market_cap_updated: 1,
+          errors: [],
+        },
+      }),
+    );
+
+    expect(details).toEqual({
+      stage: "finished",
+      triggerAuditId: 42,
+      priceTargets: ["BTC-USD"],
+      marketCapTargets: ["MU"],
+      reason: null,
+      priceUpdated: 1,
+      marketCapUpdated: 1,
+      errors: [],
+    });
+  });
+
+  it("rejects malformed remediation details", () => {
+    expect(parseMarketDataRemediationDetails("not-json")).toBeNull();
+    expect(parseMarketDataRemediationDetails('{"stage":"unknown"}')).toBeNull();
   });
 });
