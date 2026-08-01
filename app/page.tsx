@@ -1,5 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { NewsArticle, StockPrice, Stock } from "@/lib/types";
+import { formatAssetPrice } from "@/lib/price-format";
+import { PriceFreshnessBadge } from "@/components/PriceFreshnessBadge";
 import Link from "next/link";
 import { LogoImage } from "@/components/LogoImage";
 import { Suspense } from "react";
@@ -117,7 +119,7 @@ export default async function HomePage() {
               }}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-              Live market data
+              Market-aware data
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] mb-5 max-w-3xl mx-auto tracking-tight fade-up">
@@ -130,7 +132,7 @@ export default async function HomePage() {
               className="text-sm sm:text-lg max-w-xl mx-auto mb-8 sm:mb-10 leading-relaxed px-2 sm:px-0"
               style={{ color: "var(--text-2)" }}
             >
-              Real-time S&amp;P 100 &amp; crypto prices, AI-powered news analysis,
+              Market-aware S&amp;P 100 &amp; 24/7 crypto quotes, AI-powered news analysis,
               and a full paper trading simulator — completely free.
             </p>
 
@@ -375,8 +377,11 @@ function MoverRow({ m }: { m: StockPrice & { stocks: Stock } }) {
           {isUp ? "+" : ""}{pct.toFixed(2)}%
         </p>
         <p className="text-[10px] tabular-nums" style={{ color: "var(--text-3)" }}>
-          ${m.price.toFixed(2)}
+          {formatAssetPrice(m.price, m.ticker)}
         </p>
+        <div className="mt-0.5 flex justify-end">
+          <PriceFreshnessBadge fetchedAt={m.fetched_at} ticker={m.ticker} compact />
+        </div>
       </div>
     </Link>
   );
@@ -400,7 +405,7 @@ function MoverGroup({
           {label}
         </p>
         {live && (
-          <span className="badge badge-up text-[9px]">24/7 live</span>
+          <span className="badge badge-up text-[9px]">24/7 market</span>
         )}
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

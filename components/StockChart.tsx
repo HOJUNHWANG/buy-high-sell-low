@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import type { StockPriceHistory } from "@/lib/types";
 import { useTheme } from "@/components/ThemeProvider";
+import { assetPriceFractionDigits, formatAssetPrice } from "@/lib/price-format";
 
 interface Props {
   ticker: string;
@@ -102,6 +103,7 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
   const filtered = useMemo(() => filterByRange(historyWithCurrent, range), [historyWithCurrent, range]);
   const stats = useMemo(() => getRangeStats(filtered), [filtered]);
   const isUp = (stats?.changePct ?? 0) >= 0;
+  const priceDigits = assetPriceFractionDigits(stats?.last ?? currentPrice?.price ?? 0, ticker);
 
   useEffect(() => {
     if (!chartRef.current || historyWithCurrent.length === 0) return;
@@ -176,6 +178,11 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
         crosshairMarkerVisible: true,
         crosshairMarkerRadius: 4,
         crosshairMarkerBackgroundColor: accentColor,
+        priceFormat: {
+          type: "price",
+          precision: priceDigits,
+          minMove: 10 ** -priceDigits,
+        },
       });
 
       const filteredData = filterByRange(historyWithCurrent, range);
@@ -207,7 +214,7 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
     return () => {
       chart?.remove();
     };
-  }, [historyWithCurrent, range, isUp, theme]);
+  }, [historyWithCurrent, range, isUp, priceDigits, theme]);
 
   return (
     <div
@@ -240,10 +247,10 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
         {stats && (
           <div className="flex items-center gap-3 text-[11px]">
             <span style={{ color: "var(--text-3)" }}>
-              H: <span style={{ color: "var(--text-2)" }}>${stats.high.toFixed(2)}</span>
+              H: <span style={{ color: "var(--text-2)" }}>{formatAssetPrice(stats.high, ticker)}</span>
             </span>
             <span style={{ color: "var(--text-3)" }}>
-              L: <span style={{ color: "var(--text-2)" }}>${stats.low.toFixed(2)}</span>
+              L: <span style={{ color: "var(--text-2)" }}>{formatAssetPrice(stats.low, ticker)}</span>
             </span>
             <span
               className="font-semibold"

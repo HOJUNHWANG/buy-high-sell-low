@@ -5,4 +5,4 @@ groq>=1.2.0,<2.0.0
 feedparser==6.0.10
 python-dotenv==1.0.0
 pytz==2024.1
-yfinance>=0.2.66
+yfinance==1.5.2

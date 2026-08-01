@@ -5,6 +5,9 @@ export interface Stock {
   sector: string | null;
   logo_url: string | null;
   market_cap: number | null;
+  market_cap_updated_at: string | null;
+  market_cap_source: string | null;
+  market_cap_metric: "equity_market_cap" | "circulating_market_cap" | "aum" | null;
   is_active: boolean;
   updated_at: string;
 }

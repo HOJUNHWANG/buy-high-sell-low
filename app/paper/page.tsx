@@ -7,6 +7,7 @@ import { LogoImage } from "@/components/LogoImage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PaperTradeBanner } from "@/components/PaperTradeBanner";
 import { RoastCard } from "@/components/RoastCard";
+import { formatAssetPrice } from "@/lib/price-format";
 
 interface Position {
   ticker: string;
@@ -484,7 +485,7 @@ export default function PaperTradingPage() {
                     <div>
                       <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{pick.ticker}</span>
                       <span className="text-[10px] ml-2 tabular-nums" style={{ color: "var(--text-3)" }}>
-                        ${pick.base_price.toFixed(2)}
+                        {formatAssetPrice(pick.base_price, pick.ticker)}
                       </span>
                       {pick.currentPct != null && (
                         <span className="text-[10px] ml-1 tabular-nums"
@@ -549,7 +550,7 @@ export default function PaperTradingPage() {
                     <div>
                       <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{pick.ticker}</span>
                       <span className="text-[10px] ml-2 tabular-nums" style={{ color: "var(--text-3)" }}>
-                        ${pick.base_price.toFixed(2)}
+                        {formatAssetPrice(pick.base_price, pick.ticker)}
                       </span>
                       {pick.currentPct != null && (
                         <span className="text-[10px] ml-1 tabular-nums"
@@ -589,7 +590,7 @@ export default function PaperTradingPage() {
                       <span className="text-sm">{pick.correct ? "✅" : "❌"}</span>
                       <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{pick.ticker}</span>
                       <span className="text-[10px] tabular-nums" style={{ color: "var(--text-3)" }}>
-                        ${pick.base_price.toFixed(2)} → ${pick.final_price?.toFixed(2) ?? "?"}
+                        {formatAssetPrice(pick.base_price, pick.ticker)} → {pick.final_price == null ? "?" : formatAssetPrice(pick.final_price, pick.ticker)}
                       </span>
                     </div>
                     <span className="text-[10px] font-semibold"
@@ -690,7 +691,7 @@ export default function PaperTradingPage() {
                         <span className="text-xs truncate" style={{ color: "var(--text-3)" }}>{p.name}</span>
                       </div>
                       <p className="text-[11px]" style={{ color: "var(--text-3)" }}>
-                        {p.shares.toFixed(4)} shares @ {formatMoney(p.avg_cost)}
+                        {p.shares.toFixed(4)} shares @ {formatAssetPrice(p.avg_cost, p.ticker)}
                       </p>
                     </div>
                     <div className="text-right shrink-0">

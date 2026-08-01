@@ -1,6 +1,6 @@
-export function timeAgo(dateStr: string | null): string {
+export function timeAgo(dateStr: string | null, now = new Date()): string {
   if (!dateStr) return "";
-  const diff = Date.now() - new Date(dateStr).getTime();
+  const diff = now.getTime() - new Date(dateStr).getTime();
   const m = Math.floor(diff / 60_000);
   if (m < 1)  return "just now";
   if (m < 60) return `${m}m ago`;

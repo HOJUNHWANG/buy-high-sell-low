@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { LogoImage } from "./LogoImage";
 import type { Stock, StockPrice } from "@/lib/types";
+import { formatAssetPrice } from "@/lib/price-format";
+import { PriceFreshnessBadge } from "./PriceFreshnessBadge";
 
 export type InsightAssetType = "stocks" | "etfs" | "crypto";
 type InsightStock = Stock & { price?: StockPrice; change_30d?: number | null };
@@ -94,9 +96,11 @@ function PerformanceCard({
 function MarketCapPodium({
   leaders,
   leaderStreaks,
+  metricLabel,
 }: {
   leaders: InsightStock[];
   leaderStreaks: Record<string, number>;
+  metricLabel: string;
 }) {
   const podium = [
     { stock: leaders[1], rank: 2, height: "h-12" },
@@ -111,7 +115,7 @@ function MarketCapPodium({
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: "var(--text-3)" }}>
-          Market-cap podium
+          {metricLabel} podium
         </p>
         <span className="text-[10px]" style={{ color: "var(--text-3)" }}>Top 3</span>
       </div>
@@ -165,9 +169,7 @@ export function MarketInsights({
   assetType: InsightAssetType;
   leaderStreaks: Record<string, number>;
 }) {
-  // ETF tab deliberately reuses the stock-market view: ETF market-cap ranks rarely convey a useful change signal.
-  const insightAssetType: InsightAssetType = assetType === "etfs" ? "stocks" : assetType;
-  const rows = stocks.filter((stock) => isType(stock, insightAssetType));
+  const rows = stocks.filter((stock) => isType(stock, assetType));
   const marketCapLeaders = [...rows]
     .filter((stock) => stock.market_cap != null)
     .sort((a, b) => (b.market_cap ?? 0) - (a.market_cap ?? 0))
@@ -183,7 +185,11 @@ export function MarketInsights({
   if (assetType !== "crypto") {
     return (
       <section className="grid gap-2 xl:grid-cols-3" aria-label={`${assetType} market insights`}>
-        <MarketCapPodium leaders={marketCapLeaders} leaderStreaks={leaderStreaks} />
+        <MarketCapPodium
+          leaders={marketCapLeaders}
+          leaderStreaks={leaderStreaks}
+          metricLabel={assetType === "etfs" ? "AUM" : "Market-cap"}
+        />
         <PerformanceCard title="Best 3 · 30D" stocks={best} tone="up" />
         <PerformanceCard title="Worst 3 · 30D" stocks={worst} tone="down" />
       </section>
@@ -215,8 +221,13 @@ export function MarketInsights({
           <span className="rounded-lg px-2.5 py-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
             <span className="block text-[9px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Price</span>
             <span className="block mt-0.5 text-xs font-bold tabular-nums" style={{ color: "var(--text)" }}>
-              {leader.price ? `$${leader.price.price.toFixed(2)}` : "—"}
+              {leader.price ? formatAssetPrice(leader.price.price, leader.ticker) : "—"}
             </span>
+            {leader.price?.fetched_at && (
+              <span className="block mt-1">
+                <PriceFreshnessBadge fetchedAt={leader.price.fetched_at} ticker={leader.ticker} compact />
+              </span>
+            )}
           </span>
           <span className="rounded-lg px-2.5 py-2" style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
             <span className="block text-[9px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>30D</span>

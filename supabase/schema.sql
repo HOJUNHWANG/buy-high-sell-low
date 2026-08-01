@@ -12,6 +12,11 @@ CREATE TABLE IF NOT EXISTS stocks (
   sector      TEXT,
   logo_url    TEXT,
   market_cap  BIGINT,
+  market_cap_updated_at TIMESTAMPTZ,
+  market_cap_source TEXT,
+  market_cap_metric TEXT CHECK (
+    market_cap_metric IN ('equity_market_cap', 'circulating_market_cap', 'aum')
+  ),
   is_active   BOOLEAN NOT NULL DEFAULT TRUE,
   updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
@@ -39,10 +44,17 @@ CREATE TABLE IF NOT EXISTS market_cap_snapshots (
   ticker      TEXT NOT NULL REFERENCES stocks(ticker),
   date        DATE NOT NULL,
   market_cap  BIGINT NOT NULL,
+  observed_at TIMESTAMPTZ,
+  source      TEXT,
+  metric      TEXT CHECK (
+    metric IN ('equity_market_cap', 'circulating_market_cap', 'aum')
+  ),
   PRIMARY KEY (ticker, date)
 );
 CREATE INDEX IF NOT EXISTS idx_market_cap_snapshots_date
   ON market_cap_snapshots (date DESC, market_cap DESC);
+CREATE INDEX IF NOT EXISTS idx_stocks_market_cap_updated_at
+  ON stocks (market_cap_updated_at);
 
 -- News articles
 CREATE TABLE IF NOT EXISTS news_articles (
@@ -375,3 +387,72 @@ ALTER TABLE paper_challenges ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "users can read own paper_challenges"   ON paper_challenges FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "users can insert own paper_challenges" ON paper_challenges FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "users can update own paper_challenges" ON paper_challenges FOR UPDATE USING (auth.uid() = user_id);
+
+-- Atomic service-role write for validated current market value + daily history.
+CREATE OR REPLACE FUNCTION public.upsert_market_cap_observation(
+  p_ticker TEXT,
+  p_market_cap BIGINT,
+  p_observed_at TIMESTAMPTZ,
+  p_source TEXT,
+  p_metric TEXT
+)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_market_cap <= 0 THEN
+    RAISE EXCEPTION 'market cap must be positive';
+  END IF;
+  IF p_source IS NULL OR btrim(p_source) = '' THEN
+    RAISE EXCEPTION 'market cap source is required';
+  END IF;
+  IF p_metric NOT IN ('equity_market_cap', 'circulating_market_cap', 'aum') THEN
+    RAISE EXCEPTION 'invalid market cap metric: %', p_metric;
+  END IF;
+
+  UPDATE public.stocks
+  SET
+    market_cap = p_market_cap,
+    market_cap_updated_at = p_observed_at,
+    market_cap_source = p_source,
+    market_cap_metric = p_metric,
+    updated_at = p_observed_at
+  WHERE ticker = upper(p_ticker);
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'unknown market ticker: %', p_ticker;
+  END IF;
+
+  INSERT INTO public.market_cap_snapshots (
+    ticker,
+    date,
+    market_cap,
+    observed_at,
+    source,
+    metric
+  )
+  VALUES (
+    upper(p_ticker),
+    (p_observed_at AT TIME ZONE 'UTC')::date,
+    p_market_cap,
+    p_observed_at,
+    p_source,
+    p_metric
+  )
+  ON CONFLICT (ticker, date)
+  DO UPDATE SET
+    market_cap = EXCLUDED.market_cap,
+    observed_at = EXCLUDED.observed_at,
+    source = EXCLUDED.source,
+    metric = EXCLUDED.metric;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.upsert_market_cap_observation(
+  TEXT, BIGINT, TIMESTAMPTZ, TEXT, TEXT
+) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.upsert_market_cap_observation(
+  TEXT, BIGINT, TIMESTAMPTZ, TEXT, TEXT
+) TO service_role;

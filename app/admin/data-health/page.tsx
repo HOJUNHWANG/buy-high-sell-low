@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { isPriceStale, priceFreshnessLabel } from "@/lib/price-freshness";
+import { getPriceFreshness } from "@/lib/price-freshness";
+import { formatAssetPrice } from "@/lib/price-format";
 import { revalidatePath } from "next/cache";
 
 export const dynamic = "force-dynamic";
@@ -192,7 +193,10 @@ export default async function DataHealthPage() {
   for (const log of typedLogs) {
     if (!latestByJob.has(log.job_name)) latestByJob.set(log.job_name, log);
   }
-  const stalePrices = typedPrices.filter((row) => isPriceStale(row.fetched_at)).slice(0, 25);
+  const stalePrices = typedPrices.filter((row) => {
+    const state = getPriceFreshness(row.fetched_at, row.ticker).state;
+    return state === "delayed" || state === "unavailable";
+  }).slice(0, 25);
   const settlement = latestByJob.get("prices_close_settlement");
 
   return (
@@ -251,7 +255,7 @@ export default async function DataHealthPage() {
                   <td className="font-semibold" style={{ color: "var(--text)" }}>{row.ticker}</td>
                   <td style={{ color: "var(--text-2)" }}>{row.market_date}</td>
                   <td className="text-right tabular-nums" style={{ color: "var(--text-2)" }}>
-                    ${Number(row.price).toFixed(2)}
+                    {formatAssetPrice(Number(row.price), row.ticker)}
                   </td>
                   <td className="text-right tabular-nums" style={{ color: "var(--down)" }}>
                     {fmtPct(row.provider_change_pct)}
@@ -329,14 +333,14 @@ export default async function DataHealthPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card rounded-xl p-4">
           <h2 className="text-sm font-semibold" style={{ color: "var(--text)" }}>Stale Prices</h2>
-          <p className="text-[11px] mt-1" style={{ color: "var(--text-3)" }}>Flags assets older than 20 minutes.</p>
+          <p className="text-[11px] mt-1" style={{ color: "var(--text-3)" }}>Flags continuous/active quotes over 20 minutes old and equities missing the latest completed session.</p>
           <div className="mt-3 space-y-2">
             {stalePrices.length === 0 ? (
               <p className="text-xs" style={{ color: "var(--text-3)" }}>No stale prices found.</p>
             ) : stalePrices.map((row) => (
               <div key={row.ticker} className="flex items-center justify-between gap-3 text-xs">
                 <span style={{ color: "var(--text)" }}>{row.ticker}</span>
-                <span style={{ color: "var(--text-3)" }}>{priceFreshnessLabel(row.fetched_at)}</span>
+                <span style={{ color: "var(--text-3)" }}>{getPriceFreshness(row.fetched_at, row.ticker).label}</span>
               </div>
             ))}
           </div>

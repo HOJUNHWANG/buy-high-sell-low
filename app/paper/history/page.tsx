@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PaperTradeBanner } from "@/components/PaperTradeBanner";
 import type { PaperTransaction } from "@/lib/types";
+import { formatAssetPrice } from "@/lib/price-format";
 
 export default function PaperHistoryPage() {
   const router = useRouter();
@@ -115,10 +116,10 @@ export default function PaperHistoryPage() {
                     </div>
 
                     <p className="text-xs" style={{ color: "var(--text-2)", lineHeight: "1.5" }}>
-                      {tx.side === "buy" && `Bought ${tx.shares.toFixed(4)} shares of ${tx.ticker} at $${tx.price.toFixed(2)}. `}
-                      {tx.side === "short" && `Shorted ${tx.shares.toFixed(4)} shares of ${tx.ticker} at $${tx.price.toFixed(2)}. `}
-                      {tx.side === "sell" && `Sold ${tx.shares.toFixed(4)} shares of ${tx.ticker} at $${tx.price.toFixed(2)} to close the Long position. `}
-                      {tx.side === "cover" && `Bought back ${tx.shares.toFixed(4)} shares of ${tx.ticker} at $${tx.price.toFixed(2)} to cover the Short position. `}
+                      {tx.side === "buy" && `Bought ${tx.shares.toFixed(4)} shares of ${tx.ticker} at ${formatAssetPrice(tx.price, tx.ticker)}. `}
+                      {tx.side === "short" && `Shorted ${tx.shares.toFixed(4)} shares of ${tx.ticker} at ${formatAssetPrice(tx.price, tx.ticker)}. `}
+                      {tx.side === "sell" && `Sold ${tx.shares.toFixed(4)} shares of ${tx.ticker} at ${formatAssetPrice(tx.price, tx.ticker)} to close the Long position. `}
+                      {tx.side === "cover" && `Bought back ${tx.shares.toFixed(4)} shares of ${tx.ticker} at ${formatAssetPrice(tx.price, tx.ticker)} to cover the Short position. `}
                       
                       {isLeveraged && !isClosing && (
                         <span style={{ color: "var(--text-4)" }}>

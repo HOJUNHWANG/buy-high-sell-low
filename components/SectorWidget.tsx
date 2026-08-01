@@ -58,7 +58,7 @@ export async function SectorWidget() {
           <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--text-3)" }} />
           <span className="text-[9px] font-medium" style={{ color: "var(--text-2)" }}>US market closed</span>
           <Link href="/stocks?tab=crypto" className="ml-auto text-[9px] font-medium" style={{ color: "var(--accent)" }}>
-            Crypto live →
+            Crypto 24/7 →
           </Link>
         </div>
       )}

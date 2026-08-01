@@ -6,6 +6,7 @@ import Link from "next/link";
 import { LogoImage } from "./LogoImage";
 import type { Stock, StockPrice } from "@/lib/types";
 import { fmtVol } from "@/lib/utils";
+import { formatAssetPrice } from "@/lib/price-format";
 import { PriceFreshnessBadge } from "./PriceFreshnessBadge";
 import { MarketInsights, type InsightAssetType } from "./MarketInsights";
 
@@ -217,7 +218,7 @@ export function StockTable({
             style={{ border: "1px solid var(--border-md)" }}
           >
             {([
-              { label: "Market Cap", key: "market_cap" as SortKey, dir: "desc" as SortDir },
+              { label: assetType === "etfs" ? "AUM" : "Market Cap", key: "market_cap" as SortKey, dir: "desc" as SortDir },
               { label: "Top Movers", key: "change_pct" as SortKey, dir: "desc" as SortDir },
             ]).map((preset) => {
               const active = sort.key === preset.key;
@@ -238,7 +239,7 @@ export function StockTable({
           </div>
 
           <span className="text-xs" style={{ color: "var(--text-3)" }}>
-            {filtered.length} {assetType === "crypto" ? "coins" : "stocks"}
+            {filtered.length} {assetType === "crypto" ? "coins" : assetType === "etfs" ? "ETFs" : "stocks"}
           </span>
 
           {/* View toggle */}
@@ -321,7 +322,7 @@ export function StockTable({
                     onClick={() => toggleSort("market_cap")}>
                     <div className="flex items-center gap-1 justify-end">
                       <SortIcon active={sort.key === "market_cap"} dir={sort.dir} />
-                      <span>Mkt Cap</span>
+                      <span>{assetType === "etfs" ? "AUM" : "Mkt Cap"}</span>
                     </div>
                   </th>
                   {th("price",      "Price",   "right")}
@@ -396,7 +397,7 @@ export function StockTable({
                         {fmtMarketCap(stock.market_cap)}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold tabular-nums" style={{ color: "var(--text)" }}>
-                        <div>{stock.price ? `$${stock.price.price.toFixed(2)}` : <PendingPriceLabel />}</div>
+                        <div>{stock.price ? formatAssetPrice(stock.price.price, stock.ticker) : <PendingPriceLabel />}</div>
                         {stock.price?.fetched_at && <div className="mt-1"><PriceFreshnessBadge fetchedAt={stock.price.fetched_at} ticker={stock.ticker} compact /></div>}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -500,7 +501,7 @@ export function StockTable({
                 </p>
                 <div>
                   <div className="text-sm font-bold tabular-nums" style={{ color: "var(--text)" }}>
-                    {stock.price ? `$${stock.price.price.toFixed(2)}` : <PendingPriceLabel compact />}
+                    {stock.price ? formatAssetPrice(stock.price.price, stock.ticker) : <PendingPriceLabel compact />}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     {pct !== null && (

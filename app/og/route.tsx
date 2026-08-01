@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatAssetPrice } from "@/lib/price-format";
 
 export const runtime = "edge";
 
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
       ]);
       if (stock) name = stock.name;
       if (priceData) {
-        price = `$${priceData.price.toFixed(2)}`;
+        price = formatAssetPrice(priceData.price, ticker);
         if (priceData.change_pct !== null) {
           const sign = priceData.change_pct >= 0 ? "+" : "";
           changePct = `${sign}${priceData.change_pct.toFixed(2)}%`;

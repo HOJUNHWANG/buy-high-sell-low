@@ -4,7 +4,7 @@ import marketHolidays from "@/data/us-market-holidays.json";
 
 const HOLIDAYS = new Map(marketHolidays.map((holiday) => [holiday.date, holiday.label]));
 
-type EasternTime = {
+export type EasternTime = {
   date: string;
   weekday: string;
   mins: number;
@@ -41,7 +41,7 @@ function formatTradingDate(date: string): string {
   }).format(new Date(`${date}T12:00:00Z`));
 }
 
-function getEasternTime(now: Date): EasternTime {
+export function getEasternTime(now: Date): EasternTime {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
     year: "numeric",
@@ -73,8 +73,26 @@ export function getMarketHoliday(date: string): string | undefined {
   return HOLIDAYS.get(date);
 }
 
+function previousTradingDate(fromDate: string): string {
+  const cursor = new Date(`${fromDate}T12:00:00Z`);
+  do {
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+    const date = cursor.toISOString().slice(0, 10);
+    const day = cursor.getUTCDay();
+    if (day !== 0 && day !== 6 && !HOLIDAYS.has(date)) return date;
+  } while (true);
+}
+
+/** The NYSE session whose regular close should back a closed-market quote. */
+export function getLatestCompletedTradingDate(now = new Date()): string {
+  const et = getEasternTime(now);
+  const isWeekday = et.weekday !== "Sat" && et.weekday !== "Sun";
+  const isTradingDay = isWeekday && !HOLIDAYS.has(et.date);
+  return isTradingDay && et.mins >= 960 ? et.date : previousTradingDate(et.date);
+}
+
 export function isCrypto(ticker: string): boolean {
-  return ticker.endsWith("-USD");
+  return ticker.toUpperCase().endsWith("-USD");
 }
 
 export function isMarketOpen(now = new Date()): boolean {

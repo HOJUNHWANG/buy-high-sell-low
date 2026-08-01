@@ -1,5 +1,6 @@
 import sys
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -11,6 +12,7 @@ from price_adjustments import (  # noqa: E402
     get_previous_closes,
     get_reviewed_anomaly_override,
     normalize_change_pct,
+    provider_quote_observed_at,
     record_price_anomaly,
 )
 
@@ -27,6 +29,35 @@ class CalculateChangePctTests(unittest.TestCase):
 
         self.assertEqual(value, 2.5)
         self.assertEqual(source, "provider_fallback")
+
+
+class ProviderQuoteTimestampTests(unittest.TestCase):
+    def setUp(self):
+        self.now = datetime(2026, 8, 1, 12, 0, tzinfo=timezone.utc)
+
+    def test_prefers_provider_epoch_timestamp(self):
+        observed = provider_quote_observed_at(
+            {"timestamp": 1785582000}, fallback=self.now, is_crypto=True
+        )
+
+        self.assertEqual(observed, "2026-08-01T11:00:00+00:00")
+
+    def test_interprets_equity_datetime_in_new_york(self):
+        observed = provider_quote_observed_at(
+            {"datetime": "2026-07-31 16:00:00"},
+            fallback=self.now,
+            is_crypto=False,
+        )
+
+        self.assertEqual(observed, "2026-07-31T20:00:00+00:00")
+
+    def test_rejects_materially_future_provider_timestamp(self):
+        with self.assertRaisesRegex(ValueError, "in the future"):
+            provider_quote_observed_at(
+                {"datetime": "2026-08-01 12:10:00"},
+                fallback=self.now,
+                is_crypto=True,
+            )
 
     def test_falls_back_to_provider_for_invalid_close(self):
         value, source = calculate_change_pct(105.0, 0.0, -1.5)

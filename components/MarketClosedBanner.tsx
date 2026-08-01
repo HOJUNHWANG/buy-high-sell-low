@@ -30,12 +30,12 @@ export function MarketClosedBanner() {
             US stocks are closed
           </h2>
           <p className="text-xs mt-1.5 leading-relaxed max-w-xl" style={{ color: "var(--text-2)" }}>
-            Stock and ETF prices show the last completed market session. {status.nextLabel}.
+            Current stock and ETF quotes reflect the last completed session; delayed symbols are flagged. {status.nextLabel}.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 shrink-0">
           <Link href="/stocks?tab=crypto" className="btn btn-primary btn-sm">
-            Explore live crypto
+            Explore crypto
           </Link>
           <Link href="/market-calendar" className="btn btn-secondary btn-sm">
             Market calendar

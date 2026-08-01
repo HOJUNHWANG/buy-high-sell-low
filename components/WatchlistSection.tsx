@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Stock, StockPrice } from "@/lib/types";
 import { LogoImage } from "./LogoImage";
 import { PriceFreshnessBadge } from "./PriceFreshnessBadge";
+import { formatAssetPrice } from "@/lib/price-format";
 import { WatchlistRemoveButton } from "./WatchlistRemoveButton";
 import Link from "next/link";
 
@@ -102,7 +103,7 @@ export async function WatchlistSection({ userId }: { userId: string }) {
 
               <div>
                 <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
-                  ${item.price.toFixed(2)}
+                  {formatAssetPrice(item.price, item.ticker)}
                 </div>
                 <div
                   className="text-[10px] font-medium mt-0.5"

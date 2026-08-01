@@ -10,6 +10,7 @@ import { WatchlistButton } from "@/components/WatchlistButton";
 import { StockNewsSection } from "@/components/StockNewsSection";
 import { WhyMoving } from "@/components/WhyMoving";
 import { PriceFreshnessBadge } from "@/components/PriceFreshnessBadge";
+import { formatAssetPrice } from "@/lib/price-format";
 import { gateSummaries, FREE_USER_DAILY_UNLOCKS } from "@/lib/summary-gate";
 import type { UserTier } from "@/lib/summary-gate";
 
@@ -86,7 +87,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     : "";
   return {
     title:       `${stock.name} (${ticker}) Stock Price & News`,
-    description: `${stock.name} stock price $${price?.price ?? "N/A"}${pctStr}. Latest news and AI analysis.`,
+    description: `${stock.name} stock price ${price ? formatAssetPrice(price.price, stock.ticker) : "N/A"}${pctStr}. Latest news and AI analysis.`,
     openGraph:   { images: [`/og?ticker=${ticker}`] },
   };
 }
@@ -173,7 +174,7 @@ export default async function StockDetailPage({ params }: Props) {
             <div className="card rounded-xl p-5">
               <div className="flex items-baseline gap-3 flex-wrap">
                 <span className="text-4xl font-bold" style={{ color: "var(--text)" }}>
-                  ${price.price.toFixed(2)}
+                  {formatAssetPrice(price.price, stock.ticker)}
                 </span>
                 {pctStr && (
                   <span className="text-base font-semibold px-2 py-0.5 rounded-lg"
@@ -186,10 +187,10 @@ export default async function StockDetailPage({ params }: Props) {
                 )}
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs" style={{ color: "var(--text-3)" }}>
-                <span>{price.volume ? `Vol ${(price.volume / 1_000_000).toFixed(1)}M · ` : ""}Delayed · as of {new Date(price.fetched_at).toLocaleTimeString("en-US", {
-                  hour: "2-digit", minute: "2-digit", timeZone: "America/New_York",
+                <span>{price.volume ? `Vol ${(price.volume / 1_000_000).toFixed(1)}M · ` : ""}Quote as of {new Date(price.fetched_at).toLocaleString("en-US", {
+                  year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/New_York",
                 })} ET</span>
-                <PriceFreshnessBadge fetchedAt={price.fetched_at} ticker={ticker} />
+                <PriceFreshnessBadge fetchedAt={price.fetched_at} ticker={stock.ticker} />
               </div>
 
               {sinceLastFetch != null && (
@@ -209,7 +210,7 @@ export default async function StockDetailPage({ params }: Props) {
               style={{ border: "1px dashed var(--border-md)", color: "var(--text-2)" }}>
               <p className="font-medium" style={{ color: "var(--text)" }}>Awaiting market data</p>
               <p className="text-xs" style={{ color: "var(--text-3)" }}>
-                This ticker is tracked, and live pricing will appear once the data provider starts returning quotes.
+                This ticker is tracked, and pricing will appear once the data provider starts returning quotes.
               </p>
             </div>
           )}
@@ -273,7 +274,7 @@ export default async function StockDetailPage({ params }: Props) {
                     <span className="text-xs" style={{ color: "var(--text-3)" }}>Change ($)</span>
                     <span className="text-xs font-semibold tabular-nums"
                       style={{ color: changeDollar >= 0 ? "var(--up)" : "var(--down)" }}>
-                      {changeDollar >= 0 ? "+" : ""}${Math.abs(changeDollar).toFixed(2)}
+                      {changeDollar >= 0 ? "+" : "-"}{formatAssetPrice(Math.abs(changeDollar), stock.ticker)}
                     </span>
                   </div>
                 )}
@@ -293,7 +294,7 @@ export default async function StockDetailPage({ params }: Props) {
                   <div className="flex justify-between items-center gap-2">
                     <span className="text-xs" style={{ color: "var(--text-3)" }}>1Y High</span>
                     <span className="text-xs font-medium tabular-nums" style={{ color: "var(--up)" }}>
-                      ${high52w.toFixed(2)}
+                      {formatAssetPrice(high52w, stock.ticker)}
                     </span>
                   </div>
                 )}
@@ -301,7 +302,7 @@ export default async function StockDetailPage({ params }: Props) {
                   <div className="flex justify-between items-center gap-2">
                     <span className="text-xs" style={{ color: "var(--text-3)" }}>1Y Low</span>
                     <span className="text-xs font-medium tabular-nums" style={{ color: "var(--down)" }}>
-                      ${low52w.toFixed(2)}
+                      {formatAssetPrice(low52w, stock.ticker)}
                     </span>
                   </div>
                 )}
@@ -330,7 +331,7 @@ export default async function StockDetailPage({ params }: Props) {
                       />
                     </div>
                     <p className="text-[9px] text-center mt-1" style={{ color: "var(--text-3)" }}>
-                      ${price.price.toFixed(2)} current
+                      {formatAssetPrice(price.price, stock.ticker)} current
                     </p>
                   </div>
                 )}

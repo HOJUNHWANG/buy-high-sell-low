@@ -1,5 +1,5 @@
 """
-seed_etfs.py — Seed ETFs: stocks table + 1-year history + logos + market caps.
+seed_etfs.py — Seed ETFs: stocks table + 1-year history + logos.
 All-in-one script for ETFs only (fast, ~10 tickers).
 
 Usage: python scripts/seed_etfs.py
@@ -39,25 +39,8 @@ ETF_DOMAINS = {
     "ARKK": "ark-invest.com", "SOXX": "ishares.com", "XBI": "ssga.com",
 }
 
-# Manual AUM-style fallbacks used only when Yahoo/yfinance is rate-limited.
-# Exact AUM changes over time; the price cron/history data remains provider-sourced.
-ETF_MARKET_CAP_FALLBACKS = {
-    "VOO": 1_300_000_000_000,
-    "QQQ": 380_000_000_000,
-    "SPY": 650_000_000_000,
-    "VTI": 500_000_000_000,
-    "IWM": 70_000_000_000,
-    "DIA": 40_000_000_000,
-    "GLD": 100_000_000_000,
-    "TLT": 50_000_000_000,
-    "AGG": 120_000_000_000,
-    "XLK": 90_000_000_000,
-    "OEF": 20_000_000_000,
-}
-
 CHUNK_INSERT = 500
 TWELVE_HISTORY_SLEEP_SECONDS = 1.3
-YFINANCE_MARKET_CAP_SLEEP_SECONDS = 3.0
 
 
 def seed_etf_stocks():
@@ -244,40 +227,8 @@ def update_etf_logos():
     print(f"Logos: {updated} OK, {fallback} letter fallback")
 
 
-def update_etf_market_caps():
-    """Fetch ETF AUM-style market caps with manual fallback for Yahoo rate limits."""
-    print(f"\nUpdating market caps for {len(ETF_TICKERS)} ETFs...")
-    updated, failed = 0, 0
-
-    for ticker in ETF_TICKERS:
-        market_cap = None
-        try:
-            info = yf.Ticker(ticker).info
-            # ETFs usually expose totalAssets instead of marketCap.
-            market_cap = info.get("totalAssets") or info.get("netAssets") or info.get("marketCap")
-        except Exception as e:
-            print(f"  {ticker}: yfinance market cap unavailable — {e}")
-
-        if not market_cap:
-            market_cap = ETF_MARKET_CAP_FALLBACKS.get(ticker)
-            if market_cap:
-                print(f"  {ticker}: using manual AUM fallback")
-
-        if market_cap:
-            supabase.table("stocks").update({"market_cap": market_cap}).eq("ticker", ticker).execute()
-            print(f"  {ticker}: ${market_cap:,.0f}")
-            updated += 1
-        else:
-            print(f"  {ticker}: no market cap data")
-            failed += 1
-        time.sleep(YFINANCE_MARKET_CAP_SLEEP_SECONDS)
-
-    print(f"Market caps: {updated} OK, {failed} failed")
-
-
 if __name__ == "__main__":
     seed_etf_stocks()
     seed_etf_history()
     update_etf_logos()
-    update_etf_market_caps()
-    print("\nAll ETF seeding complete!")
+    print("\nETF seeding complete. Run update_market_caps.py for validated AUM.")

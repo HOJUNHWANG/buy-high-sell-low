@@ -123,6 +123,7 @@ Automated via scheduled cron jobs:
 | `fetch_prices.py` | Every 10 min (market hours; script skips closed stock market) | Stock + ETF + crypto prices |
 | `fetch_news.py` | Every 30 min | News aggregation + AI summarization |
 | `update_market_caps.py` | Daily | Market cap refresh |
+| `audit_market_data.py` | Daily | Read-only price and market cap/AUM verification against external reference providers |
 | `seed_history.py` | Manual/bootstrap | 1Y daily chart history via yfinance |
 | `seed_etfs.py` | Manual/bootstrap | ETF metadata + 1Y daily history via Twelve Data, with yfinance fallback |
 | `cleanup.py` | Daily | Data retention (30d intraday, 1Y daily, 90d news) |

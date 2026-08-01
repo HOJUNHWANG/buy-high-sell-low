@@ -11,11 +11,11 @@ export const revalidate = 300; // 5 min cache so UI picks up the 10-min price cr
 export const metadata: Metadata = {
   title: "Screener — Stocks, ETFs & Crypto",
   description:
-    "Browse S&P 100 stocks, core ETFs, and top crypto with live prices, daily changes, and filters.",
+    "Browse S&P 100 stocks, core ETFs, and top crypto with timestamped market prices, daily changes, and filters.",
 };
 
 type StockRow = Stock & { stock_prices: StockPrice | null };
-type MarketCapSnapshot = { ticker: string; date: string; market_cap: number };
+type MarketCapSnapshot = { ticker: string; date: string; market_cap: number; source: string };
 
 function assetClass(stock: Pick<Stock, "sector">) {
   if (stock.sector === "Cryptocurrency") return "crypto";
@@ -76,7 +76,8 @@ export default async function StocksPage() {
       .lte("date", dMax),
     supabase
       .from("market_cap_snapshots")
-      .select("ticker, date, market_cap")
+      .select("ticker, date, market_cap, source")
+      .neq("source", "legacy:unverified")
       .gte("date", new Date(Date.UTC(d30.getUTCFullYear() - 1, d30.getUTCMonth(), d30.getUTCDate())).toISOString().split("T")[0]),
   ]);
 
@@ -131,7 +132,7 @@ export default async function StocksPage() {
             Stock Screener
           </h1>
           <p className="text-xs mt-0.5" style={{ color: "var(--text-3)" }}>
-            S&amp;P 100 + Core ETFs + Crypto · {stocks.length} assets · {marketStatus.isOpen ? "prices update every 10 min" : "stocks show last market close"}
+            S&amp;P 100 + Core ETFs + Crypto · {stocks.length} assets · {marketStatus.isOpen ? "prices update every 10 min" : "each quote shows its freshness"}
           </p>
         </div>
 

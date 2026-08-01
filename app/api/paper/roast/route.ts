@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatAssetPrice } from "@/lib/price-format";
 import {
   getGroqCompletionSettings,
   getGroqJsonResponseFormat,
@@ -93,7 +94,7 @@ export async function POST() {
   const holdingsStr = activePositions.map((p: { ticker: string; shares: number; avg_cost: number }) => {
     const current = prices[p.ticker] ?? p.avg_cost;
     const pnl = ((current - p.avg_cost) / p.avg_cost * 100).toFixed(1);
-    return `${p.ticker}: ${p.shares.toFixed(2)} shares @ $${p.avg_cost.toFixed(2)} avg, now $${current.toFixed(2)} (${Number(pnl) >= 0 ? "+" : ""}${pnl}%)`;
+    return `${p.ticker}: ${p.shares.toFixed(2)} shares @ ${formatAssetPrice(p.avg_cost, p.ticker)} avg, now ${formatAssetPrice(current, p.ticker)} (${Number(pnl) >= 0 ? "+" : ""}${pnl}%)`;
   }).join("\n");
 
   const totalValue = cashBalance + activePositions.reduce(

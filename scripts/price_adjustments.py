@@ -6,7 +6,10 @@ suppressed when a known corporate action makes the provider value misleading.
 
 from __future__ import annotations
 
+import math
+from datetime import datetime, timedelta, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 
 EXTREME_EQUITY_CHANGE_PCT = 40.0
@@ -18,6 +21,45 @@ EXTREME_EQUITY_CHANGE_PCT = 40.0
 CORPORATE_ACTION_CHANGE_OVERRIDES: dict[tuple[str, str], float] = {
     ("HON", "2026-06-29"): -6.45,
 }
+
+
+def provider_quote_observed_at(
+    data: dict[str, Any],
+    *,
+    fallback: datetime,
+    is_crypto: bool,
+) -> str:
+    """Return Twelve Data's quote timestamp in UTC, with a safe fallback."""
+    if fallback.tzinfo is None:
+        fallback = fallback.replace(tzinfo=timezone.utc)
+    fallback = fallback.astimezone(timezone.utc)
+
+    observed: datetime | None = None
+    raw_timestamp = data.get("timestamp")
+    if raw_timestamp not in (None, ""):
+        try:
+            timestamp = float(raw_timestamp)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("provider timestamp is invalid") from exc
+        if not math.isfinite(timestamp) or timestamp <= 0:
+            raise ValueError("provider timestamp is invalid")
+        observed = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+    elif data.get("datetime"):
+        try:
+            local_time = datetime.fromisoformat(str(data["datetime"]))
+        except ValueError as exc:
+            raise ValueError("provider datetime is invalid") from exc
+        if local_time.tzinfo is None:
+            local_time = local_time.replace(
+                tzinfo=timezone.utc if is_crypto else ZoneInfo("America/New_York")
+            )
+        observed = local_time.astimezone(timezone.utc)
+
+    if observed is None:
+        observed = fallback
+    if observed > fallback + timedelta(minutes=5):
+        raise ValueError("provider quote timestamp is in the future")
+    return observed.isoformat()
 
 
 def calculate_change_pct(

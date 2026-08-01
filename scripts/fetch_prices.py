@@ -5,6 +5,7 @@ Schedule: every 10 minutes (market hours filtered internally for equities/ETFs; 
 import os
 import sys
 import time
+import math
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -29,6 +30,7 @@ from price_adjustments import (
     get_previous_closes,
     get_reviewed_anomaly_override,
     normalize_change_pct,
+    provider_quote_observed_at,
     record_price_anomaly,
 )
 from market_calendar import is_market_holiday, previous_market_day
@@ -123,8 +125,9 @@ def fetch_batch(tickers: list[str]) -> dict:
 def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict | None = None) -> tuple[int, list[str]]:
     """Upsert price data. ticker_map converts API symbols back to DB tickers (for crypto)."""
     fetched, failed = 0, []
-    now = datetime.utcnow().isoformat()
-    cutoff = (datetime.utcnow() - timedelta(minutes=HISTORY_DEDUP_MINUTES)).isoformat()
+    ingested_at = datetime.now(pytz.utc)
+    now = ingested_at.isoformat()
+    cutoff = (ingested_at - timedelta(minutes=HISTORY_DEDUP_MINUTES)).isoformat()
 
     resolved_tickers = {
         api_ticker: ticker_map.get(api_ticker, api_ticker) if ticker_map else api_ticker
@@ -176,7 +179,38 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
         db_ticker = resolved_tickers[api_ticker]
         is_crypto = db_ticker.endswith("-USD")
 
-        price = float(data["close"])
+        try:
+            price = float(data["close"])
+            if not math.isfinite(price) or price <= 0:
+                raise ValueError("close must be a positive finite number")
+            parsed_ohlc: dict[str, float] = {}
+            for field in ("open", "high", "low"):
+                value = data.get(field)
+                if value in (None, ""):
+                    continue
+                parsed = float(value)
+                if not math.isfinite(parsed) or parsed <= 0:
+                    raise ValueError(f"{field} must be a positive finite number")
+                parsed_ohlc[field] = parsed
+            low = parsed_ohlc.get("low")
+            high = parsed_ohlc.get("high")
+            if low is not None and high is not None:
+                if low > high or price < low * 0.999 or price > high * 1.001:
+                    raise ValueError("close is inconsistent with provider high/low")
+        except (TypeError, ValueError, OverflowError) as exc:
+            print(f"  Rejected invalid quote for {db_ticker}: {exc}")
+            failed.append(api_ticker)
+            continue
+        try:
+            quote_observed_at = provider_quote_observed_at(
+                data,
+                fallback=ingested_at,
+                is_crypto=is_crypto,
+            )
+        except (TypeError, ValueError, OverflowError) as exc:
+            print(f"  Rejected invalid quote time for {db_ticker}: {exc}")
+            failed.append(api_ticker)
+            continue
         provider_change_pct = (
             float(data["percent_change"])
             if data.get("percent_change") not in (None, "")
@@ -237,17 +271,16 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
             "price":      price,
             "change_pct": change_pct,
             "volume":     volume,
-            "fetched_at": now,
+            # This legacy column is consumed as quote freshness throughout the
+            # app, so store the provider observation time rather than ingestion.
+            "fetched_at": quote_observed_at,
         }
         row_long = {
             "ticker": db_ticker,
             "date":   market_date,
             "close":  price,
         }
-        for field in ("open", "high", "low"):
-            val = data.get(field)
-            if val not in (None, ""):
-                row_long[field] = float(val)
+        row_long.update(parsed_ohlc)
         if volume is not None:
             row_long["volume"] = volume
 
@@ -310,10 +343,10 @@ def log_result(job: str, status: str, fetched: int, failed: list[str], error: st
     }).execute()
 
 
-def fetch_crypto_twelve_data():
+def fetch_crypto_twelve_data() -> tuple[int, list[str]]:
     """Fetch crypto prices via Twelve Data (24/7, no market hours check)."""
     if not CRYPTO_TICKERS:
-        return
+        return 0, []
     print(f"\nFetching crypto prices for {len(CRYPTO_TICKERS)} tickers via Twelve Data...")
 
     # Build API symbols and mapping back to DB tickers
@@ -352,26 +385,30 @@ def fetch_crypto_twelve_data():
 
     log_result("crypto_prices", "success" if not all_failed else "partial", total_fetched, all_failed)
     print(f"Crypto done. Fetched: {total_fetched}, Failed: {len(all_failed)}")
+    return total_fetched, all_failed
 
 
-def main():
+def main() -> int:
+    run_failed: list[str] = []
     # Always fetch crypto (24/7 market)
     try:
-        fetch_crypto_twelve_data()
+        _, crypto_failed = fetch_crypto_twelve_data()
+        run_failed.extend(crypto_failed)
     except Exception as e:
         print(f"Crypto fetch error: {e}")
+        run_failed.extend(CRYPTO_TICKERS)
 
     # Stocks: during market hours OR post-market-close final/settlement fetches.
     # Keep the later settlement-close refresh; fetch_logs limits completed runs to once per day.
     post_market_mode = get_post_market_stock_fetch_mode()
     if post_market_mode == "settlement_close" and already_completed_settlement_close_today():
         print("Settlement close stock fetch already ran today — skipping stocks.")
-        return
+        return 1 if run_failed else 0
 
     post_market = post_market_mode is not None
     if not is_market_open() and not post_market:
         print("Stock market closed — skipping stocks.")
-        return
+        return 1 if run_failed else 0
 
     if post_market_mode == "regular_close":
         print("Post-market close window — fetching final closing prices...")
@@ -414,7 +451,9 @@ def main():
     log_job = "prices_close_settlement" if post_market_mode == "settlement_close" else "prices"
     log_result(log_job, status, total_fetched, all_failed)
     print(f"Done. Fetched: {total_fetched}, Failed: {len(all_failed)}")
+    run_failed.extend(all_failed)
+    return 1 if run_failed else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

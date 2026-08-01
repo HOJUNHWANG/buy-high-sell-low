@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatAssetPrice } from "@/lib/price-format";
 import {
   getGroqCompletionSettings,
   getGroqJsonResponseFormat,
@@ -94,7 +95,7 @@ export async function POST(request: Request) {
 
   const prompt = `You are a financial analyst. Explain concisely why ${ticker} is moving today.
 
-Price: $${priceData?.price?.toFixed(2) ?? "N/A"} (${changeStr} today)
+Price: ${priceData?.price == null ? "N/A" : formatAssetPrice(priceData.price, ticker)} (${changeStr} today)
 
 Recent news:
 ${newsStr || "No recent ticker-specific news found."}

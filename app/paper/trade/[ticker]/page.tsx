@@ -7,6 +7,7 @@ import { LogoImage } from "@/components/LogoImage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PaperTradeBanner } from "@/components/PaperTradeBanner";
 import { PriceFreshnessBadge } from "@/components/PriceFreshnessBadge";
+import { formatAssetPrice } from "@/lib/price-format";
 
 interface StockInfo {
   ticker: string;
@@ -261,7 +262,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
         </div>
         <div className="shrink-0 text-right">
           <p className="text-xl font-bold tabular-nums" style={{ color: "var(--text)" }}>
-            {hasLivePrice ? `$${stock.price!.toFixed(2)}` : "Awaiting data"}
+            {hasLivePrice ? formatAssetPrice(stock.price!, ticker) : "Awaiting data"}
           </p>
           {stock.change_pct != null && (
             <p className="text-xs font-semibold tabular-nums"
@@ -276,7 +277,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
       {!hasLivePrice && (
         <div className="rounded-xl px-4 py-3 text-xs"
           style={{ background: "var(--surface-2)", border: "1px dashed var(--border-md)", color: "var(--text-2)" }}>
-          {ticker} is already tracked, but paper trading will unlock once live price data is available.
+          {ticker} is already tracked, but paper trading will unlock once quote data is available.
         </div>
       )}
 
@@ -330,7 +331,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
                 {badge === "SHORT" ? "Entry" : "Avg Cost"}
               </p>
               <p className="text-sm font-semibold tabular-nums" style={{ color: "var(--text)" }}>
-                ${pos.avg_cost.toFixed(2)}
+                {formatAssetPrice(pos.avg_cost, ticker)}
               </p>
             </div>
             <div>
@@ -590,7 +591,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
             </div>
             <div className="flex justify-between text-xs">
               <span style={{ color: "var(--text-3)" }}>Price</span>
-              <span className="tabular-nums" style={{ color: "var(--text)" }}>${stock.price!.toFixed(2)}</span>
+              <span className="tabular-nums" style={{ color: "var(--text)" }}>{formatAssetPrice(stock.price!, ticker)}</span>
             </div>
             {showLeverage && leverage > 1 && (
               <>
@@ -644,7 +645,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
                   If the stock moves <strong>1%</strong>, your actual money moves <strong>{leverage}%</strong>.
                 </p>
                 <p style={{ color: "var(--down)" }}>
-                  <strong>🚨 Danger:</strong> If the stock {side === "short" ? "rises" : "drops"} by <strong>{(100 / leverage).toFixed(1)}%</strong> to <strong className="tabular-nums">${(side === "short" ? stock.price! * (1 + 1/leverage) : stock.price! * (1 - 1/leverage)).toFixed(2)}</strong>, you will lose your entire ${estimatedTotal.toFixed(2)} investment (Margin Call).
+                  <strong>🚨 Danger:</strong> If the asset {side === "short" ? "rises" : "drops"} by <strong>{(100 / leverage).toFixed(1)}%</strong> to <strong className="tabular-nums">{formatAssetPrice(side === "short" ? stock.price! * (1 + 1/leverage) : stock.price! * (1 - 1/leverage), ticker)}</strong>, you will lose your entire ${estimatedTotal.toFixed(2)} investment (Margin Call).
                 </p>
               </div>
             )}
@@ -682,7 +683,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
               {result.side === "buy" ? "Bought" :
                result.side === "sell" ? "Sold" :
                result.side === "short" ? "Shorted" : "Covered"}{" "}
-              {result.shares.toFixed(4)} shares at ${result.price.toFixed(2)}
+              {result.shares.toFixed(4)} shares at {formatAssetPrice(result.price, ticker)}
               {result.leverage && result.leverage > 1 && ` @ ${result.leverage}x`}
             </p>
             {result.priceFetchedAt && <p>Execution price timestamp: {new Date(result.priceFetchedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "America/New_York" })} ET</p>}
