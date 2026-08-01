@@ -1,10 +1,12 @@
-"""Read-only audit of stored market data against external references.
+"""Audit stored market data against external references.
 
 The production price job uses Twelve Data, so Nasdaq and CoinGecko provide an
 independent price check. Market-value checks re-read the primary external
 reference and verify that the validated write reached the database unchanged.
 
-No endpoint in this module performs a write.  Exit codes are suitable for cron
+Market-data tables are read-only.  A compact operational result is appended to
+``fetch_logs`` when a service-role key is available so persistent failures can
+be surfaced in the admin Data Health page. Exit codes remain suitable for cron
 or CI monitoring:
 
 * 0: audit completed without a critical finding
@@ -15,6 +17,7 @@ Examples:
     python scripts/audit_market_data.py
     python scripts/audit_market_data.py --ticker MU --verbose
     python scripts/audit_market_data.py --asset-class crypto --json
+    python scripts/audit_market_data.py --ticker MU --no-log
 """
 
 from __future__ import annotations
@@ -44,6 +47,7 @@ from tickers import ETF_TICKERS
 EXIT_OK = 0
 EXIT_CRITICAL = 1
 EXIT_INCOMPLETE = 2
+AUDIT_LOG_JOB_NAME = "market_data_audit"
 
 DEFAULT_PRICE_WARNING_PCT = 0.5
 DEFAULT_PRICE_CRITICAL_PCT = 2.0
@@ -224,6 +228,53 @@ class AuditReport:
                 _json_safe(asdict(item)) for item in self.comparisons
             ],
         }
+
+
+def build_audit_log_payload(report: AuditReport) -> dict[str, Any]:
+    """Build a bounded operational log without duplicating all comparisons."""
+    result = report.to_dict()
+    summary = result["summary"]
+    if report.status == "CRITICAL":
+        failed_tickers = sorted(
+            {
+                finding.ticker
+                for finding in report.findings
+                if finding.severity == "critical"
+            }
+        )
+    elif report.status == "INCOMPLETE":
+        failed_tickers = sorted({finding.ticker for finding in report.findings})
+    else:
+        failed_tickers = []
+
+    details = {
+        "schema_version": 1,
+        "audit_status": report.status,
+        "exit_code": report.exit_code,
+        "generated_at": result["generated_at"],
+        "summary": summary,
+        "provider_errors": result["provider_errors"],
+        "findings": result["findings"],
+    }
+    failure_count = len(failed_tickers)
+    if report.status != "PASS" and failure_count == 0:
+        failure_count = max(1, len(report.provider_errors))
+
+    return {
+        "job_name": AUDIT_LOG_JOB_NAME,
+        "status": {
+            "PASS": "success",
+            "CRITICAL": "critical",
+            "INCOMPLETE": "incomplete",
+        }[report.status],
+        "records_fetched": len(report.comparisons),
+        "records_failed": failure_count,
+        "failed_tickers": failed_tickers or None,
+        "error_message": json.dumps(
+            details, sort_keys=True, separators=(",", ":")
+        ),
+        "executed_at": report.generated_at.isoformat(),
+    }
 
 
 def _json_safe(value: Any) -> Any:
@@ -567,6 +618,38 @@ class SupabaseReader:
                 )
             )
         return assets
+
+
+class SupabaseAuditLogWriter:
+    """Append audit metadata only; never mutate prices or market values."""
+
+    def __init__(
+        self,
+        base_url: str,
+        service_role_key: str,
+        *,
+        timeout: float = DEFAULT_TIMEOUT_SECONDS,
+        session: requests.Session | None = None,
+    ) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.timeout = timeout
+        self.session = session or create_http_session()
+        self.headers = {
+            "apikey": service_role_key,
+            "Authorization": f"Bearer {service_role_key}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal",
+        }
+
+    def record(self, report: AuditReport) -> None:
+        response = self.session.post(
+            f"{self.base_url}/rest/v1/fetch_logs",
+            headers=self.headers,
+            json=build_audit_log_payload(report),
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
 
 
 class NasdaqReferenceProvider:
@@ -1137,6 +1220,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--verbose", action="store_true", help="show passing comparisons too"
     )
+    parser.add_argument(
+        "--no-log",
+        action="store_true",
+        help="do not append the operational audit result to fetch_logs",
+    )
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_SECONDS)
     parser.add_argument(
         "--price-warning-pct", type=float, default=DEFAULT_PRICE_WARNING_PCT
@@ -1192,11 +1280,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     supabase_url = os.environ.get("SUPABASE_URL") or os.environ.get(
         "NEXT_PUBLIC_SUPABASE_URL"
     )
-    # Prefer the least-privileged public key. RLS grants SELECT on these tables.
-    supabase_key = os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY") or os.environ.get(
-        "SUPABASE_SERVICE_ROLE_KEY"
+    service_role_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    # Reads may use the public key; the optional audit-log append is strictly
+    # server-side and therefore uses the service-role key separately.
+    supabase_read_key = (
+        os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY") or service_role_key
     )
-    if not supabase_url or not supabase_key:
+    if not supabase_url or not supabase_read_key:
         print(
             "Market data audit configuration is incomplete: set the Supabase "
             "URL and an anon/service key.",
@@ -1217,7 +1307,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     lookback_days = max(30, math.ceil(args.cap_max_age_hours / 24) + 7)
     try:
         assets = SupabaseReader(
-            supabase_url, supabase_key, timeout=args.timeout
+            supabase_url, supabase_read_key, timeout=args.timeout
         ).fetch_assets(now=now, cap_lookback_days=lookback_days)
     except (requests.RequestException, ValueError, TypeError) as exc:
         print(f"Supabase read failed: {_safe_error(exc)}", file=sys.stderr)
@@ -1252,6 +1342,38 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
     else:
         print(render_human(report, verbose=args.verbose))
+
+    log_failed = False
+    full_audit = not args.ticker and args.asset_class == "all"
+    if not args.no_log and full_audit:
+        if service_role_key:
+            try:
+                SupabaseAuditLogWriter(
+                    supabase_url,
+                    service_role_key,
+                    timeout=args.timeout,
+                ).record(report)
+            except (requests.RequestException, ValueError, TypeError) as exc:
+                log_failed = True
+                print(
+                    f"Audit result log write failed: {_safe_error(exc)}",
+                    file=sys.stderr,
+                )
+        else:
+            print(
+                "Audit result was not logged: SUPABASE_SERVICE_ROLE_KEY is not set. "
+                "Use --no-log for an intentional local read-only run.",
+                file=sys.stderr,
+            )
+    elif not args.no_log:
+        print(
+            "Scoped audit result was not logged and will not change the "
+            "persistent-failure streak.",
+            file=sys.stderr,
+        )
+
+    if log_failed and report.exit_code == EXIT_OK:
+        return EXIT_INCOMPLETE
     return report.exit_code
 
 

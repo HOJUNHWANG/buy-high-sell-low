@@ -2,6 +2,13 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { getPriceFreshness } from "@/lib/price-freshness";
 import { formatAssetPrice } from "@/lib/price-format";
+import {
+  getMarketDataAuditHealth,
+  MARKET_DATA_AUDIT_JOB,
+  parseMarketDataAuditDetails,
+  PERSISTENT_AUDIT_FAILURE_THRESHOLD,
+  type MarketDataAuditLog,
+} from "@/lib/market-data-audit";
 import { revalidatePath } from "next/cache";
 
 export const dynamic = "force-dynamic";
@@ -176,13 +183,25 @@ export default async function DataHealthPage() {
   }
 
   const admin = createSupabaseAdmin();
-  const [{ data: logs }, { data: prices }, { data: anomalies }] = await Promise.all([
+  const [
+    { data: logs },
+    { data: auditLogs },
+    { data: prices },
+    { data: anomalies },
+  ] = await Promise.all([
     admin.from("fetch_logs").select("*").order("executed_at", { ascending: false }).limit(30),
+    admin
+      .from("fetch_logs")
+      .select("*")
+      .eq("job_name", MARKET_DATA_AUDIT_JOB)
+      .order("executed_at", { ascending: false })
+      .limit(10),
     admin.from("stock_prices").select("ticker, price, fetched_at, stocks(name, sector)").order("fetched_at", { ascending: true }).limit(500),
     admin.from("price_anomalies").select("*").order("detected_at", { ascending: false }).limit(50),
   ]);
 
   const typedLogs = (logs ?? []) as FetchLog[];
+  const typedAuditLogs = (auditLogs ?? []) as MarketDataAuditLog[];
   const typedPrices = (prices ?? []) as unknown as PriceRow[];
   const typedAnomalies = ((anomalies ?? []) as PriceAnomaly[]).sort((a, b) => {
     if (a.status === b.status) return 0;
@@ -198,15 +217,137 @@ export default async function DataHealthPage() {
     return state === "delayed" || state === "unavailable";
   }).slice(0, 25);
   const settlement = latestByJob.get("prices_close_settlement");
+  const auditHealth = getMarketDataAuditHealth(typedAuditLogs);
+  const latestAudit = auditHealth.latest;
+  const auditDetails = parseMarketDataAuditDetails(latestAudit?.error_message);
+  const auditPresentation = {
+    unknown: {
+      label: "No audit log",
+      color: "var(--text-3)",
+      background: "var(--surface-2)",
+      border: "var(--border)",
+    },
+    healthy: {
+      label: "Healthy",
+      color: "var(--up)",
+      background: "var(--up-dim)",
+      border: "var(--up)",
+    },
+    failing: {
+      label: "Retry pending",
+      color: "var(--accent)",
+      background: "var(--accent-dim)",
+      border: "var(--accent)",
+    },
+    persistent: {
+      label: "Persistent failure",
+      color: "var(--down)",
+      background: "var(--down-dim)",
+      border: "var(--down)",
+    },
+  }[auditHealth.state];
 
   return (
     <div className="max-w-6xl mx-auto px-5 py-8 space-y-6">
       <div>
         <h1 className="text-xl font-semibold" style={{ color: "var(--text)" }}>Data Health</h1>
         <p className="text-xs mt-1" style={{ color: "var(--text-3)" }}>
-          Price freshness, anomaly review, cron logs, and settlement-close visibility.
+          Audit failures, price freshness, anomaly review, cron logs, and settlement-close visibility.
         </p>
       </div>
+
+      <section
+        className="card rounded-xl p-4"
+        style={{ borderColor: auditPresentation.border }}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+              Market Data Audit
+            </h2>
+            <p className="text-[11px] mt-1" style={{ color: "var(--text-3)" }}>
+              Two consecutive critical or incomplete runs are treated as a persistent failure.
+            </p>
+          </div>
+          <span
+            className="text-[10px] font-semibold rounded-full px-2.5 py-1 whitespace-nowrap"
+            style={{
+              color: auditPresentation.color,
+              background: auditPresentation.background,
+            }}
+          >
+            {auditPresentation.label}
+          </span>
+        </div>
+
+        <p className="text-xs mt-3" style={{ color: "var(--text-2)" }}>
+          {auditHealth.state === "persistent"
+            ? `${auditHealth.consecutiveFailures} consecutive audits failed. Existing last-known-good market data remains unchanged.`
+            : auditHealth.state === "failing"
+              ? `The latest audit failed once. It will become persistent after ${PERSISTENT_AUDIT_FAILURE_THRESHOLD} consecutive failures.`
+              : auditHealth.state === "healthy"
+                ? `Latest audit passed at ${fmtTime(latestAudit?.executed_at)}.`
+                : "No market-data audit has been recorded yet."}
+        </p>
+
+        {latestAudit && (
+          <div className="grid gap-3 mt-4 sm:grid-cols-2 lg:grid-cols-5">
+            {[
+              ["Checked", latestAudit.records_fetched ?? 0],
+              ["Critical", auditDetails?.critical ?? 0],
+              ["Warnings", auditDetails?.warnings ?? 0],
+              ["Price refs", auditDetails?.priceReferenceCoverage ?? 0],
+              ["Cap/AUM refs", auditDetails?.marketCapReferenceCoverage ?? 0],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-lg px-3 py-2" style={{ background: "var(--surface-2)" }}>
+                <p className="text-[10px] uppercase tracking-wide" style={{ color: "var(--text-3)" }}>{label}</p>
+                <p className="text-sm font-semibold mt-1 tabular-nums" style={{ color: "var(--text)" }}>{value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {latestAudit?.failed_tickers && latestAudit.failed_tickers.length > 0 && (
+          <p className="text-[11px] mt-3" style={{ color: auditPresentation.color }}>
+            Affected: {latestAudit.failed_tickers.slice(0, 20).join(", ")}
+            {latestAudit.failed_tickers.length > 20
+              ? ` +${latestAudit.failed_tickers.length - 20} more`
+              : ""}
+          </p>
+        )}
+
+        {auditDetails && auditDetails.findings.length > 0 && auditHealth.state !== "healthy" && (
+          <div className="mt-3 space-y-1.5">
+            {auditDetails.findings.slice(0, 5).map((finding, index) => (
+              <p key={`${finding.ticker}-${finding.code}-${index}`} className="text-[11px]" style={{ color: "var(--text-2)" }}>
+                <span className="font-semibold" style={{ color: "var(--text)" }}>{finding.ticker}</span>
+                {" · "}{finding.message}
+              </p>
+            ))}
+          </div>
+        )}
+
+        {auditDetails && auditDetails.providerErrors.length > 0 && (
+          <p className="text-[11px] mt-3" style={{ color: "var(--down)" }}>
+            Provider: {auditDetails.providerErrors.slice(0, 3).join(" · ")}
+          </p>
+        )}
+
+        {typedAuditLogs.length > 0 && (
+          <div className="mt-4 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+            <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-3)" }}>
+              Recent audit runs
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {typedAuditLogs.slice(0, 5).map((log) => (
+                <span key={log.id} className="text-[10px] rounded-md px-2 py-1" style={{ background: "var(--surface-2)", color: log.status === "success" ? "var(--up)" : "var(--down)" }}>
+                  {log.status} · {fmtTime(log.executed_at)}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
 
       <section className="card rounded-xl p-4 overflow-x-auto">
         <div className="flex items-start justify-between gap-4 mb-3">

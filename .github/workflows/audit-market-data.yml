@@ -1,9 +1,7 @@
-name: Audit Market Data (Daily)
+name: Audit Market Data
 
 on:
-  schedule:
-    # Runs after the intended daily market-cap refresh window.
-    - cron: "37 1 * * *"
+  # Cronjob.org owns production timing to avoid GitHub scheduled-run delays.
   workflow_dispatch:
 
 permissions:

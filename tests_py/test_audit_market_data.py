@@ -20,8 +20,10 @@ from audit_market_data import (  # noqa: E402
     Finding,
     ReferenceQuote,
     StoredAsset,
+    SupabaseAuditLogWriter,
     SupabaseReader,
     audit_assets,
+    build_audit_log_payload,
     classify_asset,
     parse_coingecko_payload,
     parse_nasdaq_etf_aum,
@@ -423,6 +425,15 @@ class GetOnlySession:
         raise AssertionError(url)
 
 
+class PostSession:
+    def __init__(self):
+        self.calls = []
+
+    def post(self, url, **kwargs):
+        self.calls.append((url, kwargs))
+        return FakeResponse(None)
+
+
 class SupabaseReaderTests(unittest.TestCase):
     def test_loads_active_assets_using_get_only(self):
         session = GetOnlySession()
@@ -455,6 +466,66 @@ class SupabaseReaderTests(unittest.TestCase):
 
         for _, kwargs in session.calls:
             self.assertNotIn("very-secret", json.dumps(kwargs["params"]))
+
+
+class SupabaseAuditLogWriterTests(unittest.TestCase):
+    def test_builds_compact_critical_log_payload(self):
+        finding = Finding(
+            severity="critical",
+            code="market_cap_deviation",
+            ticker="MU",
+            field="market_cap",
+            message="Stored market cap differs from reference",
+        )
+        report = AuditReport(
+            NOW,
+            [
+                AssetComparison(
+                    ticker="MU",
+                    asset_class=ASSET_EQUITY,
+                    source="Nasdaq",
+                    stored_price=823.03,
+                    reference_price=823.03,
+                    price_deviation_pct=0,
+                    stored_market_cap=145_000_000_000,
+                    reference_market_cap=929_524_445_068,
+                    market_cap_deviation_pct=-84.4,
+                    price_fetched_at=NOW,
+                    market_cap_as_of=NOW.date(),
+                    reference_as_of=None,
+                )
+            ],
+            [finding],
+            [],
+        )
+
+        payload = build_audit_log_payload(report)
+        details = json.loads(payload["error_message"])
+
+        self.assertEqual(payload["job_name"], "market_data_audit")
+        self.assertEqual(payload["status"], "critical")
+        self.assertEqual(payload["records_fetched"], 1)
+        self.assertEqual(payload["records_failed"], 1)
+        self.assertEqual(payload["failed_tickers"], ["MU"])
+        self.assertEqual(details["audit_status"], "CRITICAL")
+        self.assertNotIn("comparisons", details)
+
+    def test_writer_appends_only_to_fetch_logs(self):
+        session = PostSession()
+        writer = SupabaseAuditLogWriter(
+            "https://example.supabase.co",
+            "service-secret",
+            session=session,
+        )
+        report = AuditReport(NOW, [], [], [])
+
+        writer.record(report)
+
+        self.assertEqual(len(session.calls), 1)
+        url, kwargs = session.calls[0]
+        self.assertEqual(url, "https://example.supabase.co/rest/v1/fetch_logs")
+        self.assertEqual(kwargs["json"]["status"], "success")
+        self.assertNotIn("service-secret", json.dumps(kwargs["json"]))
 
 
 class ReportRenderingTests(unittest.TestCase):
