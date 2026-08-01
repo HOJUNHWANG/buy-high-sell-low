@@ -5,10 +5,32 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { setMockUser, clearMockData } from "./setup";
 
+const routeLoaders = {
+  "paper/portfolio": () => import("@/app/api/paper/portfolio/route"),
+  "paper/buy": () => import("@/app/api/paper/buy/route"),
+  "paper/sell": () => import("@/app/api/paper/sell/route"),
+  "paper/transactions": () => import("@/app/api/paper/transactions/route"),
+  "paper/checkin": () => import("@/app/api/paper/checkin/route"),
+  "paper/liquidation": () => import("@/app/api/paper/liquidation/route"),
+  "paper/short": () => import("@/app/api/paper/short/route"),
+  "paper/cover": () => import("@/app/api/paper/cover/route"),
+  "paper/roast": () => import("@/app/api/paper/roast/route"),
+  "paper/challenge": () => import("@/app/api/paper/challenge/route"),
+  "ai-summary": () => import("@/app/api/ai-summary/route"),
+} as const;
+
 // Helper to call route handlers
 async function callRoute(path: string, method = "GET", body?: unknown) {
-  const mod = await import(`@/app/api/${path}/route`);
-  const handler = mod[method === "GET" ? "GET" : method === "POST" ? "POST" : "DELETE"];
+  const loader = routeLoaders[path as keyof typeof routeLoaders];
+  if (!loader) throw new Error(`Missing test route loader for ${path}`);
+  const mod = await loader();
+  const handler = (
+    mod as unknown as Record<
+      string,
+      (request: Request) => Response | Promise<Response>
+    >
+  )[method === "GET" ? "GET" : method === "POST" ? "POST" : "DELETE"];
+  if (!handler) throw new Error(`Missing ${method} handler for ${path}`);
 
   const url = `http://localhost:3000/api/${path}`;
   const request = new Request(url, {

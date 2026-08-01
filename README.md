@@ -103,6 +103,7 @@ npm test
 |:---------|:--------:|:------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
+| `NEXT_PUBLIC_APP_URL` | No | Canonical public URL; defaults to the production Vercel domain |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key |
 | `GROQ_API_KEY` | Yes | Groq API key (AI summaries) |
 | `GROQ_MODEL` | No | Groq model ID (defaults to `openai/gpt-oss-120b`) |

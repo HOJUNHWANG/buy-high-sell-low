@@ -1,7 +1,6 @@
 import { MetadataRoute } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://example.com";
+import { SITE_URL } from "@/lib/site-url";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const supabase = await createSupabaseServerClient();
@@ -11,7 +10,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .eq("is_active", true);
 
   const stockRoutes = (stocks ?? []).map((s) => ({
-    url: `${BASE_URL}/stock/${s.ticker}`,
+    url: `${SITE_URL}/stock/${s.ticker}`,
     lastModified: new Date(s.updated_at),
     changeFrequency: "hourly" as const,
     priority: 0.8,
@@ -19,31 +18,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     {
-      url: BASE_URL,
+      url: SITE_URL,
       lastModified: new Date(),
       changeFrequency: "hourly",
       priority: 1,
     },
     {
-      url: `${BASE_URL}/stocks`,
+      url: `${SITE_URL}/stocks`,
       lastModified: new Date(),
       changeFrequency: "hourly",
       priority: 0.9,
     },
     {
-      url: `${BASE_URL}/news`,
+      url: `${SITE_URL}/news`,
       lastModified: new Date(),
       changeFrequency: "hourly",
       priority: 0.7,
     },
     {
-      url: `${BASE_URL}/terms`,
+      url: `${SITE_URL}/terms`,
       lastModified: new Date(),
       changeFrequency: "yearly",
       priority: 0.3,
     },
     {
-      url: `${BASE_URL}/privacy`,
+      url: `${SITE_URL}/privacy`,
       lastModified: new Date(),
       changeFrequency: "yearly",
       priority: 0.3,

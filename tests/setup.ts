@@ -50,6 +50,7 @@ export function getUpsertCalls() { return _upsertCalls; }
 
 function createQueryBuilder(table: string, initialData?: unknown[]) {
   const _filters: Record<string, unknown> = {};
+  const _ilikeFilters: Array<{ column: string; pattern: string }> = [];
   const _data = initialData ?? _mockData[table] ?? [];
   let _selectCount = false;
   let _rangeStart = 0;
@@ -75,7 +76,10 @@ function createQueryBuilder(table: string, initialData?: unknown[]) {
     }),
     not: vi.fn(() => builder),
     or: vi.fn(() => builder),
-    ilike: vi.fn(() => builder),
+    ilike: vi.fn((column: string, pattern: string) => {
+      _ilikeFilters.push({ column, pattern });
+      return builder;
+    }),
     like: vi.fn(() => builder),
     order: vi.fn(() => builder),
     limit: vi.fn(() => builder),
@@ -112,6 +116,13 @@ function createQueryBuilder(table: string, initialData?: unknown[]) {
       } else {
         filtered = filtered.filter((row) => (row as Record<string, unknown>)[key] === val);
       }
+    }
+    for (const { column, pattern } of _ilikeFilters) {
+      const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(`^${escaped.replace(/[%*]/g, ".*")}$`, "i");
+      filtered = filtered.filter((row) =>
+        regex.test(String((row as Record<string, unknown>)[column] ?? ""))
+      );
     }
     return {
       data: filtered.slice(_rangeStart, _rangeEnd + 1),

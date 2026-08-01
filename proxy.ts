@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   try {
     let supabaseResponse = NextResponse.next({ request });
 
@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
 
     return supabaseResponse;
   } catch (err) {
-    console.error("Middleware crash:", err);
+    console.error("Proxy crash:", err);
     // On critical failure, let the request pass through to avoid site block
     return NextResponse.next({ request });
   }

@@ -17,7 +17,37 @@ describe("Security: Search input sanitization", () => {
     const mod = await import("@/app/api/search/route");
     const req = new Request("http://localhost:3000/api/search?q=AAPL%27%3B%20DROP%20TABLE");
     const res = await mod.GET(req);
-    expect(res.status).not.toBe(500);
+    expect(res.status).toBe(200);
+  });
+
+  it("searches company names without raw PostgREST filter syntax", async () => {
+    setMockData("stocks", [
+      { ticker: "AAPL", name: "Apple", exchange: "NMS", sector: "Technology", is_active: true },
+      { ticker: "MSFT", name: "Microsoft", exchange: "NMS", sector: "Technology", is_active: true },
+    ]);
+
+    const mod = await import("@/app/api/search/route");
+    const req = new Request("http://localhost:3000/api/search?q=Apple%27s");
+    const res = await mod.GET(req);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+  });
+
+  it("returns deduplicated ticker and company-name matches", async () => {
+    setMockData("stocks", [
+      { ticker: "AAPL", name: "Apple", exchange: "NMS", sector: "Technology", is_active: true },
+      { ticker: "APP", name: "AppLovin", exchange: "NMS", sector: "Technology", is_active: true },
+      { ticker: "MSFT", name: "Microsoft", exchange: "NMS", sector: "Technology", is_active: true },
+    ]);
+
+    const mod = await import("@/app/api/search/route");
+    const req = new Request("http://localhost:3000/api/search?q=app");
+    const res = await mod.GET(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.map((stock: { ticker: string }) => stock.ticker)).toEqual(["APP", "AAPL"]);
   });
 
   it("returns empty array for empty query", async () => {
@@ -275,12 +305,12 @@ describe("Security: Cross-user data isolation", () => {
   });
 });
 
-describe("Security: Middleware checks", () => {
-  it("middleware config matches expected pattern", async () => {
-    // Verify the middleware file exports correct matcher
-    const middlewareContent = await import("@/middleware");
-    expect(middlewareContent.config).toBeDefined();
-    expect(middlewareContent.config.matcher).toBeDefined();
-    expect(middlewareContent.config.matcher[0]).toContain("_next/static");
+describe("Security: Proxy checks", () => {
+  it("proxy config matches expected pattern", async () => {
+    // Verify the Next.js 16 proxy file exports the session-refresh matcher.
+    const proxyContent = await import("@/proxy");
+    expect(proxyContent.config).toBeDefined();
+    expect(proxyContent.config.matcher).toBeDefined();
+    expect(proxyContent.config.matcher[0]).toContain("_next/static");
   });
 });

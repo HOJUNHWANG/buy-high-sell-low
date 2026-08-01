@@ -6,6 +6,7 @@ import { Navbar } from "@/components/Navbar";
 import { Disclaimer } from "@/components/Disclaimer";
 import { CookieBanner } from "@/components/CookieBanner";
 import { Analytics } from "@vercel/analytics/react";
+import { SITE_URL } from "@/lib/site-url";
 
 const geist = Geist({ subsets: ["latin"] });
 
@@ -16,6 +17,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "Buy High Sell Low — Stock & Crypto Tracker",
     template: "%s — Buy High Sell Low",
