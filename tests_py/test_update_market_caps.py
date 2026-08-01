@@ -130,6 +130,28 @@ class MarketCapValidationTests(unittest.TestCase):
         self.assertTrue(result.accepted)
         self.assertIn("price x shares_outstanding", result.reason)
 
+    def test_accepts_trusted_primary_correction_of_unverified_legacy_value(self):
+        observation = MarketCapObservation(
+            ticker="MU",
+            asset_class=ASSET_EQUITY,
+            semantic="equity_market_cap",
+            market_cap=929_500_000_000,
+            source="nasdaq.screener.marketCap",
+        )
+
+        result = validate_market_cap(
+            observation,
+            PreviousMarketData(
+                market_cap=145_000_000_000,
+                price=823.0,
+                source="legacy:unverified",
+                metric="equity_market_cap",
+            ),
+        )
+
+        self.assertTrue(result.accepted)
+        self.assertIn("unverified legacy", result.reason)
+
     def test_rejects_equity_cap_when_independent_provider_disagrees(self):
         observation = MarketCapObservation(
             ticker="MU",

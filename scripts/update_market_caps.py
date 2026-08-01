@@ -82,6 +82,11 @@ FALLBACK_POLICY = "manual_fallbacks_disabled_preserve_last_known_good"
 HTTP_TIMEOUT_SECONDS = 30
 CRYPTO_REFERENCE_MAX_AGE_SECONDS = 15 * 60
 PROVIDER_FUTURE_SKEW_SECONDS = 5 * 60
+TRUSTED_PRIMARY_SOURCE_PREFIXES = (
+    "nasdaq.screener.",
+    "nasdaq.etf.summary.",
+    "coingecko.simple.",
+)
 
 NASDAQ_SCREENER_URL = "https://api.nasdaq.com/api/screener/stocks"
 NASDAQ_ETF_SUMMARY_URL = "https://api.nasdaq.com/api/quote/{ticker}/summary"
@@ -152,6 +157,8 @@ class MarketCapObservation:
 class PreviousMarketData:
     market_cap: int | None
     price: float | None
+    source: str | None = None
+    metric: str | None = None
 
 
 @dataclass(frozen=True)
@@ -678,12 +685,10 @@ class MarketDataProvider:
             market_cap=int(round(aum)),
             source="nasdaq.etf.summary.AUM",
             price=(yfinance_observation.price if yfinance_observation else None),
-            quantity=(yfinance_observation.quantity if yfinance_observation else None),
-            quantity_name=(
-                yfinance_observation.quantity_name
-                if yfinance_observation
-                else None
-            ),
+            # Yahoo's ETF shares and assets can refer to different fund share
+            # classes, so neither is valid formula evidence for Nasdaq AUM.
+            quantity=None,
+            quantity_name=None,
             cross_check_market_cap=(
                 yfinance_observation.market_cap
                 if yfinance_observation
@@ -733,7 +738,7 @@ def load_previous_market_data(
     try:
         stock_response = (
             client.table("stocks")
-            .select("market_cap")
+            .select("market_cap,market_cap_source,market_cap_metric")
             .eq("ticker", normalized)
             .limit(1)
             .execute()
@@ -748,6 +753,16 @@ def load_previous_market_data(
         market_cap = (
             int(round(market_cap_number))
             if market_cap_number is not None
+            else None
+        )
+        source = (
+            str(stock_row.get("market_cap_source"))
+            if stock_row.get("market_cap_source")
+            else None
+        )
+        metric = (
+            str(stock_row.get("market_cap_metric"))
+            if stock_row.get("market_cap_metric")
             else None
         )
 
@@ -783,7 +798,12 @@ def load_previous_market_data(
             f"failed to read last-known-good state: {exc}"
         ) from exc
 
-    return PreviousMarketData(market_cap=market_cap, price=price)
+    return PreviousMarketData(
+        market_cap=market_cap,
+        price=price,
+        source=source,
+        metric=metric,
+    )
 
 
 def _relative_difference(value: float, reference: float) -> float:
@@ -850,6 +870,19 @@ def validate_market_cap(
         )
 
     previous_cap = float(previous.market_cap)
+
+    if (
+        previous.source == "legacy:unverified"
+        and observation.source.startswith(TRUSTED_PRIMARY_SOURCE_PREFIXES)
+    ):
+        return ValidationResult(
+            True,
+            "replacing unverified legacy value with trusted primary observation",
+            change_pct=(candidate / previous_cap - 1.0) * 100.0,
+            expected_market_cap=(
+                int(round(formula_cap)) if formula_cap is not None else None
+            ),
+        )
 
     change_pct = (candidate / previous_cap - 1.0) * 100.0
     move = abs(change_pct) / 100.0
