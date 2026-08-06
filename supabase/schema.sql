@@ -158,7 +158,11 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 -- Per-user presentation preferences (safe to update without exposing account tier data)
 CREATE TABLE IF NOT EXISTS user_preferences (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  theme TEXT NOT NULL DEFAULT 'midnight' CHECK (theme IN ('midnight', 'aurora', 'dusk')),
+  theme TEXT NOT NULL DEFAULT 'midnight' CHECK (theme IN (
+    'midnight', 'aurora', 'dusk', 'light', 'white-gold', 'black-gold',
+    'black-red', 'pastel-light', 'pastel-rose', 'pastel-mint', 'pastel-sky',
+    'pastel-peach', 'pastel-dark'
+  )),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -229,10 +233,15 @@ ALTER TABLE ai_usage ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "users can read own ai_usage" ON ai_usage FOR SELECT USING (auth.uid() = user_id);
 -- No INSERT/UPDATE policy for client — writes go through service role in API route.
 
--- summary_unlocks: users can only read their own unlocks
+-- summary_unlocks: users can read their own unlocks; API writes use service role
 DROP POLICY IF EXISTS "users can read own summary_unlocks" ON summary_unlocks;
+DROP POLICY IF EXISTS "users can insert own summary_unlocks" ON summary_unlocks;
 ALTER TABLE summary_unlocks ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users can read own summary_unlocks" ON summary_unlocks FOR SELECT USING (auth.uid() = user_id);
+REVOKE ALL ON public.summary_unlocks FROM anon, authenticated;
+REVOKE ALL ON SEQUENCE public.summary_unlocks_id_seq FROM anon, authenticated;
+GRANT SELECT ON public.summary_unlocks TO authenticated;
+CREATE POLICY "users can read own summary_unlocks" ON summary_unlocks
+  FOR SELECT TO authenticated USING ((SELECT auth.uid()) = user_id);
 
 -- user_profiles: users can only read their own profile
 DROP POLICY IF EXISTS "users can read own user_profiles" ON user_profiles;
@@ -240,11 +249,146 @@ ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "users can read own user_profiles" ON user_profiles FOR SELECT USING (auth.uid() = user_id);
 
 -- user_preferences: users can only manage their own display settings
+DROP POLICY IF EXISTS "users can read own preferences" ON user_preferences;
+DROP POLICY IF EXISTS "users can insert own preferences" ON user_preferences;
+DROP POLICY IF EXISTS "users can update own preferences" ON user_preferences;
 ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.user_preferences FROM anon, authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.user_preferences TO authenticated;
 CREATE POLICY "users can read own preferences" ON user_preferences FOR SELECT TO authenticated USING ((SELECT auth.uid()) = user_id);
-CREATE POLICY "users can insert own preferences" ON user_preferences FOR INSERT TO authenticated WITH CHECK ((SELECT auth.uid()) = user_id);
-CREATE POLICY "users can update own preferences" ON user_preferences FOR UPDATE TO authenticated USING ((SELECT auth.uid()) = user_id) WITH CHECK ((SELECT auth.uid()) = user_id);
+CREATE POLICY "users can insert own preferences" ON user_preferences
+  FOR INSERT TO authenticated WITH CHECK ((SELECT auth.uid()) = user_id);
+CREATE POLICY "users can update own preferences" ON user_preferences
+  FOR UPDATE TO authenticated
+  USING ((SELECT auth.uid()) = user_id)
+  WITH CHECK ((SELECT auth.uid()) = user_id);
+
+-- Atomic account theme synchronization. Direct table writes stay unavailable.
+CREATE OR REPLACE FUNCTION public.set_theme_preference(
+  p_theme TEXT,
+  p_updated_at TIMESTAMPTZ,
+  p_force BOOLEAN DEFAULT FALSE
+)
+RETURNS TABLE(theme TEXT, updated_at TIMESTAMPTZ)
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+  v_user_id UUID := (SELECT auth.uid());
+  v_received_at TIMESTAMPTZ := pg_catalog.clock_timestamp();
+  v_candidate_at TIMESTAMPTZ;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'authentication required' USING ERRCODE = '42501';
+  END IF;
+  IF p_updated_at IS NULL THEN
+    RAISE EXCEPTION 'updated_at is required' USING ERRCODE = '22023';
+  END IF;
+
+  v_candidate_at := LEAST(
+    p_updated_at,
+    v_received_at + INTERVAL '5 minutes'
+  );
+
+  INSERT INTO public.user_preferences AS preference (user_id, theme, updated_at)
+  VALUES (v_user_id, p_theme, v_received_at)
+  ON CONFLICT (user_id) DO UPDATE
+    SET theme = EXCLUDED.theme,
+        updated_at = v_received_at
+    WHERE COALESCE(p_force, FALSE)
+       OR preference.updated_at <= v_candidate_at;
+
+  RETURN QUERY
+    SELECT preference.theme, preference.updated_at
+    FROM public.user_preferences AS preference
+    WHERE preference.user_id = v_user_id;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.set_theme_preference(TEXT, TIMESTAMPTZ, BOOLEAN)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.set_theme_preference(TEXT, TIMESTAMPTZ, BOOLEAN)
+  TO authenticated;
+
+-- Atomic server-only summary unlock quota claim.
+CREATE OR REPLACE FUNCTION public.claim_summary_unlock(
+  p_user_id UUID,
+  p_article_id BIGINT,
+  p_daily_limit INTEGER
+)
+RETURNS TABLE(outcome TEXT, remaining INTEGER)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_is_premium BOOLEAN;
+  v_today_count INTEGER := 0;
+  v_day_start TIMESTAMPTZ :=
+    pg_catalog.date_trunc('day', pg_catalog.clock_timestamp() AT TIME ZONE 'UTC')
+    AT TIME ZONE 'UTC';
+BEGIN
+  IF p_user_id IS NULL OR p_article_id IS NULL OR p_daily_limit < 1 THEN
+    RAISE EXCEPTION 'invalid summary unlock claim' USING ERRCODE = '22023';
+  END IF;
+
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(
+      p_user_id::TEXT || ':' || v_day_start::DATE::TEXT,
+      0
+    )
+  );
+
+  SELECT COALESCE(
+    (SELECT profile.tier = 'premium'
+     FROM public.user_profiles AS profile
+     WHERE profile.user_id = p_user_id),
+    FALSE
+  )
+  INTO v_is_premium;
+
+  IF NOT v_is_premium THEN
+    SELECT COUNT(*)::INTEGER
+    INTO v_today_count
+    FROM public.summary_unlocks AS unlock
+    WHERE unlock.user_id = p_user_id
+      AND unlock.unlocked_at >= v_day_start;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.summary_unlocks AS unlock
+    WHERE unlock.user_id = p_user_id
+      AND unlock.article_id = p_article_id
+  ) THEN
+    RETURN QUERY SELECT
+      'already_unlocked'::TEXT,
+      CASE WHEN v_is_premium THEN NULL::INTEGER
+           ELSE GREATEST(p_daily_limit - v_today_count, 0)
+      END;
+    RETURN;
+  END IF;
+
+  IF NOT v_is_premium AND v_today_count >= p_daily_limit THEN
+    RETURN QUERY SELECT 'limit_reached'::TEXT, 0::INTEGER;
+    RETURN;
+  END IF;
+
+  INSERT INTO public.summary_unlocks (user_id, article_id)
+  VALUES (p_user_id, p_article_id)
+  ON CONFLICT (user_id, article_id) DO NOTHING;
+
+  RETURN QUERY SELECT
+    'unlocked'::TEXT,
+    CASE WHEN v_is_premium THEN NULL::INTEGER
+         ELSE GREATEST(p_daily_limit - v_today_count - 1, 0)
+    END;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.claim_summary_unlock(UUID, BIGINT, INTEGER)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_summary_unlock(UUID, BIGINT, INTEGER)
+  TO service_role;
 
 -- =========================================
 -- Daily chart history (1Y rolling OHLCV)
@@ -383,10 +527,14 @@ CREATE POLICY "users can update own paper_ai_usage" ON paper_ai_usage FOR UPDATE
 DROP POLICY IF EXISTS "users can read own paper_challenges"   ON paper_challenges;
 DROP POLICY IF EXISTS "users can insert own paper_challenges" ON paper_challenges;
 DROP POLICY IF EXISTS "users can update own paper_challenges" ON paper_challenges;
+DROP POLICY IF EXISTS "users can delete own paper_challenges" ON paper_challenges;
 ALTER TABLE paper_challenges ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "users can read own paper_challenges"   ON paper_challenges FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "users can insert own paper_challenges" ON paper_challenges FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "users can update own paper_challenges" ON paper_challenges FOR UPDATE USING (auth.uid() = user_id);
+REVOKE ALL ON public.paper_challenges FROM anon, authenticated;
+REVOKE ALL ON SEQUENCE public.paper_challenges_id_seq FROM anon, authenticated;
+GRANT SELECT ON public.paper_challenges TO authenticated;
+CREATE POLICY "users can read own paper_challenges" ON paper_challenges
+  FOR SELECT TO authenticated USING ((SELECT auth.uid()) = user_id);
+-- No INSERT/UPDATE/DELETE policy: challenge mutations are server-only.
 
 -- Atomic service-role write for validated current market value + daily history.
 CREATE OR REPLACE FUNCTION public.upsert_market_cap_observation(

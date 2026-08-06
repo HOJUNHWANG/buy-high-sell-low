@@ -3,7 +3,14 @@
  * Covers unlock flow, daily limits, premium bypass, and edge cases.
  */
 import { describe, it, expect, beforeEach } from "vitest";
-import { setMockUser, setMockData, clearMockData, getInsertCalls } from "./setup";
+import {
+  setMockUser,
+  setMockData,
+  setMockMutationError,
+  setMockRpcResult,
+  clearMockData,
+  getInsertCalls,
+} from "./setup";
 
 const USER = { id: "user-unlock", email: "unlock@test.com" };
 
@@ -173,6 +180,78 @@ describe("Unlock Summary: Free tier limits", () => {
     expect(res.status).toBe(429);
     const data = await res.json();
     expect(data.remaining).toBe(0);
+  });
+
+  it("honors the atomic database quota check after a concurrent claim", async () => {
+    setMockData("summary_unlocks", []);
+    setMockData("news_articles", [{
+      id: 20, ai_summary: "New article", ai_insight: "i",
+      ai_sentiment: "positive", ai_caution: null,
+    }]);
+    setMockData("user_profiles", [{ user_id: USER.id, tier: "free" }]);
+    setMockRpcResult("claim_summary_unlock", {
+      data: [{ outcome: "limit_reached", remaining: 0 }],
+    });
+
+    const mod = await import("@/app/api/unlock-summary/route");
+    const req = new Request("http://localhost:3000/api/unlock-summary", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ articleId: 20 }),
+    });
+    const res = await mod.POST(req);
+
+    expect(res.status).toBe(429);
+    await expect(res.json()).resolves.toMatchObject({ remaining: 0 });
+  });
+
+  it("does not return gated data when the permanent unlock write fails", async () => {
+    setMockData("summary_unlocks", []);
+    setMockData("news_articles", [{
+      id: 1, ai_summary: "Test summary", ai_insight: "Test insight",
+      ai_sentiment: "positive", ai_caution: null,
+    }]);
+    setMockData("user_profiles", [{ user_id: USER.id, tier: "free" }]);
+    setMockMutationError("summary_unlocks", "insert", {
+      message: "row-level security denied the insert",
+      code: "42501",
+    });
+
+    const mod = await import("@/app/api/unlock-summary/route");
+    const req = new Request("http://localhost:3000/api/unlock-summary", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ articleId: 1 }),
+    });
+    const res = await mod.POST(req);
+
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toEqual({
+      error: "Failed to save article unlock",
+    });
+  });
+
+  it("treats a concurrent duplicate unlock as success", async () => {
+    setMockData("summary_unlocks", []);
+    setMockData("news_articles", [{
+      id: 1, ai_summary: "Test summary", ai_insight: "Test insight",
+      ai_sentiment: "positive", ai_caution: null,
+    }]);
+    setMockData("user_profiles", [{ user_id: USER.id, tier: "free" }]);
+    setMockMutationError("summary_unlocks", "insert", {
+      message: "duplicate key",
+      code: "23505",
+    });
+
+    const mod = await import("@/app/api/unlock-summary/route");
+    const req = new Request("http://localhost:3000/api/unlock-summary", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ articleId: 1 }),
+    });
+    const res = await mod.POST(req);
+
+    expect(res.status).toBe(200);
   });
 });
 

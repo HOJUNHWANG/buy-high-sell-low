@@ -22,6 +22,7 @@ export type MarketDataAuditDetails = {
     severity: string;
     code: string;
     ticker: string;
+    field: string;
     message: string;
   }>;
   priceReferenceCoverage: number;
@@ -31,6 +32,7 @@ export type MarketDataAuditDetails = {
 export type MarketDataAuditHealth = {
   state: "unknown" | "healthy" | "failing" | "persistent";
   consecutiveFailures: number;
+  repeatedFingerprints: string[];
   latest: MarketDataAuditLog | null;
 };
 
@@ -58,6 +60,7 @@ function parseFindings(value: unknown): MarketDataAuditDetails["findings"] {
       typeof finding.severity !== "string" ||
       typeof finding.code !== "string" ||
       typeof finding.ticker !== "string" ||
+      typeof finding.field !== "string" ||
       typeof finding.message !== "string"
     ) {
       return [];
@@ -67,10 +70,48 @@ function parseFindings(value: unknown): MarketDataAuditDetails["findings"] {
         severity: finding.severity,
         code: finding.code,
         ticker: finding.ticker,
+        field: finding.field,
         message: finding.message,
       },
     ];
   });
+}
+
+function normalizeProviderError(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function auditFailureFingerprints(log: MarketDataAuditLog): Set<string> {
+  if (log.status === "success") return new Set();
+
+  const details = parseMarketDataAuditDetails(log.error_message);
+  const criticalFindings = (details?.findings ?? [])
+    .filter((finding) => finding.severity === "critical")
+    .map(
+      (finding) =>
+        `${finding.ticker.trim().toUpperCase()}|${finding.field
+          .trim()
+          .toLowerCase()}|${finding.code.trim().toLowerCase()}`,
+    )
+    .filter((fingerprint) => !fingerprint.includes("||"));
+
+  if (criticalFindings.length > 0) return new Set(criticalFindings);
+
+  // Provider/incomplete audits have no safe row to auto-repair, but the same
+  // operational failure should still become visible as persistent in Data Health.
+  const providerErrors = (details?.providerErrors ?? [])
+    .map(normalizeProviderError)
+    .filter(Boolean)
+    .map((error) => `provider|${error}`);
+  if (providerErrors.length > 0) return new Set(providerErrors);
+
+  const affected = (log.failed_tickers ?? [])
+    .map((ticker) => ticker.trim().toUpperCase())
+    .filter(Boolean)
+    .map((ticker) => `${ticker}|audit|${log.status.toLowerCase()}`);
+  if (affected.length > 0) return new Set(affected);
+
+  return new Set([`audit|${log.status.toLowerCase()}`]);
 }
 
 export function parseMarketDataAuditDetails(
@@ -172,24 +213,42 @@ export function getMarketDataAuditHealth(
     );
   const latest = ordered[0] ?? null;
   if (!latest) {
-    return { state: "unknown", consecutiveFailures: 0, latest: null };
+    return {
+      state: "unknown",
+      consecutiveFailures: 0,
+      repeatedFingerprints: [],
+      latest: null,
+    };
   }
   if (latest.status === "success") {
-    return { state: "healthy", consecutiveFailures: 0, latest };
+    return {
+      state: "healthy",
+      consecutiveFailures: 0,
+      repeatedFingerprints: [],
+      latest,
+    };
   }
 
-  let consecutiveFailures = 0;
-  for (const log of ordered) {
-    if (log.status === "success") break;
-    consecutiveFailures += 1;
+  const latestFingerprints = auditFailureFingerprints(latest);
+  const streaks = new Map<string, number>();
+  for (const fingerprint of latestFingerprints) {
+    let streak = 0;
+    for (const log of ordered) {
+      if (!auditFailureFingerprints(log).has(fingerprint)) break;
+      streak += 1;
+    }
+    streaks.set(fingerprint, streak);
   }
+  const consecutiveFailures = Math.max(1, ...streaks.values());
+  const repeatedFingerprints = [...streaks.entries()]
+    .filter(([, streak]) => streak >= PERSISTENT_AUDIT_FAILURE_THRESHOLD)
+    .map(([fingerprint]) => fingerprint)
+    .sort();
 
   return {
-    state:
-      consecutiveFailures >= PERSISTENT_AUDIT_FAILURE_THRESHOLD
-        ? "persistent"
-        : "failing",
+    state: repeatedFingerprints.length > 0 ? "persistent" : "failing",
     consecutiveFailures,
+    repeatedFingerprints,
     latest,
   };
 }

@@ -29,7 +29,13 @@ def provider_quote_observed_at(
     fallback: datetime,
     is_crypto: bool,
 ) -> str:
-    """Return Twelve Data's quote timestamp in UTC, with a safe fallback."""
+    """Return provider metadata time in UTC; never use it as ingestion time.
+
+    Twelve Data equity ``timestamp`` values may denote the regular-session
+    boundary (often 09:30 ET) even while the accompanying quote is live. This
+    helper validates that metadata, while callers must record their own fetch
+    time separately for freshness checks.
+    """
     if fallback.tzinfo is None:
         fallback = fallback.replace(tzinfo=timezone.utc)
     fallback = fallback.astimezone(timezone.utc)

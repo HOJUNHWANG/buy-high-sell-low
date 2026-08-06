@@ -18,6 +18,7 @@ from audit_market_data import (  # noqa: E402
     AuditConfig,
     AuditReport,
     Finding,
+    NasdaqReferenceProvider,
     ReferenceQuote,
     StoredAsset,
     SupabaseAuditLogWriter,
@@ -25,9 +26,10 @@ from audit_market_data import (  # noqa: E402
     audit_assets,
     build_audit_log_payload,
     classify_asset,
+    expected_us_quote_session_date,
     parse_coingecko_payload,
     parse_nasdaq_etf_aum,
-    parse_nasdaq_etf_payload,
+    parse_nasdaq_etf_quote,
     parse_nasdaq_stock_payload,
     parse_number,
     render_human,
@@ -143,26 +145,39 @@ class NasdaqParsingTests(unittest.TestCase):
         self.assertEqual(quotes["MU"].market_cap, 929_524_445_068)
         self.assertEqual(quotes["MU"].source, "Nasdaq")
 
-    def test_parses_nested_etf_screener_and_as_of(self):
+    def test_parses_etf_live_quote_and_trade_timestamp(self):
         payload = {
             "data": {
-                "dataAsOf": "7/31/2026 8:00:00 PM",
-                "data": {
-                    "rows": [
-                        {"symbol": "VOO", "lastSalePrice": "$681.7900"},
-                        {"symbol": "QQQ", "lastSalePrice": "$683.5500"},
-                    ]
-                },
+                "primaryData": {
+                    "lastSalePrice": "$681.7900",
+                    "lastTradeTimestamp": "Aug 6, 2026 4:15 PM ET",
+                }
             }
         }
 
-        quotes = parse_nasdaq_etf_payload(payload, ["VOO"])
+        quote = parse_nasdaq_etf_quote(payload, "VOO")
 
-        self.assertEqual(list(quotes), ["VOO"])
-        self.assertEqual(quotes["VOO"].price, 681.79)
+        self.assertIsNotNone(quote)
+        assert quote is not None
+        self.assertEqual(quote.price, 681.79)
+        self.assertEqual(quote.source, "Nasdaq live quote + ETF summary")
         self.assertEqual(
-            quotes["VOO"].as_of,
-            datetime(2026, 8, 1, 0, 0, tzinfo=timezone.utc),
+            quote.as_of,
+            datetime(2026, 8, 6, 20, 15, tzinfo=timezone.utc),
+        )
+
+    def test_rejects_live_quote_without_a_timestamp(self):
+        payload = {
+            "data": {"primaryData": {"lastSalePrice": "$681.7900"}}
+        }
+
+        self.assertIsNone(parse_nasdaq_etf_quote(payload, "VOO"))
+
+    def test_expected_session_uses_previous_market_day_before_open(self):
+        before_open = datetime(2026, 8, 10, 12, 0, tzinfo=timezone.utc)
+
+        self.assertEqual(
+            expected_us_quote_session_date(before_open), date(2026, 8, 7)
         )
 
     def test_converts_nasdaq_etf_aum_from_thousands(self):
@@ -181,6 +196,63 @@ class NasdaqParsingTests(unittest.TestCase):
 
     def test_returns_none_for_missing_etf_aum(self):
         self.assertIsNone(parse_nasdaq_etf_aum({"data": {"summaryData": {}}}))
+
+
+class NasdaqEtfProviderTests(unittest.TestCase):
+    @staticmethod
+    def _provider(quote_session: str) -> NasdaqReferenceProvider:
+        provider = NasdaqReferenceProvider()
+
+        def get_json(url, *, params):
+            if url.endswith("/info"):
+                return {
+                    "data": {
+                        "primaryData": {
+                            "lastSalePrice": "$388.6359",
+                            "lastTradeTimestamp": (
+                                f"{quote_session} 4:15 PM ET"
+                            ),
+                        }
+                    }
+                }
+            if url.endswith("/summary"):
+                return {
+                    "data": {
+                        "summaryData": {
+                            "AUM": {
+                                "label": "Assets Under Management (,000)",
+                                "value": "137,582,000",
+                            }
+                        }
+                    }
+                }
+            raise AssertionError(url)
+
+        provider._get_json = get_json
+        return provider
+
+    def test_live_price_and_summary_aum_are_combined(self):
+        provider = self._provider("Aug 6, 2026")
+
+        quotes, errors = provider.fetch_etfs(
+            ["GLD"],
+            now=datetime(2026, 8, 6, 22, 0, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual(errors, [])
+        self.assertAlmostEqual(quotes["GLD"].price or 0, 388.6359)
+        self.assertEqual(quotes["GLD"].market_cap, 137_582_000_000)
+
+    def test_prior_session_live_quote_is_not_used_for_price_audit(self):
+        provider = self._provider("Aug 5, 2026")
+
+        quotes, errors = provider.fetch_etfs(
+            ["GLD"],
+            now=datetime(2026, 8, 6, 22, 0, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual(quotes, {})
+        self.assertTrue(any("wrong session" in error for error in errors))
 
 
 class CoinGeckoParsingTests(unittest.TestCase):

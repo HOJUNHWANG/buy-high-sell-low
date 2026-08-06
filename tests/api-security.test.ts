@@ -3,7 +3,12 @@
  * Covers input sanitization, rate limiting, XSS prevention, and abuse scenarios.
  */
 import { describe, it, expect, beforeEach } from "vitest";
-import { setMockUser, setMockData, clearMockData } from "./setup";
+import {
+  setMockUser,
+  setMockData,
+  setMockMutationError,
+  clearMockData,
+} from "./setup";
 
 const USER = { id: "user-sec", email: "sec@test.com" };
 
@@ -116,6 +121,71 @@ describe("Security: AI Summary input validation", () => {
     });
     const res = await mod.POST(req);
     expect(res.status).toBe(400);
+  });
+});
+
+describe("Security: Why-moving atomic rate limit", () => {
+  beforeEach(() => {
+    clearMockData();
+    setMockUser(USER);
+    setMockData("stock_prices", [{ ticker: "AAPL", price: 200, change_pct: 1.2 }]);
+    setMockData("news_articles", []);
+  });
+
+  it("rejects malformed tickers before querying market data", async () => {
+    const mod = await import("@/app/api/ai/why-moving/route");
+    const req = new Request("http://localhost:3000/api/ai/why-moving", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker: "AAPL prompt injection" }),
+    });
+
+    const res = await mod.POST(req);
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects non-string tickers without throwing", async () => {
+    const mod = await import("@/app/api/ai/why-moving/route");
+    const req = new Request("http://localhost:3000/api/ai/why-moving", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker: 123 }),
+    });
+
+    const res = await mod.POST(req);
+    expect(res.status).toBe(400);
+  });
+
+  it("maps a concurrent duplicate slot claim to 429", async () => {
+    setMockMutationError("ai_why_usage", "insert", {
+      message: "duplicate key value violates unique constraint",
+      code: "23505",
+    });
+    const mod = await import("@/app/api/ai/why-moving/route");
+    const req = new Request("http://localhost:3000/api/ai/why-moving", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker: "AAPL" }),
+    });
+
+    const res = await mod.POST(req);
+    expect(res.status).toBe(429);
+  });
+
+  it("fails closed when the slot cannot be recorded", async () => {
+    setMockMutationError("ai_why_usage", "insert", {
+      message: "database unavailable",
+      code: "503",
+    });
+    const mod = await import("@/app/api/ai/why-moving/route");
+    const req = new Request("http://localhost:3000/api/ai/why-moving", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker: "AAPL" }),
+    });
+
+    const res = await mod.POST(req);
+    expect(res.status).toBe(503);
   });
 });
 

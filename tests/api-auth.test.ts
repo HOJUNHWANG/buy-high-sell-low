@@ -17,6 +17,7 @@ const routeLoaders = {
   "paper/roast": () => import("@/app/api/paper/roast/route"),
   "paper/challenge": () => import("@/app/api/paper/challenge/route"),
   "ai-summary": () => import("@/app/api/ai-summary/route"),
+  "ai/why-moving": () => import("@/app/api/ai/why-moving/route"),
 } as const;
 
 // Helper to call route handlers
@@ -60,6 +61,7 @@ describe("Auth: All protected routes reject unauthenticated requests", () => {
     { path: "paper/roast", method: "POST" },
     { path: "paper/challenge", method: "GET" },
     { path: "ai-summary", method: "POST", body: { articleId: 1 } },
+    { path: "ai/why-moving", method: "POST", body: { ticker: "AAPL" } },
   ];
 
   for (const { path, method, body } of protectedRoutes) {

@@ -16,6 +16,9 @@ on:
         required: true
         default: "HONA OEF USDC-USD TRX-USD ZEC-USD XLM-USD XMR-USD BCH-USD LTC-USD DOT-USD AAVE-USD"
 
+permissions:
+  contents: read
+
 concurrency:
   group: seed-market-history
   cancel-in-progress: false
@@ -23,15 +26,22 @@ concurrency:
 jobs:
   seed:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
           cache: "pip"
           cache-dependency-path: scripts/requirements.txt
-      - run: pip install -r scripts/requirements.txt
-      - run: python scripts/seed_history.py $TICKERS
+      - name: Install Python dependencies
+        run: python -m pip install --disable-pip-version-check -r scripts/requirements.txt
+      - name: Seed missing market history
+        run: python scripts/seed_history.py $TICKERS
         env:
           # workflow_dispatch can override this; push runs use the maintained
           # default list below instead of accidentally seeding the full universe.

@@ -41,6 +41,7 @@ from dotenv import load_dotenv
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from market_calendar import is_market_holiday, previous_market_day
 from tickers import ETF_TICKERS
 
 
@@ -69,7 +70,7 @@ ASSET_CRYPTO = "crypto"
 ASSET_CLASSES = (ASSET_EQUITY, ASSET_ETF, ASSET_CRYPTO)
 
 NASDAQ_STOCKS_URL = "https://api.nasdaq.com/api/screener/stocks"
-NASDAQ_ETFS_URL = "https://api.nasdaq.com/api/screener/etf"
+NASDAQ_ETF_INFO_URL = "https://api.nasdaq.com/api/quote/{ticker}/info"
 NASDAQ_ETF_SUMMARY_URL = "https://api.nasdaq.com/api/quote/{ticker}/summary"
 COINGECKO_SIMPLE_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price"
 
@@ -354,6 +355,41 @@ def parse_nasdaq_datetime(value: Any) -> datetime | None:
     )
 
 
+def parse_nasdaq_quote_datetime(value: Any) -> datetime | None:
+    """Parse Nasdaq's per-symbol live-quote timestamp as an ET instant."""
+    if not value:
+        return None
+    text = re.sub(r"\s+(?:ET|EST|EDT)$", "", str(value).strip())
+    for pattern in (
+        "%b %d, %Y %I:%M %p",
+        "%b %d, %Y %I:%M:%S %p",
+        "%m/%d/%Y %I:%M:%S %p",
+    ):
+        try:
+            parsed = datetime.strptime(text, pattern)
+            return parsed.replace(
+                tzinfo=ZoneInfo("America/New_York")
+            ).astimezone(timezone.utc)
+        except ValueError:
+            continue
+    return None
+
+
+def expected_us_quote_session_date(now: datetime) -> date:
+    """Return the US market session date a live quote must represent."""
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    now_et = now.astimezone(ZoneInfo("America/New_York"))
+    today = now_et.date()
+    if (
+        today.weekday() >= 5
+        or is_market_holiday(today)
+        or now_et.time() < time(9, 30)
+    ):
+        return previous_market_day(today)
+    return today
+
+
 def normalize_nasdaq_symbol(symbol: str) -> str:
     # Nasdaq uses BRK/B while the application uses BRK.B.
     return symbol.strip().upper().replace("/", ".")
@@ -389,29 +425,28 @@ def parse_nasdaq_stock_payload(
     return quotes
 
 
-def parse_nasdaq_etf_payload(
-    payload: Mapping[str, Any], requested: Iterable[str]
-) -> dict[str, ReferenceQuote]:
-    wanted = {ticker.upper() for ticker in requested}
+def parse_nasdaq_etf_quote(
+    payload: Mapping[str, Any], ticker: str
+) -> ReferenceQuote | None:
+    """Parse Nasdaq's per-symbol ETF quote (not its delayed ETF screener)."""
     data = payload.get("data") or {}
-    as_of = (
-        parse_nasdaq_datetime(data.get("dataAsOf"))
-        if isinstance(data, Mapping)
-        else None
+    primary = data.get("primaryData") if isinstance(data, Mapping) else None
+    if not isinstance(primary, Mapping):
+        return None
+    normalized_ticker = ticker.upper()
+    price = parse_number(
+        primary.get("lastSalePrice") or primary.get("lastsalePrice")
     )
-    quotes: dict[str, ReferenceQuote] = {}
-    for row in _nested_rows(payload):
-        ticker = normalize_nasdaq_symbol(str(row.get("symbol") or ""))
-        if ticker not in wanted:
-            continue
-        quotes[ticker] = ReferenceQuote(
-            ticker=ticker,
-            source="Nasdaq",
-            price=parse_number(row.get("lastSalePrice") or row.get("lastsale")),
-            market_cap=None,
-            as_of=as_of,
-        )
-    return quotes
+    as_of = parse_nasdaq_quote_datetime(primary.get("lastTradeTimestamp"))
+    if price is None or price <= 0 or as_of is None:
+        return None
+    return ReferenceQuote(
+        ticker=normalized_ticker,
+        source="Nasdaq live quote + ETF summary",
+        price=price,
+        market_cap=None,
+        as_of=as_of,
+    )
 
 
 def parse_nasdaq_etf_aum(payload: Mapping[str, Any]) -> float | None:
@@ -687,19 +722,59 @@ class NasdaqReferenceProvider:
             return {}, [f"Nasdaq equity reference failed: {_safe_error(exc)}"]
 
     def fetch_etfs(
-        self, tickers: Sequence[str]
+        self,
+        tickers: Sequence[str],
+        *,
+        now: datetime | None = None,
     ) -> tuple[dict[str, ReferenceQuote], list[str]]:
         if not tickers:
             return {}, []
+        now = now or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+        expected_session = expected_us_quote_session_date(now)
         errors: list[str] = []
-        try:
+        quotes: dict[str, ReferenceQuote] = {}
+
+        # ETF screener data can remain on the prior session after a new session
+        # has closed. Fetch each tracked ETF's live quote and require its trade
+        # timestamp to identify the expected session before comparing prices.
+        def fetch_quote(ticker: str) -> tuple[str, ReferenceQuote | None]:
             payload = self._get_json(
-                NASDAQ_ETFS_URL,
-                params={"tableonly": "true", "limit": "10000", "download": "true"},
+                NASDAQ_ETF_INFO_URL.format(ticker=ticker),
+                params={"assetclass": "etf"},
             )
-            quotes = parse_nasdaq_etf_payload(payload, tickers)
-        except (requests.RequestException, ValueError, TypeError) as exc:
-            return {}, [f"Nasdaq ETF reference failed: {_safe_error(exc)}"]
+            return ticker, parse_nasdaq_etf_quote(payload, ticker)
+
+        with ThreadPoolExecutor(max_workers=min(4, len(tickers))) as executor:
+            futures = {
+                executor.submit(fetch_quote, ticker): ticker for ticker in tickers
+            }
+            for future in as_completed(futures):
+                ticker = futures[future]
+                try:
+                    resolved_ticker, quote = future.result()
+                    if quote is None:
+                        errors.append(
+                            f"Nasdaq ETF live quote unavailable for {ticker}"
+                        )
+                    else:
+                        quote_session = quote.as_of.astimezone(
+                            ZoneInfo("America/New_York")
+                        ).date()
+                    if quote is not None and quote_session != expected_session:
+                        errors.append(
+                            f"Nasdaq ETF live quote has wrong session for "
+                            f"{ticker}: {quote_session} "
+                            f"(expected {expected_session})"
+                        )
+                    elif quote is not None:
+                        quotes[resolved_ticker] = quote
+                except (requests.RequestException, ValueError, TypeError) as exc:
+                    errors.append(
+                        f"Nasdaq ETF live quote failed for {ticker}: "
+                        f"{_safe_error(exc)}"
+                    )
 
         # Nasdaq exposes AUM (the comparable value stored for ETFs) on each
         # summary endpoint. Fetch the small tracked ETF set concurrently.
@@ -780,7 +855,7 @@ def _safe_error(error: BaseException) -> str:
 
 
 def fetch_references(
-    assets: Sequence[StoredAsset], *, timeout: float
+    assets: Sequence[StoredAsset], *, timeout: float, now: datetime | None = None
 ) -> tuple[dict[str, ReferenceQuote], list[str]]:
     equities = [item.ticker for item in assets if item.asset_class == ASSET_EQUITY]
     etfs = [item.ticker for item in assets if item.asset_class == ASSET_ETF]
@@ -790,7 +865,7 @@ def fetch_references(
     errors: list[str] = []
     nasdaq = NasdaqReferenceProvider(timeout=timeout)
     stock_quotes, stock_errors = nasdaq.fetch_equities(equities)
-    etf_quotes, etf_errors = nasdaq.fetch_etfs(etfs)
+    etf_quotes, etf_errors = nasdaq.fetch_etfs(etfs, now=now)
     crypto_quotes, crypto_errors = CoinGeckoReferenceProvider(
         timeout=timeout
     ).fetch(crypto)
@@ -1330,7 +1405,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("No active assets matched the requested filters.", file=sys.stderr)
         return EXIT_INCOMPLETE
 
-    references, provider_errors = fetch_references(assets, timeout=args.timeout)
+    references, provider_errors = fetch_references(
+        assets, timeout=args.timeout, now=now
+    )
     report = audit_assets(
         assets,
         references,

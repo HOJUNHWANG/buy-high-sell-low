@@ -1,10 +1,11 @@
 """Run the full market-data audit and safely remediate a persistent failure.
 
-The first failed audit is observation-only. When a second consecutive full
-audit fails, this wrapper records a one-time attempt marker, refreshes only the
-affected price and/or market-cap rows through their canonical updaters, and
-runs one final full audit. A failed remediation is never looped; the persistent
-state and the recorded outcome remain visible in Admin Data Health.
+The first occurrence of a critical finding is observation-only. When the same
+ticker+field+code fingerprint fails in a second consecutive full audit, this
+wrapper records a fingerprint-scoped one-time attempt marker, refreshes only
+the affected price and/or market-cap rows through their canonical updaters,
+and runs one final full audit. A failed remediation is never looped; the
+persistent state and the recorded outcome remain visible in Admin Data Health.
 """
 
 from __future__ import annotations
@@ -29,6 +30,9 @@ AUDIT_JOB_NAME = audit_market_data.AUDIT_LOG_JOB_NAME
 REMEDIATION_JOB_NAME = "market_data_remediation"
 PERSISTENT_FAILURE_THRESHOLD = 2
 DEFAULT_TIMEOUT_SECONDS = 30.0
+# Supabase/PostgREST projects commonly cap one response at 1,000 rows. A full
+# page is treated as truncated below and therefore fails closed at audit bounds.
+REMEDIATION_HISTORY_LIMIT = 1_000
 
 
 @dataclass(frozen=True)
@@ -95,39 +99,89 @@ def _safe_error(error: Exception) -> str:
     return message[:500]
 
 
+def _audit_findings(audit_log: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    try:
+        details = json.loads(str(audit_log.get("error_message") or ""))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return []
+    findings = details.get("findings") if isinstance(details, dict) else None
+    if not isinstance(findings, list):
+        return []
+    return [item for item in findings if isinstance(item, Mapping)]
+
+
+def finding_fingerprint(finding: Mapping[str, Any]) -> str | None:
+    """Return the stable identity used for streaks and remediation locks."""
+    ticker = str(finding.get("ticker") or "").strip().upper()
+    field = str(finding.get("field") or "").strip().lower()
+    code = str(finding.get("code") or "").strip().lower()
+    if not ticker or not field or not code:
+        return None
+    return f"{ticker}|{field}|{code}"
+
+
+def extract_finding_fingerprints(
+    audit_log: Mapping[str, Any], *, severity: str = "critical"
+) -> frozenset[str]:
+    return frozenset(
+        fingerprint
+        for finding in _audit_findings(audit_log)
+        if finding.get("severity") == severity
+        if (fingerprint := finding_fingerprint(finding)) is not None
+    )
+
+
+def persistent_finding_streaks(
+    logs: Sequence[Mapping[str, Any]],
+    threshold: int = PERSISTENT_FAILURE_THRESHOLD,
+) -> dict[str, int]:
+    """Map repeated latest finding fingerprints to their streak-start audit id."""
+    if threshold <= 0:
+        raise ValueError("threshold must be positive")
+    ordered = _ordered_logs(logs)
+    if not ordered:
+        return {}
+    latest_fingerprints = extract_finding_fingerprints(ordered[0])
+    streaks: dict[str, int] = {}
+    for fingerprint in latest_fingerprints:
+        matching_ids: list[int] = []
+        for row in ordered:
+            if fingerprint not in extract_finding_fingerprints(row):
+                break
+            matching_ids.append(int(row.get("id") or 0))
+        if len(matching_ids) >= threshold:
+            # If the fingerprint reaches the read boundary, its true streak
+            # start is older than the window. Use 0 conservatively so an older
+            # remediation marker cannot fall out of scope and run again.
+            streaks[fingerprint] = (
+                0 if len(matching_ids) == len(ordered) else matching_ids[-1]
+            )
+    return streaks
+
+
 def has_persistent_failure(
     logs: Sequence[Mapping[str, Any]],
     threshold: int = PERSISTENT_FAILURE_THRESHOLD,
 ) -> bool:
-    consecutive = 0
-    for row in _ordered_logs(logs):
-        if row.get("status") == "success":
-            break
-        consecutive += 1
-        if consecutive >= threshold:
-            return True
-    return False
+    return bool(persistent_finding_streaks(logs, threshold))
 
 
 def extract_remediation_targets(
     audit_log: Mapping[str, Any],
     *,
     tracked_tickers: Sequence[str] = ALL_TICKERS,
+    fingerprints: Sequence[str] | None = None,
 ) -> RemediationTargets:
     tracked = {ticker.upper() for ticker in tracked_tickers}
-    try:
-        details = json.loads(str(audit_log.get("error_message") or ""))
-    except (TypeError, ValueError, json.JSONDecodeError):
-        return RemediationTargets()
-
-    findings = details.get("findings") if isinstance(details, dict) else None
-    if not isinstance(findings, list):
-        return RemediationTargets()
+    selected = set(fingerprints) if fingerprints is not None else None
 
     prices: set[str] = set()
     market_caps: set[str] = set()
-    for finding in findings:
-        if not isinstance(finding, dict) or finding.get("severity") != "critical":
+    for finding in _audit_findings(audit_log):
+        if finding.get("severity") != "critical":
+            continue
+        fingerprint = finding_fingerprint(finding)
+        if selected is not None and fingerprint not in selected:
             continue
         ticker = str(finding.get("ticker") or "").upper()
         if ticker not in tracked:
@@ -140,17 +194,43 @@ def extract_remediation_targets(
     return RemediationTargets(tuple(sorted(prices)), tuple(sorted(market_caps)))
 
 
+def _remediation_details(
+    remediation_log: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    try:
+        details = json.loads(str(remediation_log.get("error_message") or ""))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+    return details if isinstance(details, Mapping) else {}
+
+
 def remediation_already_attempted(
-    latest_success: Mapping[str, Any] | None,
-    latest_remediation: Mapping[str, Any] | None,
+    fingerprint: str,
+    streak_start_audit_id: int,
+    remediation_logs: Sequence[Mapping[str, Any]],
 ) -> bool:
-    if latest_remediation is None:
-        return False
-    if latest_success is None:
-        return True
-    return int(latest_remediation.get("id") or 0) > int(
-        latest_success.get("id") or 0
-    )
+    ticker, field, _code = fingerprint.split("|", maxsplit=2)
+    for row in _ordered_logs(remediation_logs):
+        details = _remediation_details(row)
+        trigger_id = int(details.get("trigger_audit_id") or 0)
+        if trigger_id < streak_start_audit_id:
+            continue
+        explicit = details.get("fingerprints")
+        if isinstance(explicit, list) and fingerprint in explicit:
+            return True
+
+        # Migration compatibility: attempts written by schema v1 did not store
+        # fingerprints, but their canonical targets still identify the affected
+        # ticker and field. They must lock only that matching finding.
+        targets = details.get("targets")
+        if not isinstance(targets, Mapping):
+            continue
+        target_tickers = targets.get(field)
+        if isinstance(target_tickers, list) and ticker in {
+            str(item).upper() for item in target_tickers
+        }:
+            return True
+    return False
 
 
 class SupabaseRemediationStore:
@@ -203,13 +283,8 @@ class SupabaseRemediationStore:
     def load_recent_audits(self, limit: int = 2) -> list[dict[str, Any]]:
         return self._load_logs(AUDIT_JOB_NAME, limit=limit)
 
-    def load_latest_success(self) -> dict[str, Any] | None:
-        rows = self._load_logs(AUDIT_JOB_NAME, limit=1, status="success")
-        return rows[0] if rows else None
-
-    def load_latest_remediation(self) -> dict[str, Any] | None:
-        rows = self._load_logs(REMEDIATION_JOB_NAME, limit=1)
-        return rows[0] if rows else None
+    def load_recent_remediations(self, limit: int = 100) -> list[dict[str, Any]]:
+        return self._load_logs(REMEDIATION_JOB_NAME, limit=limit)
 
     def _details(
         self,
@@ -217,14 +292,16 @@ class SupabaseRemediationStore:
         stage: str,
         trigger_audit: Mapping[str, Any],
         targets: RemediationTargets,
+        fingerprints: Sequence[str],
         result: RemediationResult | None = None,
         reason: str | None = None,
     ) -> dict[str, Any]:
         details: dict[str, Any] = {
-            "schema_version": 1,
+            "schema_version": 2,
             "stage": stage,
             "trigger_audit_id": trigger_audit.get("id"),
             "trigger_audit_status": trigger_audit.get("status"),
+            "fingerprints": sorted(set(fingerprints)),
             "targets": {
                 "price": list(targets.price_tickers),
                 "market_cap": list(targets.market_cap_tickers),
@@ -258,11 +335,17 @@ class SupabaseRemediationStore:
         return int(rows[0]["id"])
 
     def start_attempt(
-        self, trigger_audit: Mapping[str, Any], targets: RemediationTargets
+        self,
+        trigger_audit: Mapping[str, Any],
+        targets: RemediationTargets,
+        fingerprints: Sequence[str],
     ) -> int:
         now = datetime.now(timezone.utc).isoformat()
         details = self._details(
-            stage="started", trigger_audit=trigger_audit, targets=targets
+            stage="started",
+            trigger_audit=trigger_audit,
+            targets=targets,
+            fingerprints=fingerprints,
         )
         return self._insert(
             {
@@ -283,11 +366,13 @@ class SupabaseRemediationStore:
         attempt_id: int,
         trigger_audit: Mapping[str, Any],
         result: RemediationResult,
+        fingerprints: Sequence[str],
     ) -> None:
         details = self._details(
             stage="finished",
             trigger_audit=trigger_audit,
             targets=result.targets,
+            fingerprints=fingerprints,
             result=result,
         )
         response = self.session.patch(
@@ -312,12 +397,14 @@ class SupabaseRemediationStore:
         trigger_audit: Mapping[str, Any],
         *,
         reason: str,
+        fingerprints: Sequence[str],
     ) -> None:
         targets = RemediationTargets()
         details = self._details(
             stage="skipped",
             trigger_audit=trigger_audit,
             targets=targets,
+            fingerprints=fingerprints,
             reason=reason,
         )
         self._insert(
@@ -401,7 +488,7 @@ def run_audit_cycle(
         return EXIT_OK
 
     try:
-        recent = store.load_recent_audits(limit=PERSISTENT_FAILURE_THRESHOLD)
+        recent = store.load_recent_audits(limit=50)
         if not recent:
             print("Failed audit produced no operational log; remediation skipped.")
             return initial_exit
@@ -409,20 +496,48 @@ def run_audit_cycle(
         if int(latest.get("id") or 0) == previous_audit_id:
             print("Failed audit was not logged; remediation skipped.")
             return initial_exit
-        if not has_persistent_failure(recent):
-            print("First consecutive audit failure; waiting for the next audit.")
-            return initial_exit
-
-        latest_success = store.load_latest_success()
-        latest_remediation = store.load_latest_remediation()
-        if remediation_already_attempted(latest_success, latest_remediation):
+        streaks = persistent_finding_streaks(recent)
+        if not streaks:
             print(
-                "Automatic remediation was already attempted in this failure "
-                "streak; leaving the persistent state visible in Data Health."
+                "No critical finding fingerprint has repeated yet; waiting "
+                "for the next audit."
             )
             return initial_exit
 
-        targets = extract_remediation_targets(latest)
+        remediation_logs = store.load_recent_remediations(
+            limit=REMEDIATION_HISTORY_LIMIT
+        )
+        remediation_history_truncated = (
+            len(remediation_logs) >= REMEDIATION_HISTORY_LIMIT
+        )
+        fingerprints = tuple(
+            sorted(
+                fingerprint
+                for fingerprint, streak_start_id in streaks.items()
+                if not (
+                    remediation_already_attempted(
+                        fingerprint, streak_start_id, remediation_logs
+                    )
+                    # At both history boundaries, failing closed is safer than
+                    # repeating a mutation whose original marker may be older.
+                    or (
+                        streak_start_id == 0
+                        and remediation_history_truncated
+                    )
+                )
+            )
+        )
+        if not fingerprints:
+            print(
+                "Automatic remediation was already attempted for every "
+                "persistent finding in its current streak; leaving the state "
+                "visible in Data Health."
+            )
+            return initial_exit
+
+        targets = extract_remediation_targets(
+            latest, fingerprints=fingerprints
+        )
         if targets.operation_count == 0:
             store.record_skipped(
                 latest,
@@ -430,15 +545,18 @@ def run_audit_cycle(
                     "No critical stored price or market-cap finding can be "
                     "repaired by the canonical updaters"
                 ),
+                fingerprints=fingerprints,
             )
             print("Persistent audit failure has no safe automatic repair target.")
             return initial_exit
 
-        attempt_id = store.start_attempt(latest, targets)
+        attempt_id = store.start_attempt(latest, targets, fingerprints)
         result = remediation_runner(targets)
         finish_failed = False
         try:
-            store.finish_attempt(attempt_id, latest, result)
+            store.finish_attempt(
+                attempt_id, latest, result, fingerprints
+            )
         except (requests.RequestException, ValueError, TypeError) as exc:
             finish_failed = True
             print(

@@ -10,7 +10,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import pytz
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Sequence
 from dotenv import load_dotenv
 from supabase import create_client
@@ -81,8 +81,11 @@ def get_post_market_stock_fetch_mode(now_et: datetime | None = None) -> str | No
     """
     et = pytz.timezone("America/New_York")
     now_et = now_et or datetime.now(et)
-    if now_et.weekday() >= 5 or is_market_holiday(now_et.date()):
-        return None
+    is_session_day = (
+        now_et.weekday() < 5 and not is_market_holiday(now_et.date())
+    )
+    if not is_session_day:
+        return "settlement_catchup"
     close_time = now_et.replace(hour=16, minute=0,  second=0, microsecond=0)
     final_time = now_et.replace(hour=16, minute=30, second=0, microsecond=0)
     settlement_start = now_et.replace(hour=16, minute=45, second=0, microsecond=0)
@@ -91,20 +94,46 @@ def get_post_market_stock_fetch_mode(now_et: datetime | None = None) -> str | No
         return "regular_close"
     if settlement_start <= now_et <= settlement_end:
         return "settlement_close"
+    # If the normal settlement window was lost to an infrastructure outage,
+    # keep one bounded recovery opportunity alive until the next session opens.
+    market_open = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
+    if now_et > settlement_end or now_et < market_open:
+        return "settlement_catchup"
     return None
 
 
-def already_completed_settlement_close_today() -> bool:
-    """Avoid repeating a settlement refresh after at least one stock was updated."""
+def settlement_market_date(now_et: datetime | None = None) -> date:
+    """Return the latest session whose final close should be settled."""
     et = pytz.timezone("America/New_York")
-    now_et = datetime.now(et)
-    settlement_start_utc = now_et.replace(
-        hour=16, minute=45, second=0, microsecond=0
-    ).astimezone(pytz.utc).isoformat()
+    now_et = now_et or datetime.now(et)
+    session_date = now_et.date()
+    is_session_day = (
+        now_et.weekday() < 5 and not is_market_holiday(session_date)
+    )
+    close_time = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
+    if not is_session_day or now_et < close_time:
+        return previous_market_day(session_date)
+    return session_date
+
+
+def already_completed_settlement_close_today(
+    now_et: datetime | None = None,
+) -> bool:
+    """Return whether the target session has one complete settlement refresh."""
+    et = pytz.timezone("America/New_York")
+    now_et = now_et or datetime.now(et)
+    target_date = settlement_market_date(now_et)
+    settlement_start_et = et.localize(
+        datetime(target_date.year, target_date.month, target_date.day, 16, 45)
+    )
+    settlement_start_utc = settlement_start_et.astimezone(pytz.utc).isoformat()
+    expected_count = len(ALL_EQUITY_TICKERS) + len(ETF_TICKERS)
     result = supabase.table("fetch_logs") \
         .select("id") \
         .eq("job_name", "prices_close_settlement") \
-        .gt("records_fetched", 0) \
+        .eq("status", "success") \
+        .eq("records_failed", 0) \
+        .gte("records_fetched", expected_count) \
         .gte("executed_at", settlement_start_utc) \
         .limit(1) \
         .execute()
@@ -129,6 +158,29 @@ def fetch_batch(tickers: list[str]) -> dict:
     if len(tickers) == 1:
         return {tickers[0]: data} if "close" in data else {}
     return data
+
+
+def build_current_price_row(
+    *,
+    ticker: str,
+    price: float,
+    change_pct: float | None,
+    volume: int | None,
+    ingested_at: datetime,
+) -> dict:
+    """Build the current-price row with an unambiguous ingestion timestamp."""
+    if ingested_at.tzinfo is None:
+        ingested_at = pytz.utc.localize(ingested_at)
+    return {
+        "ticker": ticker,
+        "price": price,
+        "change_pct": change_pct,
+        "volume": volume,
+        # ``fetched_at`` is consumed by freshness UI and trading guards. It is
+        # therefore the time our worker received the quote, not Twelve Data's
+        # session-boundary metadata timestamp.
+        "fetched_at": ingested_at.astimezone(pytz.utc).isoformat(),
+    }
 
 
 def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict | None = None) -> tuple[int, list[str]]:
@@ -211,7 +263,7 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
             failed.append(api_ticker)
             continue
         try:
-            quote_observed_at = provider_quote_observed_at(
+            _provider_observed_at = provider_quote_observed_at(
                 data,
                 fallback=ingested_at,
                 is_crypto=is_crypto,
@@ -275,15 +327,17 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
             print(f"  Price adjustment: {adjustment_note}")
         volume     = int(data["volume"])             if data.get("volume")         not in (None, "") else None
 
-        row_price = {
-            "ticker":     db_ticker,
-            "price":      price,
-            "change_pct": change_pct,
-            "volume":     volume,
-            # This legacy column is consumed as quote freshness throughout the
-            # app, so store the provider observation time rather than ingestion.
-            "fetched_at": quote_observed_at,
-        }
+        # Parse and validate provider time independently, but do not confuse a
+        # session-open timestamp with when this worker actually fetched data.
+        # Keeping the name explicit also prevents a future regression when the
+        # schema gains a dedicated provider-observation metadata column.
+        row_price = build_current_price_row(
+            ticker=db_ticker,
+            price=price,
+            change_pct=change_pct,
+            volume=volume,
+            ingested_at=ingested_at,
+        )
         row_long = {
             "ticker": db_ticker,
             "date":   market_date,
@@ -443,7 +497,9 @@ def fetch_crypto_twelve_data() -> tuple[int, list[str]]:
             else:
                 fetched, failed = upsert_prices(results, ticker_map=ticker_map)
                 total_fetched += fetched
-                all_failed.extend(failed)
+                returned = set(results)
+                missing = [symbol for symbol in batch if symbol not in returned]
+                all_failed.extend([*missing, *failed])
             
             # Dynamic sleep based on batch size to stay within rate limits (55/min)
             if i < len(batches) - 1:
@@ -459,6 +515,7 @@ def fetch_crypto_twelve_data() -> tuple[int, list[str]]:
                 print(f"    ❌ Error fetching batch {i+1}: {err_msg}")
             all_failed.extend(batch)
 
+    all_failed = sorted(set(all_failed))
     log_result("crypto_prices", "success" if not all_failed else "partial", total_fetched, all_failed)
     print(f"Crypto done. Fetched: {total_fetched}, Failed: {len(all_failed)}")
     return total_fetched, all_failed
@@ -477,7 +534,11 @@ def main() -> int:
     # Stocks: during market hours OR post-market-close final/settlement fetches.
     # Keep the later settlement-close refresh; fetch_logs limits completed runs to once per day.
     post_market_mode = get_post_market_stock_fetch_mode()
-    if post_market_mode == "settlement_close" and already_completed_settlement_close_today():
+    settlement_modes = {"settlement_close", "settlement_catchup"}
+    if (
+        post_market_mode in settlement_modes
+        and already_completed_settlement_close_today()
+    ):
         print("Settlement close stock fetch already ran today — skipping stocks.")
         return 1 if run_failed else 0
 
@@ -490,6 +551,11 @@ def main() -> int:
         print("Post-market close window — fetching final closing prices...")
     elif post_market_mode == "settlement_close":
         print("Settlement close window — refreshing final closing prices once more...")
+    elif post_market_mode == "settlement_catchup":
+        print(
+            "Settlement window was missed — running one final-close catch-up "
+            "before the next session..."
+        )
 
     stock_tickers = ALL_EQUITY_TICKERS + ETF_TICKERS
     print(f"Fetching prices for {len(stock_tickers)} stock tickers...")
@@ -507,7 +573,9 @@ def main() -> int:
             else:
                 fetched, failed = upsert_prices(results, force_history=post_market)
                 total_fetched += fetched
-                all_failed.extend(failed)
+                returned = set(results)
+                missing = [symbol for symbol in batch if symbol not in returned]
+                all_failed.extend([*missing, *failed])
             
             # Dynamic sleep
             if i < len(batches) - 1:
@@ -523,8 +591,13 @@ def main() -> int:
                 print(f"    ❌ Error fetching batch {i+1}: {err_msg}")
             all_failed.extend(batch)
 
+    all_failed = sorted(set(all_failed))
     status = "success" if not all_failed else "partial"
-    log_job = "prices_close_settlement" if post_market_mode == "settlement_close" else "prices"
+    log_job = (
+        "prices_close_settlement"
+        if post_market_mode in settlement_modes
+        else "prices"
+    )
     log_result(log_job, status, total_fetched, all_failed)
     print(f"Done. Fetched: {total_fetched}, Failed: {len(all_failed)}")
     run_failed.extend(all_failed)

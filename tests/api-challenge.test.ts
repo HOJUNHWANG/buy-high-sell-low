@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { setMockUser, setMockData, clearMockData } from "./setup";
+import {
+  setMockUser,
+  setMockData,
+  setMockMutationError,
+  clearMockData,
+} from "./setup";
 
 const USER = { id: "user-ch", email: "ch@test.com" };
 
@@ -134,6 +139,37 @@ describe("Challenge: GET", () => {
     const res = await mod.GET();
     const data = await res.json();
     expect(data.status).toBe("expired");
+  });
+
+  it("does not regenerate a legacy challenge when cleanup fails", async () => {
+    const now = new Date();
+    const day = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+    const start = monday.toISOString().split("T")[0];
+    const friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4);
+    const end = friday.toISOString().split("T")[0];
+    setMockData("paper_challenges", [{
+      id: 1,
+      user_id: USER.id,
+      week_start: start,
+      week_end: end,
+      status: "active",
+      picks: [],
+    }]);
+    setMockMutationError("paper_challenges", "delete", {
+      message: "row-level security denied the delete",
+      code: "42501",
+    });
+
+    const mod = await import("@/app/api/paper/challenge/route");
+    const res = await mod.GET();
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      error: "Failed to reset legacy challenge",
+    });
   });
 });
 

@@ -279,7 +279,7 @@ export default async function DataHealthPage() {
               Market Data Audit
             </h2>
             <p className="text-[11px] mt-1" style={{ color: "var(--text-3)" }}>
-              A second consecutive failure triggers one targeted refresh and one full re-audit.
+              The same critical finding twice triggers one targeted refresh and one full re-audit.
             </p>
           </div>
           <span
@@ -295,9 +295,9 @@ export default async function DataHealthPage() {
 
         <p className="text-xs mt-3" style={{ color: "var(--text-2)" }}>
           {auditHealth.state === "persistent"
-            ? `${auditHealth.consecutiveFailures} consecutive audits failed. Existing last-known-good market data remains unchanged.`
+            ? `The same issue persisted for ${auditHealth.consecutiveFailures} audits. Existing last-known-good market data remains unchanged.`
             : auditHealth.state === "failing"
-              ? `The latest audit failed once. It will become persistent after ${PERSISTENT_AUDIT_FAILURE_THRESHOLD} consecutive failures.`
+              ? `The latest audit found an issue. It becomes persistent only if that same issue appears in ${PERSISTENT_AUDIT_FAILURE_THRESHOLD} audits.`
               : auditHealth.state === "healthy"
                 ? `Latest audit passed at ${fmtTime(latestAudit?.executed_at)}.`
                 : "No market-data audit has been recorded yet."}

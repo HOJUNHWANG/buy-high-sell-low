@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 import { FREE_USER_DAILY_UNLOCKS } from "@/lib/summary-gate";
 
@@ -60,56 +61,47 @@ export async function POST(request: Request) {
     });
   }
 
-  // Check if user is premium (skip daily limit)
-  const { data: profile } = await supabase
-    .from("user_profiles")
-    .select("tier")
-    .eq("user_id", user.id)
-    .single();
-
-  const isPremium = profile?.tier === "premium";
-
-  if (!isPremium) {
-    // Check daily unlock count
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-
-    const { count } = await supabase
-      .from("summary_unlocks")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .gte("unlocked_at", todayStart.toISOString());
-
-    const todayCount = count ?? 0;
-    if (todayCount >= FREE_USER_DAILY_UNLOCKS) {
-      return NextResponse.json(
-        {
-          error: `Daily unlock limit reached (${FREE_USER_DAILY_UNLOCKS}/${FREE_USER_DAILY_UNLOCKS}). Resets tomorrow.`,
-          remaining: 0,
-        },
-        { status: 429 },
-      );
-    }
+  // Claim through one server-only database transaction. It serializes claims
+  // per user/day, checks the tier and quota, then inserts the permanent unlock.
+  // Authenticated clients intentionally have no direct INSERT policy.
+  const admin = createSupabaseAdmin();
+  const { data: claimRows, error: claimError } = await admin.rpc(
+    "claim_summary_unlock",
+    {
+      p_user_id: user.id,
+      p_article_id: articleId,
+      p_daily_limit: FREE_USER_DAILY_UNLOCKS,
+    },
+  );
+  if (claimError) {
+    console.error("Summary unlock claim failed:", claimError.message);
+    return NextResponse.json(
+      { error: "Failed to save article unlock" },
+      { status: 503 },
+    );
   }
 
-  // Record permanent unlock
-  await supabase.from("summary_unlocks").insert({
-    user_id: user.id,
-    article_id: articleId,
-  });
-
-  // Calculate remaining
-  let remaining: number | undefined;
-  if (!isPremium) {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const { count } = await supabase
-      .from("summary_unlocks")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .gte("unlocked_at", todayStart.toISOString());
-    remaining = FREE_USER_DAILY_UNLOCKS - (count ?? 0);
+  const claim = Array.isArray(claimRows) ? claimRows[0] : claimRows;
+  if (claim?.outcome === "limit_reached") {
+    return NextResponse.json(
+      {
+        error: `Daily unlock limit reached (${FREE_USER_DAILY_UNLOCKS}/${FREE_USER_DAILY_UNLOCKS}). Resets tomorrow.`,
+        remaining: 0,
+      },
+      { status: 429 },
+    );
   }
+  if (!claim || !["unlocked", "already_unlocked"].includes(claim.outcome)) {
+    console.error("Summary unlock claim returned an unexpected outcome.");
+    return NextResponse.json(
+      { error: "Failed to save article unlock" },
+      { status: 503 },
+    );
+  }
+
+  const remaining = typeof claim.remaining === "number"
+    ? claim.remaining
+    : undefined;
 
   return NextResponse.json({
     summary: article.ai_summary,

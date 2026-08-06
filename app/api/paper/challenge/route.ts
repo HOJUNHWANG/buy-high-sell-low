@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 // Challenge picks are drawn from ALL tickers that have current price data in stock_prices
 
@@ -35,6 +36,7 @@ export async function GET() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const admin = createSupabaseAdmin();
 
   const { start, end } = getWeekBounds();
 
@@ -56,7 +58,19 @@ export async function GET() {
 
     // Legacy challenge with empty picks — delete and regenerate
     if (picks.length === 0 && existing.status === "active") {
-      await supabase.from("paper_challenges").delete().eq("id", existing.id);
+      // Deletion is server-only so users cannot delete valid challenges via
+      // PostgREST and repeatedly reroll the weekly picks.
+      const { error: deleteError } = await admin
+        .from("paper_challenges")
+        .delete()
+        .eq("id", existing.id);
+      if (deleteError) {
+        console.error("Legacy challenge cleanup failed:", deleteError.message);
+        return NextResponse.json(
+          { error: "Failed to reset legacy challenge" },
+          { status: 500 },
+        );
+      }
       // Fall through to generate a new challenge below
     } else {
 
@@ -84,7 +98,7 @@ export async function GET() {
       if (correctCount >= 5) reward = 500 * 2;        // $1,000
       else if (correctCount >= 4) reward = Math.round(correctCount * 100 * 1.5); // $600
 
-      await supabase.from("paper_challenges")
+      await admin.from("paper_challenges")
         .update({
           picks: resolvedPicks,
           status: "completed",
@@ -104,7 +118,7 @@ export async function GET() {
 
     // If active (not submitted) and week ended → expire
     if (existing.status === "active" && now > weekEnd) {
-      await supabase.from("paper_challenges")
+      await admin.from("paper_challenges")
         .update({ status: "expired" })
         .eq("id", existing.id);
       return NextResponse.json({ ...existing, status: "expired" });
@@ -168,7 +182,7 @@ export async function GET() {
     correct: null,
   }));
 
-  const { data: newChallenge, error: insertError } = await supabase
+  const { data: newChallenge, error: insertError } = await admin
     .from("paper_challenges")
     .insert({
       user_id: user.id,
@@ -206,6 +220,7 @@ export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const admin = createSupabaseAdmin();
 
   let body: Record<string, unknown>;
   try {
@@ -256,7 +271,7 @@ export async function POST(request: Request) {
     }
 
     // Mark as claimed
-    await supabase.from("paper_challenges")
+    await admin.from("paper_challenges")
       .update({ reward_claimed: true })
       .eq("id", challenge.id);
 
@@ -312,7 +327,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "All 5 picks must have a direction" }, { status: 400 });
   }
 
-  await supabase.from("paper_challenges")
+  await admin.from("paper_challenges")
     .update({
       picks: updatedPicks,
       status: "pending",

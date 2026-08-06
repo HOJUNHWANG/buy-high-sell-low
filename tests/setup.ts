@@ -26,6 +26,8 @@ let _insertCalls: { table: string; data: unknown }[] = [];
 let _updateCalls: { table: string; data: unknown; filters: Record<string, unknown> }[] = [];
 let _deleteCalls: { table: string; filters: Record<string, unknown> }[] = [];
 let _upsertCalls: { table: string; data: unknown }[] = [];
+let _mockMutationErrors: Record<string, { message: string; code?: string }> = {};
+let _mockRpcResults: Record<string, { data: unknown; error: { message: string; code?: string } | null }> = {};
 
 export function setMockUser(user: MockUser | null) {
   _mockUser = user;
@@ -35,12 +37,35 @@ export function setMockData(table: string, data: unknown[]) {
   _mockData[table] = data;
 }
 
+export function setMockMutationError(
+  table: string,
+  type: "insert" | "update" | "delete" | "upsert",
+  error: { message: string; code?: string } | null,
+) {
+  const key = `${table}:${type}`;
+  if (error) _mockMutationErrors[key] = error;
+  else delete _mockMutationErrors[key];
+}
+
+export function setMockRpcResult(
+  name: string,
+  result: { data: unknown; error?: { message: string; code?: string } | null } | null,
+) {
+  if (result) {
+    _mockRpcResults[name] = { data: result.data, error: result.error ?? null };
+  } else {
+    delete _mockRpcResults[name];
+  }
+}
+
 export function clearMockData() {
   _mockData = {};
   _insertCalls = [];
   _updateCalls = [];
   _deleteCalls = [];
   _upsertCalls = [];
+  _mockMutationErrors = {};
+  _mockRpcResults = {};
 }
 
 export function getInsertCalls() { return _insertCalls; }
@@ -55,6 +80,23 @@ function createQueryBuilder(table: string, initialData?: unknown[]) {
   let _selectCount = false;
   let _rangeStart = 0;
   let _rangeEnd = 99;
+
+  const resolveSingle = () => {
+    let filtered = [..._data];
+    for (const [key, val] of Object.entries(_filters)) {
+      if (!key.endsWith("_in")) {
+        filtered = filtered.filter(
+          (row) => (row as Record<string, unknown>)[key] === val,
+        );
+      }
+    }
+    const item = filtered[0] ?? null;
+    return {
+      data: item,
+      error: item ? null : { message: "not found", code: "PGRST116" },
+      count: _selectCount ? filtered.length : undefined,
+    };
+  };
 
   const builder: Record<string, unknown> = {
     select: vi.fn((columns?: string, opts?: { count?: string; head?: boolean }) => {
@@ -88,19 +130,12 @@ function createQueryBuilder(table: string, initialData?: unknown[]) {
       _rangeEnd = end;
       return builder;
     }),
-    single: vi.fn(() => {
-      // Filter data based on eq filters
-      let filtered = [..._data];
-      for (const [key, val] of Object.entries(_filters)) {
-        if (!key.endsWith("_in")) {
-          filtered = filtered.filter((row) => (row as Record<string, unknown>)[key] === val);
-        }
-      }
-      const item = filtered[0] ?? null;
+    single: vi.fn(() => Promise.resolve(resolveSingle())),
+    maybeSingle: vi.fn(() => {
+      const result = resolveSingle();
       return Promise.resolve({
-        data: item,
-        error: item ? null : { message: "not found", code: "PGRST116" },
-        count: _selectCount ? filtered.length : undefined,
+        ...result,
+        error: result.data ? null : null,
       });
     }),
     then: undefined as unknown, // will be set below
@@ -138,6 +173,7 @@ function createQueryBuilder(table: string, initialData?: unknown[]) {
 
 function createMutationBuilder(table: string, type: "insert" | "update" | "delete" | "upsert", payload?: unknown) {
   const _filters: Record<string, unknown> = {};
+  const mutationError = _mockMutationErrors[`${table}:${type}`] ?? null;
 
   if (type === "insert") _insertCalls.push({ table, data: payload });
   if (type === "upsert") _upsertCalls.push({ table, data: payload });
@@ -154,8 +190,11 @@ function createMutationBuilder(table: string, type: "insert" | "update" | "delet
       return builder;
     }),
     select: vi.fn(() => builder),
-    single: vi.fn(() => Promise.resolve({ data: payload, error: null })),
-    then: (resolve: (val: unknown) => void) => resolve({ data: payload, error: null }),
+    single: vi.fn(() => Promise.resolve({ data: mutationError ? null : payload, error: mutationError })),
+    then: (resolve: (val: unknown) => void) => resolve({
+      data: mutationError ? null : payload,
+      error: mutationError,
+    }),
   };
 
   return builder;
@@ -185,15 +224,59 @@ vi.mock("@/lib/supabase/server", () => ({
 
 // ── Mock admin client (service role, used by leaderboard) ──
 vi.mock("@/lib/supabase/admin", () => ({
-  createSupabaseAdmin: vi.fn(() => ({
-    from: vi.fn((table: string) => ({
+  createSupabaseAdmin: vi.fn(() => {
+    const rpc = vi.fn((name: string, args?: Record<string, unknown>) => {
+      const explicit = _mockRpcResults[name];
+      if (explicit) return Promise.resolve(explicit);
+
+      if (name === "claim_summary_unlock") {
+        const mutationError = _mockMutationErrors["summary_unlocks:insert"] ?? null;
+        if (mutationError?.code === "23505") {
+          return Promise.resolve({
+            data: [{ outcome: "already_unlocked", remaining: 0 }],
+            error: null,
+          });
+        }
+        if (mutationError) return Promise.resolve({ data: null, error: mutationError });
+
+        const userId = args?.p_user_id;
+        const dailyLimit = Number(args?.p_daily_limit ?? 0);
+        const profile = (_mockData.user_profiles ?? []).find(
+          (row) => (row as Record<string, unknown>).user_id === userId,
+        ) as Record<string, unknown> | undefined;
+        const premium = profile?.tier === "premium";
+        const count = (_mockData.summary_unlocks ?? []).filter(
+          (row) => (row as Record<string, unknown>).user_id === userId,
+        ).length;
+        if (!premium && count >= dailyLimit) {
+          return Promise.resolve({
+            data: [{ outcome: "limit_reached", remaining: 0 }],
+            error: null,
+          });
+        }
+        return Promise.resolve({
+          data: [{
+            outcome: "unlocked",
+            remaining: premium ? null : Math.max(dailyLimit - count - 1, 0),
+          }],
+          error: null,
+        });
+      }
+
+      return Promise.resolve({ data: null, error: null });
+    });
+
+    return {
+      rpc,
+      from: vi.fn((table: string) => ({
       select: (...args: unknown[]) => createQueryBuilder(table, _mockData[table]).select(...(args as [string])),
       insert: (data: unknown) => createMutationBuilder(table, "insert", data),
       update: (data: unknown) => createMutationBuilder(table, "update", data),
       delete: () => createMutationBuilder(table, "delete"),
       upsert: (data: unknown) => createMutationBuilder(table, "upsert", data),
-    })),
-  })),
+      })),
+    };
+  }),
 }));
 
 // ── Mock groq-sdk ──

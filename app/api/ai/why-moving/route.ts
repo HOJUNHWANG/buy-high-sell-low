@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { formatAssetPrice } from "@/lib/price-format";
 import {
   getGroqCompletionSettings,
@@ -37,9 +38,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const rawTicker = body.ticker as string | undefined;
-  const ticker = rawTicker?.trim().toUpperCase();
+  const rawTicker = body.ticker;
+  const ticker = typeof rawTicker === "string"
+    ? rawTicker.trim().toUpperCase()
+    : "";
   if (!ticker) return NextResponse.json({ error: "ticker required" }, { status: 400 });
+  if (!/^[A-Z0-9][A-Z0-9./-]{0,14}$/.test(ticker)) {
+    return NextResponse.json({ error: "Invalid ticker" }, { status: 400 });
+  }
 
   // Fetch price data before claiming the user's daily slot. Pending/newly listed
   // tickers can exist in stocks before quotes are available.
@@ -56,25 +62,29 @@ export async function POST(request: Request) {
     );
   }
 
-  // Rate limit: 1/day per user per ticker
+  // Claim the daily slot atomically. The composite primary key prevents two
+  // concurrent requests from both passing a separate read-before-write check.
+  // Use the server-only client so authenticated users cannot delete their own
+  // usage rows through PostgREST and bypass the daily limit.
   const today = new Date().toISOString().split("T")[0];
-  const { data: existing } = await supabase
+  const admin = createSupabaseAdmin();
+  const { error: claimError } = await admin
     .from("ai_why_usage")
-    .select("ticker")
-    .eq("user_id", user.id)
-    .eq("date", today)
-    .eq("ticker", ticker)
-    .maybeSingle();
+    .insert({ user_id: user.id, date: today, ticker });
 
-  if (existing) {
+  if (claimError?.code === "23505") {
     return NextResponse.json(
       { error: "Already analyzed today. Check back tomorrow." },
       { status: 429 }
     );
   }
-
-  // Claim slot before Groq call
-  await supabase.from("ai_why_usage").insert({ user_id: user.id, date: today, ticker });
+  if (claimError) {
+    console.error("AI movement slot claim failed:", claimError.message);
+    return NextResponse.json(
+      { error: "Unable to start analysis. Try again." },
+      { status: 503 },
+    );
+  }
 
   // Fetch related recent news
   const { data: news } = await supabase
@@ -130,7 +140,7 @@ Respond in JSON only:
     });
   } catch {
     // Refund slot on failure
-    await supabase.from("ai_why_usage")
+    await admin.from("ai_why_usage")
       .delete()
       .eq("user_id", user.id)
       .eq("date", today)
