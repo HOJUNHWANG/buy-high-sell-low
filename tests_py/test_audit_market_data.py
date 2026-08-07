@@ -166,6 +166,45 @@ class NasdaqParsingTests(unittest.TestCase):
             datetime(2026, 8, 6, 20, 15, tzinfo=timezone.utc),
         )
 
+    def test_parses_etf_date_only_timestamp_after_nightly_rollover(self):
+        payload = {
+            "data": {
+                "primaryData": {
+                    "lastSalePrice": "$768.56",
+                    "lastTradeTimestamp": "Aug 6, 2026",
+                }
+            }
+        }
+
+        quote = parse_nasdaq_etf_quote(payload, "SPY")
+
+        self.assertIsNotNone(quote)
+        assert quote is not None
+        self.assertEqual(quote.price, 768.56)
+        self.assertEqual(
+            quote.as_of,
+            datetime(2026, 8, 6, 20, 0, tzinfo=timezone.utc),
+        )
+
+    def test_date_only_timestamp_uses_winter_exchange_close(self):
+        payload = {
+            "data": {
+                "primaryData": {
+                    "lastSalePrice": "$600.00",
+                    "lastTradeTimestamp": "Jan 6, 2026",
+                }
+            }
+        }
+
+        quote = parse_nasdaq_etf_quote(payload, "SPY")
+
+        self.assertIsNotNone(quote)
+        assert quote is not None
+        self.assertEqual(
+            quote.as_of,
+            datetime(2026, 1, 6, 21, 0, tzinfo=timezone.utc),
+        )
+
     def test_rejects_live_quote_without_a_timestamp(self):
         payload = {
             "data": {"primaryData": {"lastSalePrice": "$681.7900"}}
@@ -200,7 +239,12 @@ class NasdaqParsingTests(unittest.TestCase):
 
 class NasdaqEtfProviderTests(unittest.TestCase):
     @staticmethod
-    def _provider(quote_session: str) -> NasdaqReferenceProvider:
+    def _provider(
+        quote_timestamp: str,
+        *,
+        price: str = "$388.6359",
+        aum: str = "137,582,000",
+    ) -> NasdaqReferenceProvider:
         provider = NasdaqReferenceProvider()
 
         def get_json(url, *, params):
@@ -208,10 +252,8 @@ class NasdaqEtfProviderTests(unittest.TestCase):
                 return {
                     "data": {
                         "primaryData": {
-                            "lastSalePrice": "$388.6359",
-                            "lastTradeTimestamp": (
-                                f"{quote_session} 4:15 PM ET"
-                            ),
+                            "lastSalePrice": price,
+                            "lastTradeTimestamp": quote_timestamp,
                         }
                     }
                 }
@@ -221,7 +263,7 @@ class NasdaqEtfProviderTests(unittest.TestCase):
                         "summaryData": {
                             "AUM": {
                                 "label": "Assets Under Management (,000)",
-                                "value": "137,582,000",
+                                "value": aum,
                             }
                         }
                     }
@@ -232,7 +274,7 @@ class NasdaqEtfProviderTests(unittest.TestCase):
         return provider
 
     def test_live_price_and_summary_aum_are_combined(self):
-        provider = self._provider("Aug 6, 2026")
+        provider = self._provider("Aug 6, 2026 4:15 PM ET")
 
         quotes, errors = provider.fetch_etfs(
             ["GLD"],
@@ -242,6 +284,21 @@ class NasdaqEtfProviderTests(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertAlmostEqual(quotes["GLD"].price or 0, 388.6359)
         self.assertEqual(quotes["GLD"].market_cap, 137_582_000_000)
+
+    def test_nightly_date_only_quote_keeps_expected_session_coverage(self):
+        provider = self._provider(
+            "Aug 6, 2026",
+            price="$768.56",
+            aum="819,310,592",
+        )
+        quotes, errors = provider.fetch_etfs(
+            ["SPY"],
+            now=datetime(2026, 8, 7, 1, 0, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual(errors, [])
+        self.assertEqual(quotes["SPY"].price, 768.56)
+        self.assertEqual(quotes["SPY"].market_cap, 819_310_592_000)
 
     def test_prior_session_live_quote_is_not_used_for_price_audit(self):
         provider = self._provider("Aug 5, 2026")

@@ -372,6 +372,20 @@ def parse_nasdaq_quote_datetime(value: Any) -> datetime | None:
             ).astimezone(timezone.utc)
         except ValueError:
             continue
+
+    # Nasdaq removes the clock portion from ETF quote timestamps during its
+    # nightly rollover (for example, ``Aug 6, 2026`` after 9 PM ET). The audit
+    # still needs the exchange-session date to validate the quote. Represent
+    # that date at the regular-session close instead of using the audit time,
+    # which would make an old quote appear artificially fresh.
+    try:
+        session_date = datetime.strptime(text, "%b %d, %Y")
+        parsed = session_date.replace(hour=16)
+        return parsed.replace(
+            tzinfo=ZoneInfo("America/New_York")
+        ).astimezone(timezone.utc)
+    except ValueError:
+        pass
     return None
 
 
