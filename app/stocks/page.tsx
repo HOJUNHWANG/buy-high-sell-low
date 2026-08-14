@@ -5,6 +5,10 @@ import { StockTable } from "@/components/StockTable";
 import { MarketStatusWidget } from "@/components/MarketStatusWidget";
 import { MarketClosedBanner } from "@/components/MarketClosedBanner";
 import { getMarketStatus } from "@/lib/market-hours";
+import {
+  getLeaderStreaks,
+  type MarketCapDailyLeader,
+} from "@/lib/market-leader-streaks";
 
 export const revalidate = 300; // 5 min cache so UI picks up the 10-min price cron shortly after completion
 
@@ -15,59 +19,28 @@ export const metadata: Metadata = {
 };
 
 type StockRow = Stock & { stock_prices: StockPrice | null };
-type MarketCapSnapshot = { ticker: string; date: string; market_cap: number; source: string };
 
-function assetClass(stock: Pick<Stock, "sector">) {
-  if (stock.sector === "Cryptocurrency") return "crypto";
-  if (stock.sector === "ETF") return "etfs";
-  return "stocks";
-}
-
-function getLeaderStreaks(stocks: Stock[], snapshots: MarketCapSnapshot[]) {
-  const activeByTicker = new Map(stocks.map((stock) => [stock.ticker, stock]));
-  const currentLeaders = new Map<string, string>();
-  for (const type of ["stocks", "etfs"] as const) {
-    const leader = stocks
-      .filter((stock) => assetClass(stock) === type && stock.market_cap != null)
-      .sort((a, b) => (b.market_cap ?? 0) - (a.market_cap ?? 0))[0];
-    if (leader) currentLeaders.set(type, leader.ticker);
-  }
-
-  const leadersByDate = new Map<string, Map<string, { ticker: string; marketCap: number }>>();
-  for (const snapshot of snapshots) {
-    const stock = activeByTicker.get(snapshot.ticker);
-    if (!stock) continue;
-    const type = assetClass(stock);
-    if (type === "crypto") continue;
-    const day = leadersByDate.get(snapshot.date) ?? new Map();
-    const current = day.get(type);
-    if (!current || snapshot.market_cap > current.marketCap) {
-      day.set(type, { ticker: snapshot.ticker, marketCap: snapshot.market_cap });
-    }
-    leadersByDate.set(snapshot.date, day);
-  }
-
-  const streaks: Record<string, number> = {};
-  for (const [type, ticker] of currentLeaders) {
-    let streak = 0;
-    for (const date of [...leadersByDate.keys()].sort().reverse()) {
-      if (leadersByDate.get(date)?.get(type)?.ticker !== ticker) break;
-      streak += 1;
-    }
-    if (streak) streaks[ticker] = streak;
-  }
-  return streaks;
+function getQueryDates() {
+  const now = new Date();
+  const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const dMin = new Date(d30.getTime() - 3 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+  const dMax = new Date(d30.getTime() + 3 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+  const streakStart = new Date(now);
+  streakStart.setUTCFullYear(streakStart.getUTCFullYear() - 1);
+  return { d30, dMin, dMax, streakStart };
 }
 
 export default async function StocksPage() {
   const supabase = await createSupabaseServerClient();
 
   // Target date: ~30 days ago, with ±3 day window for weekends/holidays
-  const d30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const dMin = new Date(d30.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  const dMax = new Date(d30.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const { d30, dMin, dMax, streakStart } = getQueryDates();
 
-  const [{ data }, { data: hist30 }, { data: marketCapSnapshots }] = await Promise.all([
+  const [{ data }, { data: hist30 }, { data: marketCapDailyLeaders }] = await Promise.all([
     supabase.from("stocks").select("*, stock_prices(*)").eq("is_active", true).order("ticker"),
     supabase
       .from("price_history_long")
@@ -75,10 +48,10 @@ export default async function StocksPage() {
       .gte("date", dMin)
       .lte("date", dMax),
     supabase
-      .from("market_cap_snapshots")
-      .select("ticker, date, market_cap, source")
-      .neq("source", "legacy:unverified")
-      .gte("date", new Date(Date.UTC(d30.getUTCFullYear() - 1, d30.getUTCMonth(), d30.getUTCDate())).toISOString().split("T")[0]),
+      .from("market_cap_daily_leaders")
+      .select("ticker, date, asset_type")
+      .gte("date", streakStart.toISOString().split("T")[0])
+      .order("date", { ascending: false }),
   ]);
 
   // For each ticker, pick the entry closest to 30 days ago
@@ -119,7 +92,7 @@ export default async function StocksPage() {
   const marketStatus = getMarketStatus();
   const leaderStreaks = getLeaderStreaks(
     stocks,
-    ((marketCapSnapshots as MarketCapSnapshot[] | null) ?? []),
+    ((marketCapDailyLeaders as MarketCapDailyLeader[] | null) ?? []),
   );
 
   return (

@@ -39,4 +39,19 @@ describe("database mutation security contracts", () => {
       "WITH CHECK ((SELECT auth.uid()) = user_id)",
     );
   });
+
+  it("exposes podium leaders through an invoker-security read-only view", () => {
+    const sql = migration(
+      "20260814033813_market_cap_daily_leaders.sql",
+    );
+
+    expect(sql).toContain("WITH (security_invoker = true)");
+    expect(sql).toContain("snapshot.source <> 'legacy:unverified'");
+    expect(sql).toContain(
+      "REVOKE ALL ON TABLE public.market_cap_daily_leaders",
+    );
+    expect(sql).toContain(
+      "GRANT SELECT ON TABLE public.market_cap_daily_leaders",
+    );
+  });
 });
