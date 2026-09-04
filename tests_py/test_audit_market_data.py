@@ -268,6 +268,8 @@ class NasdaqEtfProviderTests(unittest.TestCase):
                         }
                     }
                 }
+            if url.endswith("/historical"):
+                return {"data": {"tradesTable": {"rows": []}}}
             raise AssertionError(url)
 
         provider._get_json = get_json
@@ -308,7 +310,8 @@ class NasdaqEtfProviderTests(unittest.TestCase):
             now=datetime(2026, 8, 6, 22, 0, tzinfo=timezone.utc),
         )
 
-        self.assertEqual(quotes, {})
+        self.assertIsNone(quotes["GLD"].price)
+        self.assertEqual(quotes["GLD"].market_cap, 137_582_000_000)
         self.assertTrue(any("wrong session" in error for error in errors))
 
 

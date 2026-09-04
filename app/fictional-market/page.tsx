@@ -617,6 +617,7 @@ export default async function FictionalMarketPage() {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: "var(--text)" }}>
               Fictional Market
             </h1>
+            <Link href="/fictional-market/paper" className="inline-flex rounded-lg px-4 py-2 mt-3 text-xs font-semibold" style={{ background: "var(--accent)", color: "#fff" }}>Paper trade · Portfolio &amp; rankings →</Link>
             <p className="text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed" style={{ color: "var(--text-3)" }}>
               100 media-born megacorps priced as public equities in one shared listing universe, with sovereign claims, monopolies, and apocalyptic patents marked down by exchange oversight.
             </p>

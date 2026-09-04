@@ -33,7 +33,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, replace
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from time import sleep
+from typing import Any, Callable, Iterable, Mapping, Sequence
 from zoneinfo import ZoneInfo
 
 import requests
@@ -63,6 +64,10 @@ DEFAULT_CAP_MAX_AGE_HOURS = 36.0
 DEFAULT_REFERENCE_MAX_AGE_HOURS = 96.0
 DEFAULT_CRYPTO_REFERENCE_MAX_AGE_HOURS = 1.0
 DEFAULT_TIMEOUT_SECONDS = 30.0
+REFERENCE_ATTEMPTS = 2
+REFERENCE_RETRY_DELAY_SECONDS = 0.5
+# CoinGecko's one-day chart contains five-minute observations.
+CRYPTO_ALIGNMENT_MAX_SKEW_SECONDS = 5 * 60
 
 ASSET_EQUITY = "equity"
 ASSET_ETF = "etf"
@@ -72,7 +77,9 @@ ASSET_CLASSES = (ASSET_EQUITY, ASSET_ETF, ASSET_CRYPTO)
 NASDAQ_STOCKS_URL = "https://api.nasdaq.com/api/screener/stocks"
 NASDAQ_ETF_INFO_URL = "https://api.nasdaq.com/api/quote/{ticker}/info"
 NASDAQ_ETF_SUMMARY_URL = "https://api.nasdaq.com/api/quote/{ticker}/summary"
+NASDAQ_ETF_HISTORY_URL = "https://api.nasdaq.com/api/quote/{ticker}/historical"
 COINGECKO_SIMPLE_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price"
+COINGECKO_CHART_URL = "https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
 
 NASDAQ_HEADERS = {
     "User-Agent": (
@@ -128,6 +135,9 @@ class ReferenceQuote:
     price: float | None
     market_cap: float | None
     as_of: datetime | None
+    price_as_of: datetime | None = None
+    market_cap_as_of: datetime | None = None
+    alignment_notes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -156,6 +166,8 @@ class AssetComparison:
     price_fetched_at: datetime | None
     market_cap_as_of: date | None
     reference_as_of: datetime | None
+    price_reference_as_of: datetime | None = None
+    market_cap_reference_as_of: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -359,7 +371,8 @@ def parse_nasdaq_quote_datetime(value: Any) -> datetime | None:
     """Parse Nasdaq's per-symbol live-quote timestamp as an ET instant."""
     if not value:
         return None
-    text = re.sub(r"\s+(?:ET|EST|EDT)$", "", str(value).strip())
+    text = re.sub(r"^Closed at\s+", "", str(value).strip())
+    text = re.sub(r"\s+(?:ET|EST|EDT)$", "", text)
     for pattern in (
         "%b %d, %Y %I:%M %p",
         "%b %d, %Y %I:%M:%S %p",
@@ -440,27 +453,76 @@ def parse_nasdaq_stock_payload(
 
 
 def parse_nasdaq_etf_quote(
-    payload: Mapping[str, Any], ticker: str
+    payload: Mapping[str, Any],
+    ticker: str,
+    *,
+    expected_session: date | None = None,
+    prefer_close: bool = False,
 ) -> ReferenceQuote | None:
     """Parse Nasdaq's per-symbol ETF quote (not its delayed ETF screener)."""
     data = payload.get("data") or {}
-    primary = data.get("primaryData") if isinstance(data, Mapping) else None
-    if not isinstance(primary, Mapping):
+    if not isinstance(data, Mapping):
         return None
-    normalized_ticker = ticker.upper()
-    price = parse_number(
-        primary.get("lastSalePrice") or primary.get("lastsalePrice")
-    )
-    as_of = parse_nasdaq_quote_datetime(primary.get("lastTradeTimestamp"))
-    if price is None or price <= 0 or as_of is None:
+    keys = ("secondaryData", "primaryData") if prefer_close else ("primaryData",)
+    for key in keys:
+        row = data.get(key)
+        if not isinstance(row, Mapping):
+            continue
+        timestamp = row.get("lastTradeTimestamp")
+        # Secondary data can also be an extended-hours quote. Only use its
+        # explicitly labelled regular-session close.
+        if key == "secondaryData" and not str(timestamp).startswith("Closed at "):
+            continue
+        price = parse_number(row.get("lastSalePrice") or row.get("lastsalePrice"))
+        as_of = parse_nasdaq_quote_datetime(timestamp)
+        if price is None or price <= 0 or as_of is None:
+            continue
+        if expected_session is not None and as_of.astimezone(
+            ZoneInfo("America/New_York")
+        ).date() != expected_session:
+            continue
+        return ReferenceQuote(
+            ticker=ticker.upper(),
+            source=(
+                "Nasdaq regular-session close + ETF summary"
+                if key == "secondaryData"
+                else "Nasdaq live quote + ETF summary"
+            ),
+            price=price,
+            market_cap=None,
+            as_of=as_of,
+        )
+    return None
+
+
+def parse_nasdaq_etf_history(
+    payload: Mapping[str, Any], ticker: str, session_date: date,
+) -> ReferenceQuote | None:
+    """Accept only the exact requested session's unadjusted closing price."""
+    data = payload.get("data")
+    table = data.get("tradesTable") if isinstance(data, Mapping) else None
+    rows = table.get("rows") if isinstance(table, Mapping) else None
+    if not isinstance(rows, list):
         return None
-    return ReferenceQuote(
-        ticker=normalized_ticker,
-        source="Nasdaq live quote + ETF summary",
-        price=price,
-        market_cap=None,
-        as_of=as_of,
-    )
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        try:
+            observed_date = datetime.strptime(str(row.get("date")), "%m/%d/%Y").date()
+        except ValueError:
+            continue
+        price = parse_number(row.get("close"))
+        if observed_date == session_date and price is not None and price > 0:
+            return ReferenceQuote(
+                ticker=ticker.upper(),
+                source="Nasdaq historical close + ETF summary",
+                price=price,
+                market_cap=None,
+                as_of=datetime.combine(
+                    session_date, time(16), tzinfo=ZoneInfo("America/New_York")
+                ),
+            )
+    return None
 
 
 def parse_nasdaq_etf_aum(payload: Mapping[str, Any]) -> float | None:
@@ -470,7 +532,7 @@ def parse_nasdaq_etf_aum(payload: Mapping[str, Any]) -> float | None:
     if not isinstance(aum, Mapping):
         return None
     value = parse_number(aum.get("value"))
-    if value is None:
+    if value is None or value <= 0:
         return None
     label = str(aum.get("label") or "").lower()
     # Nasdaq labels its ETF AUM value as "Assets Under Management (,000)".
@@ -719,7 +781,23 @@ class NasdaqReferenceProvider:
             timeout=self.timeout,
         )
         response.raise_for_status()
-        return response.json()
+        payload = response.json()
+        if not isinstance(payload, Mapping):
+            raise ValueError("Unexpected Nasdaq response type")
+        return payload
+
+    def _usable(self, load: Callable[[], Any], label: str) -> Any:
+        """Retry empty/invalid HTTP-200 data as well as transport failures."""
+        for attempt in range(REFERENCE_ATTEMPTS):
+            try:
+                value = load()
+                if value is not None and value != {}:
+                    return value
+                raise ValueError(label)
+            except (requests.RequestException, ValueError, TypeError):
+                if attempt + 1 == REFERENCE_ATTEMPTS:
+                    raise
+                sleep(REFERENCE_RETRY_DELAY_SECONDS)
 
     def fetch_equities(
         self, tickers: Sequence[str]
@@ -727,11 +805,14 @@ class NasdaqReferenceProvider:
         if not tickers:
             return {}, []
         try:
-            payload = self._get_json(
-                NASDAQ_STOCKS_URL,
-                params={"tableonly": "true", "limit": "10000", "download": "true"},
+            quotes = self._usable(
+                lambda: parse_nasdaq_stock_payload(self._get_json(
+                    NASDAQ_STOCKS_URL,
+                    params={"tableonly": "true", "limit": "10000", "download": "true"},
+                ), tickers),
+                "Nasdaq equity reference returned no usable quotes",
             )
-            return parse_nasdaq_stock_payload(payload, tickers), []
+            return quotes, []
         except (requests.RequestException, ValueError, TypeError) as exc:
             return {}, [f"Nasdaq equity reference failed: {_safe_error(exc)}"]
 
@@ -747,6 +828,12 @@ class NasdaqReferenceProvider:
         if now.tzinfo is None:
             now = now.replace(tzinfo=timezone.utc)
         expected_session = expected_us_quote_session_date(now)
+        now_et = now.astimezone(ZoneInfo("America/New_York"))
+        # Daily history is suitable only for a completed session. Never use
+        # yesterday's close to validate an open market's current price.
+        session_completed = (
+            expected_session < now_et.date() or now_et.time() >= time(16)
+        )
         errors: list[str] = []
         quotes: dict[str, ReferenceQuote] = {}
 
@@ -754,11 +841,38 @@ class NasdaqReferenceProvider:
         # has closed. Fetch each tracked ETF's live quote and require its trade
         # timestamp to identify the expected session before comparing prices.
         def fetch_quote(ticker: str) -> tuple[str, ReferenceQuote | None]:
-            payload = self._get_json(
-                NASDAQ_ETF_INFO_URL.format(ticker=ticker),
-                params={"assetclass": "etf"},
-            )
-            return ticker, parse_nasdaq_etf_quote(payload, ticker)
+            try:
+                quote = self._usable(
+                    lambda: parse_nasdaq_etf_quote(self._get_json(
+                        NASDAQ_ETF_INFO_URL.format(ticker=ticker),
+                        params={"assetclass": "etf"},
+                    ), ticker, expected_session=expected_session,
+                        prefer_close=session_completed),
+                    f"Nasdaq ETF live quote unavailable or wrong session for {ticker} "
+                    f"(expected {expected_session})",
+                )
+                return ticker, quote
+            except (requests.RequestException, ValueError, TypeError) as live_error:
+                if not session_completed:
+                    raise
+                try:
+                    quote = self._usable(
+                        lambda: parse_nasdaq_etf_history(self._get_json(
+                            NASDAQ_ETF_HISTORY_URL.format(ticker=ticker),
+                            params={
+                                "assetclass": "etf", "limit": "5",
+                                "fromdate": expected_session.isoformat(),
+                                # Nasdaq rejects equal from/to dates.
+                                "todate": (expected_session + timedelta(days=1)).isoformat(),
+                            },
+                        ), ticker, expected_session),
+                        f"Nasdaq ETF history has no close for {ticker} on {expected_session}",
+                    )
+                    return ticker, quote
+                except (requests.RequestException, ValueError, TypeError) as history_error:
+                    raise ValueError(
+                        f"{_safe_error(live_error)}; {_safe_error(history_error)}"
+                    ) from history_error
 
         with ThreadPoolExecutor(max_workers=min(4, len(tickers))) as executor:
             futures = {
@@ -768,21 +882,7 @@ class NasdaqReferenceProvider:
                 ticker = futures[future]
                 try:
                     resolved_ticker, quote = future.result()
-                    if quote is None:
-                        errors.append(
-                            f"Nasdaq ETF live quote unavailable for {ticker}"
-                        )
-                    else:
-                        quote_session = quote.as_of.astimezone(
-                            ZoneInfo("America/New_York")
-                        ).date()
-                    if quote is not None and quote_session != expected_session:
-                        errors.append(
-                            f"Nasdaq ETF live quote has wrong session for "
-                            f"{ticker}: {quote_session} "
-                            f"(expected {expected_session})"
-                        )
-                    elif quote is not None:
+                    if quote is not None:
                         quotes[resolved_ticker] = quote
                 except (requests.RequestException, ValueError, TypeError) as exc:
                     errors.append(
@@ -793,11 +893,13 @@ class NasdaqReferenceProvider:
         # Nasdaq exposes AUM (the comparable value stored for ETFs) on each
         # summary endpoint. Fetch the small tracked ETF set concurrently.
         def fetch_aum(ticker: str) -> tuple[str, float | None]:
-            summary = self._get_json(
-                NASDAQ_ETF_SUMMARY_URL.format(ticker=ticker),
-                params={"assetclass": "etf"},
+            aum = self._usable(
+                lambda: parse_nasdaq_etf_aum(self._get_json(
+                    NASDAQ_ETF_SUMMARY_URL.format(ticker=ticker),
+                    params={"assetclass": "etf"},
+                )), f"Nasdaq ETF AUM unavailable for {ticker}",
             )
-            return ticker, parse_nasdaq_etf_aum(summary)
+            return ticker, aum
 
         with ThreadPoolExecutor(max_workers=min(4, len(tickers))) as executor:
             futures = {executor.submit(fetch_aum, ticker): ticker for ticker in tickers}
@@ -808,6 +910,13 @@ class NasdaqReferenceProvider:
                     if resolved_ticker in quotes:
                         quotes[resolved_ticker] = replace(
                             quotes[resolved_ticker], market_cap=aum
+                        )
+                    elif aum is not None:
+                        # An unavailable price must not discard a valid AUM
+                        # comparison. The price error still makes this incomplete.
+                        quotes[resolved_ticker] = ReferenceQuote(
+                            ticker=resolved_ticker, source="Nasdaq ETF summary",
+                            price=None, market_cap=aum, as_of=None,
                         )
                     if aum is None:
                         errors.append(f"Nasdaq ETF AUM unavailable for {ticker}")
@@ -859,6 +968,127 @@ class CoinGeckoReferenceProvider:
         except (requests.RequestException, ValueError, TypeError) as exc:
             errors.append(f"CoinGecko reference failed: {_safe_error(exc)}")
             return {}, errors
+
+    def fetch_history(self, ticker: str) -> Mapping[str, Any]:
+        response = self.session.get(
+            COINGECKO_CHART_URL.format(coin_id=COINGECKO_IDS[ticker]),
+            headers={"Accept": "application/json"},
+            params={"vs_currency": "usd", "days": "1", "precision": "full"},
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, Mapping):
+            raise ValueError("Unexpected CoinGecko history response type")
+        return payload
+
+
+def nearest_crypto_observation(
+    rows: Any, target: datetime, *, now: datetime,
+) -> tuple[datetime, float] | None:
+    """Choose by time, never by which price would make an audit pass."""
+    if not isinstance(rows, list):
+        return None
+    observations: list[tuple[datetime, float]] = []
+    for row in rows:
+        if not isinstance(row, (list, tuple)) or len(row) != 2:
+            continue
+        timestamp, value = parse_number(row[0]), parse_number(row[1])
+        if timestamp is None or value is None or timestamp <= 0 or value <= 0:
+            continue
+        try:
+            observed_at = datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
+        except (ValueError, OverflowError, OSError):
+            continue
+        if (
+            observed_at <= now
+            and abs((observed_at - target).total_seconds())
+            <= CRYPTO_ALIGNMENT_MAX_SKEW_SECONDS
+        ):
+            observations.append((observed_at, value))
+    if not observations:
+        return None
+    return min(
+        observations,
+        key=lambda item: (abs((item[0] - target).total_seconds()), item[0]),
+    )
+
+
+def align_crypto_references(
+    assets: Sequence[StoredAsset],
+    references: Mapping[str, ReferenceQuote],
+    *,
+    now: datetime,
+    config: AuditConfig,
+    provider: CoinGeckoReferenceProvider,
+) -> tuple[dict[str, ReferenceQuote], list[str]]:
+    """Recheck critical crypto differences against their observation times.
+
+    Prices arrive every ten minutes, caps once a day. Comparing either snapshot
+    to a later live quote can flag ordinary market movement as data corruption.
+    Fetch history only for critical differences with a material time gap; keep
+    the original critical result if no sufficiently close observation exists.
+    """
+    aligned = dict(references)
+    errors: list[str] = []
+    for asset in assets:
+        quote = references.get(asset.ticker)
+        if asset.asset_class != ASSET_CRYPTO or quote is None or quote.as_of is None:
+            continue
+        reference_age = _age_hours(now, quote.as_of)
+        if not 0 <= reference_age <= config.crypto_reference_max_age_hours:
+            continue
+        fields = []
+        for field, stored, live, observed_at, max_age, threshold, history_key in (
+            ("price", asset.price, quote.price, asset.price_fetched_at,
+             config.crypto_price_max_age_hours, config.price_critical_pct, "prices"),
+            ("market_cap", asset.market_cap, quote.market_cap, asset.market_cap_updated_at,
+             config.cap_max_age_hours, config.cap_critical_pct, "market_caps"),
+        ):
+            deviation = signed_deviation_pct(stored, live)
+            if (
+                deviation is not None and abs(deviation) >= threshold
+                and stored is not None and stored > 0 and observed_at is not None
+                and 0 <= _age_hours(now, observed_at) <= max_age
+                and abs((quote.as_of - observed_at).total_seconds())
+                > CRYPTO_ALIGNMENT_MAX_SKEW_SECONDS
+            ):
+                fields.append((field, observed_at, history_key, live))
+        if not fields:
+            continue
+        try:
+            history = provider.fetch_history(asset.ticker)
+        except (requests.RequestException, ValueError, TypeError, KeyError) as exc:
+            errors.append(
+                f"CoinGecko observation-time check failed for {asset.ticker}: "
+                f"{_safe_error(exc)}"
+            )
+            continue
+        notes: list[str] = []
+        for field, observed_at, history_key, live in fields:
+            observation = nearest_crypto_observation(
+                history.get(history_key), observed_at, now=now,
+            )
+            if observation is None:
+                errors.append(
+                    f"CoinGecko {field} history has no observation within 5 minutes "
+                    f"of {observed_at.isoformat()} for {asset.ticker}"
+                )
+                continue
+            timestamp, value = observation
+            quote = replace(quote, **{field: value, f"{field}_as_of": timestamp})
+            notes.append(
+                f"{field}: live reference {live:.8g} at {quote.as_of.isoformat()}; "
+                f"comparing with {value:.8g} at {timestamp.isoformat()} "
+                f"near stored observation {observed_at.isoformat()}"
+            )
+        if notes:
+            aligned[asset.ticker] = replace(
+                quote,
+                source="CoinGecko (observation-time check)",
+                alignment_notes=tuple(notes),
+            )
+    return aligned, errors
 
 
 def _safe_error(error: BaseException) -> str:
@@ -921,6 +1151,29 @@ def audit_assets(
     for asset in sorted(assets, key=lambda item: item.ticker):
         reference = references.get(asset.ticker)
         reference_usable = reference is not None
+
+        if reference is not None:
+            for field, target in (
+                ("price", asset.price_fetched_at),
+                ("market_cap", asset.market_cap_updated_at),
+            ):
+                observed_at = getattr(reference, f"{field}_as_of")
+                if observed_at is not None and (
+                    asset.asset_class != ASSET_CRYPTO or target is None
+                    or observed_at > now
+                    or abs((observed_at - target).total_seconds())
+                    > CRYPTO_ALIGNMENT_MAX_SKEW_SECONDS
+                ):
+                    reference = replace(reference, **{field: None})
+                    findings.append(Finding(
+                        "warning", "reference_time_mismatch", asset.ticker, field,
+                        "Historical reference is not within 5 minutes of the stored observation",
+                    ))
+                    incomplete = True
+            for note in reference.alignment_notes:
+                findings.append(Finding(
+                    "warning", "reference_time_aligned", asset.ticker, "all", note,
+                ))
 
         if asset.price is None or asset.price <= 0:
             findings.append(
@@ -1073,6 +1326,13 @@ def audit_assets(
                 )
             )
             incomplete = True
+        elif reference.as_of is None and asset.asset_class == ASSET_CRYPTO:
+            findings.append(Finding(
+                "warning", "reference_timestamp_missing", asset.ticker, "all",
+                "Crypto reference has no observation timestamp; comparison skipped",
+            ))
+            reference_usable = False
+            incomplete = True
         elif reference.as_of is not None:
             reference_age = _age_hours(now, reference.as_of)
             max_reference_age = (
@@ -1165,6 +1425,12 @@ def audit_assets(
                 price_fetched_at=asset.price_fetched_at,
                 market_cap_as_of=asset.market_cap_as_of,
                 reference_as_of=reference.as_of if reference else None,
+                price_reference_as_of=(
+                    reference.price_as_of or reference.as_of
+                ) if reference else None,
+                market_cap_reference_as_of=(
+                    reference.market_cap_as_of or reference.as_of
+                ) if reference else None,
             )
         )
 
@@ -1422,6 +1688,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     references, provider_errors = fetch_references(
         assets, timeout=args.timeout, now=now
     )
+    # Provider reads can take seconds; freshness is evaluated after those reads.
+    now = datetime.now(timezone.utc)
+    references, alignment_errors = align_crypto_references(
+        assets, references, now=now, config=config,
+        provider=CoinGeckoReferenceProvider(timeout=args.timeout),
+    )
+    provider_errors.extend(alignment_errors)
     report = audit_assets(
         assets,
         references,

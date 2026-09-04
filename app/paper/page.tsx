@@ -384,6 +384,7 @@ export default function PaperTradingPage() {
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Paper Trading</h1>
+            <Link href="/fictional-market/paper" className="inline-block mt-2 text-xs nav-link">Try Fictional stocks with a separate portfolio →</Link>
             <button
               onClick={() => { setShowSettings(true); setNewNickname(portfolio.nickname || ""); setNicknameError(""); }}
               className="text-[10px] font-semibold px-2 py-1 rounded"
