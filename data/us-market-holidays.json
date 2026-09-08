@@ -1,4 +1,6 @@
 [
+  { "date": "2025-11-27", "label": "Thanksgiving Day" },
+  { "date": "2025-12-25", "label": "Christmas Day" },
   { "date": "2026-01-01", "label": "New Year's Day" },
   { "date": "2026-01-19", "label": "Martin Luther King, Jr. Day" },
   { "date": "2026-02-16", "label": "Washington's Birthday" },

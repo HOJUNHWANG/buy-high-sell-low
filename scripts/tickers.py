@@ -47,6 +47,9 @@ SP100_BASE_TICKERS = [
 SP100_REBALANCE_DATE = date(2026, 9, 21)
 SP100_ADDITIONS = ("DELL", "PANW", "ANET", "SNDK")
 SP100_REMOVALS = ("HONA", "NKE", "SPG", "CL")
+# Keep quotes/history for existing holders after index removal. These are not
+# active screener members and must not be re-added by membership synchronization.
+RETAINED_EQUITY_TICKERS = ("HON", *SP100_REMOVALS)
 SP100_ADDITION_METADATA = {
     "DELL": {"exchange": "NYSE", "domain": "dell.com"},
     "PANW": {"exchange": "NASDAQ", "domain": "paloaltonetworks.com"},
@@ -104,6 +107,7 @@ ETF_TICKERS = [
 # stocks.is_active keeps them out of the screener until the effective date.
 ALL_EQUITY_TICKERS = list(dict.fromkeys(
     SP100_TICKERS + TRACKED_EQUITY_TICKERS + list(SP100_ADDITIONS)
+    + list(RETAINED_EQUITY_TICKERS)
 ))
 ALL_TICKERS = ALL_EQUITY_TICKERS + CRYPTO_TICKERS + ETF_TICKERS
 

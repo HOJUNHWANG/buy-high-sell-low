@@ -19,6 +19,16 @@ with patch("supabase.create_client", return_value=MagicMock()):
 
 
 class FetchSelectedPricesTests(unittest.TestCase):
+    def test_membership_failure_does_not_stop_quote_recovery(self):
+        with patch("sync_sp100.sync_sp100", side_effect=RuntimeError("stale replacement")), \
+             patch.object(fetch_prices, "fetch_crypto_twelve_data", return_value=(0, [])) as crypto, \
+             patch.object(fetch_prices, "get_post_market_stock_fetch_mode", return_value=None), \
+             patch.object(fetch_prices, "is_market_open", return_value=False), \
+             patch.object(fetch_prices, "log_result") as log:
+            self.assertEqual(fetch_prices.main(), 1)
+        crypto.assert_called_once()
+        self.assertEqual(log.call_args.args[0:2], ("sp100_sync", "failed"))
+
     def test_current_price_freshness_uses_ingestion_not_provider_time(self):
         ingested_at = datetime(2026, 8, 6, 19, 36, tzinfo=timezone.utc)
 

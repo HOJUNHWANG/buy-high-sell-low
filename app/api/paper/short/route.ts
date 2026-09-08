@@ -47,8 +47,9 @@ export async function POST(request: Request) {
   // Get current price
   const { data: priceData } = await supabase
     .from("stock_prices")
-    .select("price, fetched_at")
+    .select("price, fetched_at, stocks!inner(is_active)")
     .eq("ticker", ticker)
+    .eq("stocks.is_active", true)
     .single();
 
   if (!priceData) {

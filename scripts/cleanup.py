@@ -6,6 +6,7 @@ import os
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from supabase import create_client
+from tickers import ALL_TICKERS
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env.local"))
 load_dotenv()  # fallback to .env
@@ -47,7 +48,9 @@ def get_protected_inactive_tickers(inactive_tickers: list[str]) -> set[str]:
     if not inactive_tickers:
         return set()
 
-    protected: set[str] = set()
+    # is_active controls discovery, not data retention: pending additions and
+    # retained former members are intentionally collected while hidden.
+    protected: set[str] = set(inactive_tickers) & set(ALL_TICKERS)
     checks = (
         supabase.table("paper_positions")
         .select("ticker")

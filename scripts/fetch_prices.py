@@ -524,8 +524,18 @@ def fetch_crypto_twelve_data() -> tuple[int, list[str]]:
 def main() -> int:
     from sync_sp100 import sync_sp100
 
-    sync_sp100(supabase)
     run_failed: list[str] = []
+    try:
+        sync_sp100(supabase)
+    except Exception as exc:
+        # Keep quote ingestion alive to repair stale replacement data. Report
+        # the sync failure and retry automatically on the next scheduled run.
+        print(f"S&P 100 sync failed; continuing price ingestion: {safe_provider_error(exc)}")
+        try:
+            log_result("sp100_sync", "failed", 0, ["SP100_SYNC"], safe_provider_error(exc))
+        except Exception as log_error:
+            print(f"S&P 100 failure logging unavailable: {safe_provider_error(log_error)}")
+        run_failed.append("SP100_SYNC")
     # Always fetch crypto (24/7 market)
     try:
         _, crypto_failed = fetch_crypto_twelve_data()

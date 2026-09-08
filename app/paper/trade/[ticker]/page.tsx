@@ -17,6 +17,7 @@ interface StockInfo {
   change_pct: number | null;
   fetched_at: string | null;
   sector: string | null;
+  is_active: boolean;
 }
 
 interface PositionInfo {
@@ -81,11 +82,12 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
   const loadData = () => {
     if (!authed) return;
     Promise.all([
-      fetch(`/api/search?q=${ticker}`).then((r) => r.json()),
+      // Retired holdings must remain accessible for Sell/Cover even though
+      // inactive symbols are deliberately absent from public search.
+      supabase.from("stocks").select("ticker,name,logo_url,sector,is_active").eq("ticker", ticker).single(),
       fetch("/api/paper/portfolio").then((r) => r.json()),
       supabase.from("stock_prices").select("price, change_pct, fetched_at").eq("ticker", ticker).single(),
-    ]).then(([searchResults, portfolio, { data: priceData }]) => {
-      const matched = searchResults.find((s: { ticker: string }) => s.ticker === ticker);
+    ]).then(([{ data: matched }, portfolio, { data: priceData }]) => {
       if (!matched) return;
 
       const positions = portfolio.positions ?? [];
@@ -101,6 +103,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
         change_pct: priceData?.change_pct ?? null,
         fetched_at: priceData?.fetched_at ?? null,
         sector: matched.sector ?? null,
+        is_active: matched.is_active,
       });
 
       const mapPos = (pos: Record<string, number | string | null> | undefined): PositionInfo | null => {
@@ -121,6 +124,10 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
       setLongPosition(mapPos(longPos));
       setShortPosition(mapPos(shortPos));
       setCashBalance(portfolio.cashBalance);
+      if (!matched.is_active) {
+        setSide((current) => current === "buy" || current === "short"
+          ? (longPos ? "sell" : shortPos ? "cover" : "sell") : current);
+      }
     });
   };
 
@@ -365,11 +372,17 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
 
       {/* Trade form */}
       <div className="card rounded-xl p-5 space-y-4">
+        {!stock.is_active && (
+          <p className="text-sm" style={{ color: "var(--text-2)" }}>
+            This stock is unavailable for new positions. Existing positions can still be sold or covered.
+          </p>
+        )}
         {/* 4-tab selector: Buy / Sell / Short / Cover */}
         <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--border-md)" }}>
           {(["buy", "sell", "short", "cover"] as const).map((s) => {
             const cfg = sideConfig[s];
-            const disabled = (s === "sell" && !longPosition) || (s === "cover" && !shortPosition);
+            const disabled = ((s === "buy" || s === "short") && !stock.is_active)
+              || (s === "sell" && !longPosition) || (s === "cover" && !shortPosition);
             return (
               <button
                 key={s}
@@ -704,7 +717,9 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
 
         <button
           onClick={executeTrade}
-          disabled={loading || shares <= 0 || !hasLivePrice}
+          disabled={loading || shares <= 0 || !hasLivePrice
+            || ((side === "buy" || side === "short") && !stock.is_active)
+            || (side === "sell" && !longPosition) || (side === "cover" && !shortPosition)}
           className="btn btn-block btn-lg uppercase tracking-wider"
           style={{
             background: sideConfig[side].bg,
