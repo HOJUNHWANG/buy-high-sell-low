@@ -1,5 +1,7 @@
 """Central ticker lists — imported by all data scripts."""
 
+from datetime import date, datetime, timezone
+
 # yfinance uses different symbols for some tickers.
 # Only used by seed scripts (local, 1-time use).
 YFINANCE_MAP = {
@@ -24,20 +26,47 @@ def to_twelve_data_crypto(ticker: str) -> str:
     return ticker.replace("-USD", "/USD")
 
 
-# S&P 100 (OEX) as tracked by OEF holdings, refreshed May 2026.
-SP100_TICKERS = [
+# Full OEF equity holdings checked 2026-09-08 (holdings dated 2026-09-04).
+# Source snapshot: data/sp100-2026-09-04.json. BRKB is normalized to BRK.B.
+SP100_BASE_TICKERS = [
     "NVDA", "AAPL", "MSFT", "AMZN", "GOOGL", "AVGO", "GOOG", "META", "TSLA", "BRK.B",
     "MU", "JPM", "LLY", "AMD", "XOM", "WMT", "JNJ", "INTC", "V", "COST",
     "CSCO", "CAT", "MA", "LRCX", "ABBV", "NFLX", "UNH", "CVX", "AMAT", "ORCL",
     "PG", "BAC", "KO", "GE", "PLTR", "HD", "PM", "GEV", "GS", "MRK",
     "TXN", "LIN", "RTX", "MS", "WFC", "C", "QCOM", "IBM", "PEP", "NEE",
     "VZ", "MCD", "DIS", "AMGN", "BA", "T", "TMO", "AXP", "GILD", "UNP",
-    "BLK", "CRM", "UBER", "ISRG", "SCHW", "ABT", "PFE", "COP", "DE", "HON",
+    "BLK", "CRM", "UBER", "ISRG", "SCHW", "ABT", "PFE", "COP", "DE", "HONA",
     "LOW", "BKNG", "CVS", "MO", "SBUX", "COF", "BMY", "LMT", "INTU", "DHR",
     "SO", "ACN", "MDT", "ADBE", "DUK", "NOW", "BNY", "CMCSA", "TMUS", "GD",
     "USB", "FDX", "AMT", "MDLZ", "EMR", "MMM", "UPS", "CL", "GM", "SPG",
     "NKE",
 ]  # 101 equity tickers; dual share classes make the count differ from 100 companies.
+
+# Announced September 4; effective before the September 21 trading session.
+# See docs/sp100-refresh-2026-09.md for the official announcement.
+SP100_REBALANCE_DATE = date(2026, 9, 21)
+SP100_ADDITIONS = ("DELL", "PANW", "ANET", "SNDK")
+SP100_REMOVALS = ("HONA", "NKE", "SPG", "CL")
+SP100_ADDITION_METADATA = {
+    "DELL": {"exchange": "NYSE", "domain": "dell.com"},
+    "PANW": {"exchange": "NASDAQ", "domain": "paloaltonetworks.com"},
+    "ANET": {"exchange": "NYSE", "domain": "arista.com"},
+    "SNDK": {"exchange": "NASDAQ", "domain": "sandisk.com"},
+}
+
+
+def get_sp100_tickers(as_of: date | None = None) -> list[str]:
+    """Return the reviewed universe; switch at midnight EDT on September 21."""
+    effective = (
+        as_of >= SP100_REBALANCE_DATE if as_of is not None
+        else datetime.now(timezone.utc) >= datetime(2026, 9, 21, 4, tzinfo=timezone.utc)
+    )
+    if effective:
+        return [t for t in SP100_BASE_TICKERS if t not in SP100_REMOVALS] + list(SP100_ADDITIONS)
+    return list(SP100_BASE_TICKERS)
+
+
+SP100_TICKERS = get_sp100_tickers()
 
 # Backward compatibility alias
 SP500_TICKERS = SP100_TICKERS
@@ -45,17 +74,11 @@ SP500_TICKERS = SP100_TICKERS
 # Extra equities tracked outside the S&P 100 universe.
 TRACKED_EQUITY_TICKERS = [
     "SPCX",
-    "HONA",
 ]
 
 TRACKED_EQUITY_METADATA = {
     "SPCX": {
         "name": "SpaceX",
-        "exchange": "NASDAQ",
-        "sector": "Aerospace & Defense",
-    },
-    "HONA": {
-        "name": "Honeywell Aerospace",
         "exchange": "NASDAQ",
         "sector": "Aerospace & Defense",
     },
@@ -77,7 +100,11 @@ ETF_TICKERS = [
 ]
 
 # Combined lists for scripts that handle multiple asset classes
-ALL_EQUITY_TICKERS = SP100_TICKERS + TRACKED_EQUITY_TICKERS
+# Preload announced additions and keep their quotes/caps/history fresh while
+# stocks.is_active keeps them out of the screener until the effective date.
+ALL_EQUITY_TICKERS = list(dict.fromkeys(
+    SP100_TICKERS + TRACKED_EQUITY_TICKERS + list(SP100_ADDITIONS)
+))
 ALL_TICKERS = ALL_EQUITY_TICKERS + CRYPTO_TICKERS + ETF_TICKERS
 
 # Tickers eligible for an up-to-1Y backfill. Newly listed equities naturally
@@ -89,7 +116,7 @@ COMPANY_NAMES = {
     # S&P 100
     "AAPL": "Apple", "ABBV": "AbbVie", "ABT": "Abbott", "ACN": "Accenture",
     "ADBE": "Adobe", "AMAT": "Applied Materials", "AMD": "AMD",
-    "AMGN": "Amgen", "AMZN": "Amazon", "AVGO": "Broadcom", "AXP": "American Express",
+    "AMGN": "Amgen", "AMT": "American Tower", "AMZN": "Amazon", "AVGO": "Broadcom", "AXP": "American Express",
     "BA": "Boeing", "BAC": "Bank of America", "BNY": "BNY Mellon",
     "BKNG": "Booking Holdings", "BLK": "BlackRock", "BMY": "Bristol Myers Squibb",
     "BRK.B": "Berkshire Hathaway", "C": "Citigroup", "CAT": "Caterpillar",
@@ -102,7 +129,7 @@ COMPANY_NAMES = {
     "GE": "GE Aerospace", "GILD": "Gilead Sciences", "GM": "General Motors",
     "GEV": "GE Vernova",
     "GOOG": "Alphabet C", "GOOGL": "Alphabet A", "GS": "Goldman Sachs",
-    "HD": "Home Depot", "HON": "Honeywell", "IBM": "IBM", "INTC": "Intel",
+    "HD": "Home Depot", "HON": "Honeywell", "HONA": "Honeywell Aerospace", "IBM": "IBM", "INTC": "Intel",
     "INTU": "Intuit", "ISRG": "Intuitive Surgical", "JNJ": "Johnson & Johnson",
     "JPM": "JPMorgan Chase", "KO": "Coca-Cola",
     "LIN": "Linde", "LLY": "Eli Lilly", "LMT": "Lockheed Martin", "LOW": "Lowe's",
@@ -122,7 +149,10 @@ COMPANY_NAMES = {
     "V": "Visa",
     "VZ": "Verizon", "WFC": "Wells Fargo", "WMT": "Walmart", "XOM": "ExxonMobil",
     # Additional tracked equities
-    "SPCX": "SpaceX", "HONA": "Honeywell Aerospace",
+    "SPCX": "SpaceX",
+    # Announced S&P 100 additions (effective September 21, 2026)
+    "DELL": "Dell Technologies", "PANW": "Palo Alto Networks",
+    "ANET": "Arista Networks", "SNDK": "Sandisk",
     # Core ETFs
     "VOO": "Vanguard S&P 500 ETF", "QQQ": "Invesco QQQ Trust",
     "SPY": "SPDR S&P 500 ETF Trust", "VTI": "Vanguard Total Stock Market ETF",

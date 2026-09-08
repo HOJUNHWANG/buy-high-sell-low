@@ -45,6 +45,7 @@ CRYPTO_LOGO_MAP = {
 
 # ── Stock logos via DuckDuckGo favicon service ──
 STOCK_DOMAINS = {
+    "HONA": "aerospace.honeywell.com", "SPCX": "spacex.com",
     # A
     "A": "agilent.com", "AAPL": "apple.com", "ABBV": "abbvie.com",
     "ABNB": "airbnb.com", "ABT": "abbott.com", "ACGL": "archgroup.com",
@@ -212,7 +213,7 @@ STOCK_DOMAINS = {
     "STLD": "steeldynamics.com", "STT": "statestreet.com", "STX": "seagate.com",
     "STZ": "cbrands.com", "SWK": "stanleyblackanddecker.com",
     "SWKS": "skyworksinc.com", "SYF": "synchrony.com", "SYK": "stryker.com",
-    "SYY": "sysco.com",
+    "SYY": "sysco.com", "SNDK": "sandisk.com",
     # T
     "T": "att.com", "TAP": "molsoncoors.com", "TDG": "transdigm.com",
     "TDY": "teledyne.com", "TECH": "bio-techne.com", "TEL": "te.com",
@@ -291,12 +292,10 @@ def update_stock_logos():
                 print(f"  {ticker}: OK ({domain}, {len(r.content)}B)")
                 updated += 1
             else:
-                supabase.table("stocks").update({"logo_url": None}).eq("ticker", ticker).execute()
-                print(f"  {ticker}: too small ({len(r.content)}B), using letter fallback")
+                print(f"  {ticker}: icon unavailable; preserving existing logo")
                 too_small += 1
         except Exception as e:
             print(f"  {ticker}: error — {e}")
-            supabase.table("stocks").update({"logo_url": None}).eq("ticker", ticker).execute()
             too_small += 1
 
         time.sleep(0.1)

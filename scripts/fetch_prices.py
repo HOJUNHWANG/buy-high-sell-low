@@ -522,6 +522,9 @@ def fetch_crypto_twelve_data() -> tuple[int, list[str]]:
 
 
 def main() -> int:
+    from sync_sp100 import sync_sp100
+
+    sync_sp100(supabase)
     run_failed: list[str] = []
     # Always fetch crypto (24/7 market)
     try:

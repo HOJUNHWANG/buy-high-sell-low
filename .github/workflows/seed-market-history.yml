@@ -14,7 +14,7 @@ on:
       tickers:
         description: "Space-separated tickers to backfill"
         required: true
-        default: "HONA OEF USDC-USD TRX-USD ZEC-USD XLM-USD XMR-USD BCH-USD LTC-USD DOT-USD AAVE-USD"
+        default: "DELL PANW ANET SNDK"
 
 permissions:
   contents: read
@@ -40,11 +40,16 @@ jobs:
           cache-dependency-path: scripts/requirements.txt
       - name: Install Python dependencies
         run: python -m pip install --disable-pip-version-check -r scripts/requirements.txt
+      - name: Register reviewed index members and pending additions
+        run: python scripts/sync_sp100.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       - name: Seed missing market history
         run: python scripts/seed_history.py $TICKERS
         env:
           # workflow_dispatch can override this; push runs use the maintained
           # default list below instead of accidentally seeding the full universe.
-          TICKERS: ${{ inputs.tickers || 'HONA OEF USDC-USD TRX-USD ZEC-USD XLM-USD XMR-USD BCH-USD LTC-USD DOT-USD AAVE-USD' }}
+          TICKERS: ${{ inputs.tickers || 'DELL PANW ANET SNDK' }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

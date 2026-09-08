@@ -138,3 +138,5 @@ if __name__ == "__main__":
     seed_etfs()
     seed_crypto()
     seed_affiliate_links()
+    from sync_sp100 import sync_sp100
+    sync_sp100(supabase)
