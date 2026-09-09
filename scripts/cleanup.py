@@ -6,7 +6,7 @@ import os
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from supabase import create_client
-from tickers import ALL_TICKERS
+from asset_retention import protected_inactive_tickers
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env.local"))
 load_dotenv()  # fallback to .env
@@ -45,31 +45,7 @@ def deleted_count(result) -> int:
 
 def get_protected_inactive_tickers(inactive_tickers: list[str]) -> set[str]:
     """Keep data for user-visible inactive assets until they are no longer in use."""
-    if not inactive_tickers:
-        return set()
-
-    # is_active controls discovery, not data retention: pending additions and
-    # retained former members are intentionally collected while hidden.
-    protected: set[str] = set(inactive_tickers) & set(ALL_TICKERS)
-    checks = (
-        supabase.table("paper_positions")
-        .select("ticker")
-        .in_("ticker", inactive_tickers)
-        .gt("shares", 0),
-        supabase.table("paper_challenges")
-        .select("ticker")
-        .in_("ticker", inactive_tickers)
-        .eq("status", "active"),
-        supabase.table("watchlist")
-        .select("ticker")
-        .in_("ticker", inactive_tickers),
-    )
-
-    for check in checks:
-        result = check.execute()
-        protected.update(row["ticker"] for row in (result.data or []))
-
-    return protected
+    return protected_inactive_tickers(supabase, inactive_tickers)
 
 
 def cleanup_inactive_asset_data() -> int:

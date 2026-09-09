@@ -26,6 +26,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 sys.path.insert(0, os.path.dirname(__file__))
 from tickers import ALL_EQUITY_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_crypto
+from asset_retention import filter_collectable_tickers
 from price_adjustments import (
     calculate_change_pct,
     get_previous_closes,
@@ -127,7 +128,7 @@ def already_completed_settlement_close_today(
         datetime(target_date.year, target_date.month, target_date.day, 16, 45)
     )
     settlement_start_utc = settlement_start_et.astimezone(pytz.utc).isoformat()
-    expected_count = len(ALL_EQUITY_TICKERS) + len(ETF_TICKERS)
+    expected_count = len(filter_collectable_tickers(supabase, ALL_EQUITY_TICKERS, now_et.date())) + len(ETF_TICKERS)
     result = supabase.table("fetch_logs") \
         .select("id") \
         .eq("job_name", "prices_close_settlement") \
@@ -570,7 +571,7 @@ def main() -> int:
             "before the next session..."
         )
 
-    stock_tickers = ALL_EQUITY_TICKERS + ETF_TICKERS
+    stock_tickers = filter_collectable_tickers(supabase, ALL_EQUITY_TICKERS) + ETF_TICKERS
     print(f"Fetching prices for {len(stock_tickers)} stock tickers...")
     total_fetched, all_failed = 0, []
 

@@ -135,6 +135,10 @@ def main():
         tickers = HISTORY_SEED_TICKERS
         print(f"Seeding all {len(tickers)} tickers (1Y history)")
 
+    if len(sys.argv) == 1 or sys.argv[1].startswith("--"):
+        from asset_retention import filter_collectable_tickers
+        tickers = filter_collectable_tickers(supabase, tickers)
+
     start = time.time()
     for i in range(0, len(tickers), BATCH_SIZE):
         batch = tickers[i:i + BATCH_SIZE]

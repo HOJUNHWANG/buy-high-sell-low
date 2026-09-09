@@ -5,6 +5,8 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { LogoImage } from "./LogoImage";
 import type { Stock } from "@/lib/types";
+import type { IndexNotice } from "@/lib/sp100-transition";
+import { IndexChangeBadge } from "./IndexChangeBadge";
 
 export function SearchBar() {
   const [query,   setQuery]   = useState("");
@@ -19,7 +21,7 @@ export function SearchBar() {
     return () => clearTimeout(t);
   }, [query]);
 
-  const { data: results = [], isFetching } = useQuery<Stock[]>({
+  const { data: results = [], isFetching } = useQuery<(Stock & { index_notice?: IndexNotice | null })[]>({
     queryKey: ["search", debounced],
     queryFn: async () => {
       if (!debounced) return [];
@@ -116,8 +118,9 @@ export function SearchBar() {
                 <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>
                   {stock.ticker}
                 </span>
-                <span className="text-xs truncate" style={{ color: "var(--text-2)" }}>
-                  {stock.name}
+                <span className="min-w-0 text-left">
+                  <span className="block text-xs truncate" style={{ color: "var(--text-2)" }}>{stock.name}</span>
+                  <IndexChangeBadge notice={stock.index_notice} />
                 </span>
                 {stock.exchange && (
                   <span className="ml-auto text-[10px] shrink-0" style={{ color: "var(--text-3)" }}>

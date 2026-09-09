@@ -104,7 +104,7 @@ ETF_TICKERS = [
 
 # Combined lists for scripts that handle multiple asset classes
 # Preload announced additions and keep their quotes/caps/history fresh while
-# stocks.is_active keeps them out of the screener until the effective date.
+# stocks.is_active gates official membership/trading; discovery previews additions.
 ALL_EQUITY_TICKERS = list(dict.fromkeys(
     SP100_TICKERS + TRACKED_EQUITY_TICKERS + list(SP100_ADDITIONS)
     + list(RETAINED_EQUITY_TICKERS)

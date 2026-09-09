@@ -134,6 +134,9 @@ def insert_price_history(row: dict):
 
 def main():
     tickers = [t.upper() for t in sys.argv[1:]] if len(sys.argv) > 1 else ALL_EQUITY_TICKERS
+    if len(sys.argv) == 1:
+        from asset_retention import filter_collectable_tickers
+        tickers = filter_collectable_tickers(supabase, tickers)
     print(f"Fetching latest prices for {len(tickers)} tickers via direct Yahoo chart...")
 
     now = datetime.utcnow().isoformat()

@@ -317,6 +317,10 @@ def main():
         tickers = HISTORY_SEED_TICKERS
         print(f"Seeding all {len(tickers)} tickers (stocks + crypto)")
 
+    if len(sys.argv) == 1 or sys.argv[1].startswith("--"):
+        from asset_retention import filter_collectable_tickers
+        tickers = filter_collectable_tickers(supabase, tickers)
+
     # Process in batches for yfinance download
     for i in range(0, len(tickers), BATCH_SIZE):
         batch = tickers[i:i+BATCH_SIZE]

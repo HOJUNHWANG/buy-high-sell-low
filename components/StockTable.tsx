@@ -9,8 +9,10 @@ import { fmtVol } from "@/lib/utils";
 import { formatAssetPrice } from "@/lib/price-format";
 import { PriceFreshnessBadge } from "./PriceFreshnessBadge";
 import { MarketInsights, type InsightAssetType } from "./MarketInsights";
+import { IndexChangeBadge } from "./IndexChangeBadge";
+import type { IndexNotice } from "@/lib/sp100-transition";
 
-type StockRow = Stock & { price?: StockPrice; change_30d?: number | null };
+type StockRow = Stock & { price?: StockPrice; change_30d?: number | null; index_notice?: IndexNotice | null };
 type SortKey = "ticker" | "name" | "market_cap" | "price" | "change_pct" | "change_30d" | "volume";
 type SortDir = "asc" | "desc";
 
@@ -383,6 +385,7 @@ export function StockTable({
                             {stock.ticker}
                           </span>
                         </Link>
+                        <IndexChangeBadge notice={stock.index_notice} />
                       </td>
                       <td className="px-4 py-3 hidden sm:table-cell max-w-[180px]">
                         <Link
@@ -499,6 +502,7 @@ export function StockTable({
                 >
                   {stock.name}
                 </p>
+                <IndexChangeBadge notice={stock.index_notice} />
                 <div>
                   <div className="text-sm font-bold tabular-nums" style={{ color: "var(--text)" }}>
                     {stock.price ? formatAssetPrice(stock.price.price, stock.ticker) : <PendingPriceLabel compact />}

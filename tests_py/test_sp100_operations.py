@@ -95,7 +95,8 @@ class TransitionOperationsTests(unittest.TestCase):
         client.table.return_value.select.return_value.in_.return_value.execute.return_value.data = []
         client.table.return_value.select.return_value.in_.return_value.gt.return_value.execute.return_value.data = []
         client.table.return_value.select.return_value.in_.return_value.eq.return_value.execute.return_value.data = []
-        with patch.object(cleanup, "supabase", client):
+        from test_asset_retention import Client
+        with patch.object(cleanup, "supabase", Client()), patch("asset_retention.expired_retirements", return_value=set()):
             protected = cleanup.get_protected_inactive_tickers([*SP100_ADDITIONS, *SP100_REMOVALS, "OLD"])
         self.assertEqual(protected, set(SP100_ADDITIONS) | set(SP100_REMOVALS))
 

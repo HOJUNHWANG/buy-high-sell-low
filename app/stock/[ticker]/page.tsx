@@ -2,6 +2,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import type { Metadata } from "next";
+import { getIndexNotice } from "@/lib/sp100-transition";
+import { IndexChangeBadge } from "@/components/IndexChangeBadge";
 import type { Stock, StockPrice, StockPriceHistory, NewsArticle } from "@/lib/types";
 import { LogoImage } from "@/components/LogoImage";
 import Link from "next/link";
@@ -164,6 +166,7 @@ export default async function StockDetailPage({ params }: Props) {
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-3)" }}>
                   {[stock.ticker, stock.exchange, stock.sector].filter(Boolean).join(" · ")}
                 </p>
+                <IndexChangeBadge notice={getIndexNotice(stock.ticker)} />
               </div>
             </div>
             <WatchlistButton ticker={stock.ticker} />

@@ -5,6 +5,7 @@ import { StockTable } from "@/components/StockTable";
 import { MarketStatusWidget } from "@/components/MarketStatusWidget";
 import { MarketClosedBanner } from "@/components/MarketClosedBanner";
 import { getMarketStatus } from "@/lib/market-hours";
+import { discoveryFilter, getIndexNotice, isDiscoverableStock } from "@/lib/sp100-transition";
 import {
   getLeaderStreaks,
   type MarketCapDailyLeader,
@@ -36,12 +37,13 @@ function getQueryDates() {
 
 export default async function StocksPage() {
   const supabase = await createSupabaseServerClient();
+  const now = new Date();
 
   // Target date: ~30 days ago, with ±3 day window for weekends/holidays
   const { d30, dMin, dMax, streakStart } = getQueryDates();
 
   const [{ data }, { data: hist30 }, { data: marketCapDailyLeaders }] = await Promise.all([
-    supabase.from("stocks").select("*, stock_prices(*)").eq("is_active", true).order("ticker"),
+    supabase.from("stocks").select("*, stock_prices(*)").or(discoveryFilter(now)).order("ticker"),
     supabase
       .from("price_history_long")
       .select("ticker, close, date")
@@ -70,7 +72,7 @@ export default async function StocksPage() {
     }
   }
 
-  const stocks = ((data as StockRow[] | null) ?? []).map((s) => {
+  const stocks = ((data as StockRow[] | null) ?? []).filter((s) => isDiscoverableStock(s, now)).map((s) => {
     const currentPrice = s.stock_prices?.price;
     const oldPrice = price30dMap.get(s.ticker)?.close;
     const raw30d =
@@ -81,6 +83,7 @@ export default async function StocksPage() {
     const change_30d = raw30d != null && Math.abs(raw30d) < 500 ? raw30d : null;
     return {
       ...s,
+      index_notice: getIndexNotice(s.ticker, now),
       price: s.stock_prices ?? undefined,
       change_30d,
     };
@@ -142,6 +145,11 @@ export default async function StocksPage() {
       </div>
 
       <MarketClosedBanner />
+      {stocks.some((stock) => stock.index_notice?.kind === "addition") && (
+        <p className="text-xs mb-4" style={{ color: "var(--text-3)" }}>
+          Includes 4 upcoming S&amp;P 100 members. Index membership and paper trading switch on Sep 21 (New York time).
+        </p>
+      )}
 
       <StockTable stocks={stocks} leaderStreaks={leaderStreaks} />
     </div>

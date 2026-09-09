@@ -1329,6 +1329,9 @@ def main(argv: Sequence[str] | None = None) -> RunSummary:
         parser.error(str(exc))
 
     client = get_supabase_client()
+    if not args.tickers and not args.repeated_tickers:
+        from asset_retention import filter_collectable_tickers
+        tickers = filter_collectable_tickers(client, tickers)
     mode = "Validating" if args.dry_run else "Updating"
     print(f"{mode} {len(tickers)} market-cap values...")
     summary = run_update(
