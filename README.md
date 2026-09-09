@@ -206,6 +206,10 @@ tests/                          # Vitest suites
 
 ---
 
+## Operations
+
+[지수 종목 교체 절차와 실행 기록 템플릿](docs/index-rebalance-runbook.md) · [2026년 9월 S&P 100 교체 기록](docs/sp100-refresh-2026-09.md)
+
 ## Disclaimer
 
 All market data is delayed. AI-generated content is not investment advice. Paper trading uses simulated money only. Past performance does not guarantee future results. This project is for educational and entertainment purposes.

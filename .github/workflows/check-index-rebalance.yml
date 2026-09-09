@@ -1,0 +1,38 @@
+name: Check Index Rebalance Configuration
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/tickers.py"
+      - "scripts/asset_retention.py"
+      - "lib/sp100-transition.ts"
+      - "tests_py/test_rebalance_contract.py"
+      - ".github/workflows/seed-market-history.yml"
+      - ".github/workflows/check-index-rebalance.yml"
+  pull_request:
+    paths:
+      - "scripts/tickers.py"
+      - "scripts/asset_retention.py"
+      - "lib/sp100-transition.ts"
+      - "tests_py/test_rebalance_contract.py"
+      - ".github/workflows/seed-market-history.yml"
+      - ".github/workflows/check-index-rebalance.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  configuration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      # Standard-library-only contract tests; no production secrets or writes.
+      - run: python -m unittest discover -s tests_py -p test_rebalance_contract.py
