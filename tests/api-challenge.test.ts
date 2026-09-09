@@ -29,7 +29,7 @@ describe("Challenge: GET", () => {
       { ticker: "NVDA", price: 500 }, { ticker: "AMZN", price: 180 },
       { ticker: "GOOGL", price: 140 }, { ticker: "META", price: 400 },
       { ticker: "TSLA", price: 250 }, { ticker: "JPM", price: 190 },
-    ]);
+    ].map((row) => ({ ...row, "stocks.is_active": true })));
     const mod = await import("@/app/api/paper/challenge/route");
     const res = await mod.GET();
     expect(res.status).toBe(200);
@@ -40,7 +40,7 @@ describe("Challenge: GET", () => {
 
   it("returns 503 when not enough price data", async () => {
     setMockData("paper_challenges", []);
-    setMockData("stock_prices", [{ ticker: "AAPL", price: 150 }]); // only 1
+    setMockData("stock_prices", [{ ticker: "AAPL", price: 150, "stocks.is_active": true }]); // only 1
     const mod = await import("@/app/api/paper/challenge/route");
     const res = await mod.GET();
     expect(res.status).toBe(503);

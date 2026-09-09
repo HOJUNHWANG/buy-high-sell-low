@@ -7,6 +7,20 @@ describe("Paper trading during index changes", () => {
     setMockUser({ id: "index-test" });
   });
 
+  it("excludes pending and retired stocks from new weekly challenges", async () => {
+    const active = ["AAPL", "MSFT", "AMZN", "NVDA", "GOOG"];
+    setMockData("stock_prices", [
+      ...active.map((ticker) => ({ ticker, price: 100, "stocks.is_active": true })),
+      ...["DELL", "NKE"].map((ticker) => ({ ticker, price: 100, "stocks.is_active": false })),
+    ]);
+    const { GET } = await import("@/app/api/paper/challenge/route");
+    const response = await GET();
+    expect(response.status).toBe(200);
+    const inserted = getInsertCalls().find((call) => call.table === "paper_challenges");
+    const picks = (inserted?.data as { picks: { ticker: string }[] }).picks;
+    expect(picks.map((pick) => pick.ticker).sort()).toEqual(active.sort());
+  });
+
   for (const action of ["buy", "short"] as const) {
     it(`allows active ${action} to reach the margin check`, async () => {
       setMockData("paper_accounts", [{ user_id: "index-test", cash_balance: 1000, status: "active" }]);

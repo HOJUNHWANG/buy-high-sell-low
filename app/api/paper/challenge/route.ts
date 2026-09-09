@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
-// Challenge picks are drawn from ALL tickers that have current price data in stock_prices
+// New picks use active assets; existing challenges retain their original picks.
 
 interface Pick {
   ticker: string;
@@ -156,10 +156,12 @@ export async function GET() {
     } // end else (non-empty picks)
   }
 
-  // Generate new challenge: pick 5 random tickers from ALL available price data
+  // Pending/retired assets retain prices for history and existing positions,
+  // but must not appear in newly generated challenges.
   const { data: allPrices } = await supabase
     .from("stock_prices")
-    .select("ticker, price");
+    .select("ticker, price, stocks!inner(is_active)")
+    .eq("stocks.is_active", true);
 
   if (!allPrices || allPrices.length < 5) {
     return NextResponse.json(
