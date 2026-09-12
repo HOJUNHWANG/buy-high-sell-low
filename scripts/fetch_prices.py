@@ -145,7 +145,7 @@ def fetch_batch(tickers: list[str]) -> dict:
     symbols = ",".join(tickers)
     # Manual URL construction to avoid potential issues with encoded '/' in crypto symbols
     url = f"https://api.twelvedata.com/quote?symbol={symbols}&apikey={TWELVE_DATA_API_KEY}"
-    
+
     # Increased timeout to 60s for batches to handle potential server lags
     r = http_session.get(url, timeout=60)
     r.raise_for_status()
@@ -500,7 +500,7 @@ def fetch_crypto_twelve_data() -> tuple[int, list[str]]:
                 returned = set(results)
                 missing = [symbol for symbol in batch if symbol not in returned]
                 all_failed.extend([*missing, *failed])
-            
+
             # Dynamic sleep based on batch size to stay within rate limits (55/min)
             if i < len(batches) - 1:
                 sleep_time = len(batch) * SLEEP_PER_TICKER
@@ -589,7 +589,7 @@ def main() -> int:
                 returned = set(results)
                 missing = [symbol for symbol in batch if symbol not in returned]
                 all_failed.extend([*missing, *failed])
-            
+
             # Dynamic sleep
             if i < len(batches) - 1:
                 sleep_time = len(batch) * SLEEP_PER_TICKER
