@@ -41,7 +41,9 @@ def execute_db(query, *, operation: str, retry_safe: bool = False):
         except Exception as exc:
             transient = transient_db_error(exc)
             if not transient:
-                print(f"[database] {operation}: non-retryable {type(exc).__name__}")
+                # URL duplicates are expected and counted by the caller.
+                if not (isinstance(exc, APIError) and str(exc.code) == "23505"):
+                    print(f"[database] {operation}: non-retryable {type(exc).__name__}")
                 raise  # Preserve SQL codes such as 23505 for duplicate handling.
             if attempt == attempts:
                 reason = "retries exhausted" if retry_safe else "unsafe to replay"
