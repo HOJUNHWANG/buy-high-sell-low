@@ -3,6 +3,7 @@
 Run before price ingestion. Only reviewed index symbols (and obsolete HON) are
 managed here; independently tracked equities, ETFs, and crypto are untouched.
 """
+from db_requests import execute_db
 import os
 import math
 from datetime import date, datetime, timedelta, timezone
@@ -49,14 +50,14 @@ def check_addition_readiness(client, existing: list[dict], as_of: date) -> None:
         if (not all(stock.get(key) for key in ("name", "sector", "exchange", "logo_url", "market_cap"))
                 or not math.isfinite(float(stock["market_cap"])) or float(stock["market_cap"]) <= 0):
             raise RuntimeError(f"{ticker}: replacement metadata is incomplete")
-        quotes = client.table("stock_prices").select("price,fetched_at").eq("ticker", ticker).execute().data
+        quotes = execute_db(client.table("stock_prices").select("price,fetched_at").eq("ticker", ticker), operation='sync_sp100:stock_prices', retry_safe=True).data
         if not quotes or not math.isfinite(float(quotes[0]["price"] or 0)) or float(quotes[0]["price"] or 0) <= 0:
             raise RuntimeError(f"{ticker}: replacement price is missing")
         fetched = datetime.fromisoformat(quotes[0]["fetched_at"].replace("Z", "+00:00"))
         # The last completed session's closing ingestion or newer is required.
         if fetched < datetime.combine(last_session, datetime.min.time(), ZoneInfo("America/New_York")).replace(hour=16):
             raise RuntimeError(f"{ticker}: replacement quote is stale")
-        history = client.table("price_history_long").select("date,close").eq("ticker", ticker).gte("date", cutoff.isoformat()).order("date").execute().data
+        history = execute_db(client.table("price_history_long").select("date,close").eq("ticker", ticker).gte("date", cutoff.isoformat()).order("date"), operation='sync_sp100:price_history_long', retry_safe=True).data
         dates = {row["date"][:10] for row in history}
         expected = {
             day.isoformat()
@@ -76,7 +77,7 @@ def sync_sp100(client) -> int:
     # cutoff cannot calculate two different universes within one sync.
     as_of = datetime.now(ZoneInfo("America/New_York")).date()
     fields = ("ticker", "name", "is_active", "exchange", "sector", "logo_url")
-    existing = client.table("stocks").select(",".join((*fields, "market_cap"))).execute().data
+    existing = execute_db(client.table("stocks").select(",".join((*fields, "market_cap"))), operation='sync_sp100:stocks', retry_safe=True).data
     changes = plan_sync(existing, as_of)
     if any(row["ticker"] in SP100_ADDITIONS and row["is_active"] for row in changes):
         check_addition_readiness(client, existing, as_of)
@@ -90,8 +91,8 @@ def sync_sp100(client) -> int:
         # A single PostgREST bulk upsert is one database transaction. All four
         # additions/removals commit together, or none do. Other stock fields
         # (including market caps) and all dependent user rows are untouched.
-        client.table("stocks").upsert(rows, on_conflict="ticker").execute()
-    actual = client.table("stocks").select("ticker,is_active").execute().data
+        execute_db(client.table("stocks").upsert(rows, on_conflict="ticker"), operation='sync_sp100:stocks', retry_safe=True)
+    actual = execute_db(client.table("stocks").select("ticker,is_active"), operation='sync_sp100:stocks', retry_safe=True).data
     if plan_sync(actual, as_of):
         raise RuntimeError("S&P 100 membership verification failed")
     if changes:

@@ -5,6 +5,7 @@ suppressed when a known corporate action makes the provider value misleading.
 """
 
 from __future__ import annotations
+from db_requests import execute_db
 
 import math
 from datetime import datetime, timedelta, timezone
@@ -105,12 +106,11 @@ def get_previous_closes(
 
     try:
         result = (
-            supabase.table("price_history_long")
+            execute_db(supabase.table("price_history_long")
             .select("ticker,close")
             .in_("ticker", normalized_tickers)
             .eq("date", close_date)
-            .limit(len(normalized_tickers))
-            .execute()
+            .limit(len(normalized_tickers)), operation='price_adjustments:price_history_long', retry_safe=True)
         )
     except Exception as exc:
         return {}, str(exc)
@@ -185,7 +185,7 @@ def record_price_anomaly(
         return None
 
     try:
-        supabase.table("price_anomalies").upsert(
+        execute_db(supabase.table("price_anomalies").upsert(
             {
                 "ticker": ticker.upper(),
                 "market_date": market_date,
@@ -197,7 +197,7 @@ def record_price_anomaly(
             },
             on_conflict="ticker,market_date,reason",
             ignore_duplicates=True,
-        ).execute()
+        ), operation='price_adjustments:price_anomalies', retry_safe=True)
     except Exception as exc:
         return str(exc)
 
@@ -217,14 +217,13 @@ def get_reviewed_anomaly_override(
 
     try:
         result = (
-            supabase.table("price_anomalies")
+            execute_db(supabase.table("price_anomalies")
             .select("applied_change_pct")
             .eq("ticker", ticker.upper())
             .eq("market_date", market_date)
             .eq("reason", reason)
             .eq("status", "reviewed")
-            .limit(1)
-            .execute()
+            .limit(1), operation='price_adjustments:price_anomalies', retry_safe=True)
         )
     except Exception as exc:
         return None, str(exc)

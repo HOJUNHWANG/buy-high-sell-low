@@ -14,9 +14,10 @@ def expired_retirements(as_of: date | None = None) -> set[str]:
 
 
 def paged_rows(make_query):
+    from db_requests import execute_db
     offset = 0
     while True:
-        rows = make_query().range(offset, offset + 499).execute().data or []
+        rows = execute_db(make_query().range(offset, offset + 499), operation='asset_retention:query', retry_safe=True).data or []
         yield from rows
         if len(rows) < 500:
             return
@@ -48,11 +49,12 @@ def protected_inactive_tickers(client, candidates: list[str], as_of: date | None
 
 
 def filter_collectable_tickers(client, tickers: list[str], as_of: date | None = None) -> list[str]:
+    from db_requests import execute_db
     expired = set(tickers) & expired_retirements(as_of)
     if not expired:
         return list(tickers)
     # A delayed/failed membership transition must never stop an active asset.
-    inactive = client.table("stocks").select("ticker").in_("ticker", sorted(expired)).eq("is_active", False).execute().data or []
+    inactive = execute_db(client.table("stocks").select("ticker").in_("ticker", sorted(expired)).eq("is_active", False), operation='asset_retention:stocks', retry_safe=True).data or []
     retired = {row["ticker"] for row in inactive}
     removable = retired - referenced_tickers(client, sorted(retired))
     return [ticker for ticker in tickers if ticker not in removable]

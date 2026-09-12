@@ -8,6 +8,7 @@ Root cause fix (2026-03-24):
 - Insert-first, then Groq: only spend AI quota on successfully inserted articles
 - Backfill uses all remaining quota after new articles are processed
 """
+from db_requests import execute_db
 import os
 import sys
 import json
@@ -186,11 +187,10 @@ def get_existing_urls() -> set[str]:
     offset = 0
     page_size = 1000
     while True:
-        result = supabase.table("news_articles") \
+        result = execute_db(supabase.table("news_articles") \
             .select("url") \
             .gte("fetched_at", since) \
-            .range(offset, offset + page_size - 1) \
-            .execute()
+            .range(offset, offset + page_size - 1), operation='fetch_news:news_articles', retry_safe=True)
         for row in result.data:
             urls.add(row["url"])
         if len(result.data) < page_size:
@@ -229,6 +229,7 @@ def main():
     # ── Phase 1: Insert articles (without AI), then generate AI for inserted ones ──
     inserted: list[dict] = []  # rows that were successfully inserted
     skipped = 0
+    insert_failures = 0
     for article in new_articles:
         title   = article.get("title", "")
         url     = article.get("url", "")
@@ -245,7 +246,7 @@ def main():
         }
 
         try:
-            result = supabase.table("news_articles").insert(row).execute()
+            result = execute_db(supabase.table("news_articles").insert(row), operation='fetch_news:news_articles', retry_safe=False)
             new_id = result.data[0]["id"]
             inserted.append({
                 "id": new_id,
@@ -257,6 +258,7 @@ def main():
             if "23505" in err_msg:
                 skipped += 1  # duplicate URL — silently skip
             else:
+                insert_failures += 1
                 print(f"  Insert error ({url[:60]}): {e}")
 
     print(f"  Inserted: {len(inserted)}, Skipped duplicates: {skipped}")
@@ -280,14 +282,14 @@ def main():
         ai_calls_this_run += 1
         summarized += 1
 
-        supabase.table("news_articles").update({
+        execute_db(supabase.table("news_articles").update({
             "ai_summary":       ai.get("summary"),
             "ai_insight":       ai.get("impact"),
             "ai_sentiment":     ai.get("sentiment"),
             "ai_caution":       ai.get("caution"),
             "ai_generated_at":  datetime.utcnow().isoformat(),
             "related_tickers":  ai.get("related_tickers", []),
-        }).eq("id", article["id"]).execute()
+        }).eq("id", article["id"]), operation='fetch_news:news_articles', retry_safe=True)
 
         time.sleep(2.1)  # ~28 req/min — stay under Groq rate limit
 
@@ -297,12 +299,11 @@ def main():
     backfilled = 0
     if ai_calls_this_run < MAX_AI_PER_RUN and not rate_limited:
         remaining = MAX_AI_PER_RUN - ai_calls_this_run
-        result = supabase.table("news_articles") \
+        result = execute_db(supabase.table("news_articles") \
             .select("id, title") \
             .is_("ai_summary", "null") \
             .order("published_at", desc=True) \
-            .limit(remaining) \
-            .execute()
+            .limit(remaining), operation='fetch_news:news_articles', retry_safe=True)
         backfill_articles = result.data or []
         if backfill_articles:
             print(f"  Backfilling {len(backfill_articles)} articles without AI summary...")
@@ -314,28 +315,29 @@ def main():
                 break
             if ai:
                 ai_calls_this_run += 1
-                supabase.table("news_articles").update({
+                execute_db(supabase.table("news_articles").update({
                     "ai_summary":       ai.get("summary"),
                     "ai_insight":       ai.get("impact"),
                     "ai_sentiment":     ai.get("sentiment"),
                     "ai_caution":       ai.get("caution"),
                     "ai_generated_at":  datetime.utcnow().isoformat(),
                     "related_tickers":  ai.get("related_tickers", []),
-                }).eq("id", article["id"]).execute()
+                }).eq("id", article["id"]), operation='fetch_news:news_articles', retry_safe=True)
                 backfilled += 1
             time.sleep(2.1)
 
-    supabase.table("fetch_logs").insert({
+    execute_db(supabase.table("fetch_logs").insert({
         "job_name":        "news",
-        "status":          "success",
+        "status":          "partial" if insert_failures else "success",
         "records_fetched": len(inserted),
-        "records_failed":  skipped,
+        "records_failed":  insert_failures,
         "error_message":   f"summarized:{summarized},backfilled:{backfilled}" if (summarized or backfilled) else None,
-    }).execute()
+    }), operation='fetch_news:fetch_logs', retry_safe=False)
 
     print(f"Done. Inserted: {len(inserted)}, Summarized: {summarized}, Backfilled: {backfilled}")
     print("  (related_tickers now AI-powered — no more text matching)")
+    return 1 if insert_failures else 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

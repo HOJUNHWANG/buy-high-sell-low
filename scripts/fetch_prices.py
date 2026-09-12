@@ -2,6 +2,7 @@
 fetch_prices.py — Fetch tracked equities, ETFs, and crypto prices from Twelve Data.
 Schedule: every 10 minutes (market hours filtered internally for equities/ETFs; crypto runs 24/7)
 """
+from db_requests import execute_db
 import os
 import sys
 import time
@@ -129,15 +130,14 @@ def already_completed_settlement_close_today(
     )
     settlement_start_utc = settlement_start_et.astimezone(pytz.utc).isoformat()
     expected_count = len(filter_collectable_tickers(supabase, ALL_EQUITY_TICKERS, now_et.date())) + len(ETF_TICKERS)
-    result = supabase.table("fetch_logs") \
+    result = execute_db(supabase.table("fetch_logs") \
         .select("id") \
         .eq("job_name", "prices_close_settlement") \
         .eq("status", "success") \
         .eq("records_failed", 0) \
         .gte("records_fetched", expected_count) \
         .gte("executed_at", settlement_start_utc) \
-        .limit(1) \
-        .execute()
+        .limit(1), operation='fetch_prices:fetch_logs', retry_safe=True)
     return len(result.data or []) > 0
 
 
@@ -349,7 +349,7 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
             row_long["volume"] = volume
 
         # Always update current price
-        supabase.table("stock_prices").upsert(row_price).execute()
+        execute_db(supabase.table("stock_prices").upsert(row_price), operation='fetch_prices:stock_prices', retry_safe=True)
 
         anomaly_error = record_price_anomaly(
             supabase,
@@ -370,24 +370,23 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
         # Only insert history if no recent entry (prevents duplicate rows)
         should_insert_history = force_history
         if not should_insert_history:
-            recent = supabase.table("stock_price_history") \
+            recent = execute_db(supabase.table("stock_price_history") \
                 .select("id") \
                 .eq("ticker", db_ticker) \
                 .gte("recorded_at", cutoff) \
-                .limit(1) \
-                .execute()
+                .limit(1), operation='fetch_prices:stock_price_history', retry_safe=True)
             should_insert_history = len(recent.data) == 0
 
         if should_insert_history:
             try:
-                supabase.table("stock_price_history").insert({
+                execute_db(supabase.table("stock_price_history").insert({
                     "ticker": db_ticker, "price": price, "recorded_at": now,
-                }).execute()
+                }), operation='fetch_prices:stock_price_history', retry_safe=False)
             except Exception as e:
                 print(f"  Warning: failed to record to stock_price_history for {db_ticker}: {e}")
 
         try:
-            supabase.table("price_history_long").upsert(row_long, on_conflict="ticker,date").execute()
+            execute_db(supabase.table("price_history_long").upsert(row_long, on_conflict="ticker,date"), operation='fetch_prices:price_history_long', retry_safe=True)
         except Exception as e:
             # Most likely 'id' column default issue or constraint
             print(f"  Warning: failed to record to price_history_long for {db_ticker}: {e}")
@@ -464,14 +463,14 @@ def fetch_selected_prices(
 
 
 def log_result(job: str, status: str, fetched: int, failed: list[str], error: str = ""):
-    supabase.table("fetch_logs").insert({
+    execute_db(supabase.table("fetch_logs").insert({
         "job_name":        job,
         "status":          status,
         "records_fetched": fetched,
         "records_failed":  len(failed),
         "failed_tickers":  failed or None,
         "error_message":   error or None,
-    }).execute()
+    }), operation='fetch_prices:fetch_logs', retry_safe=False)
 
 
 def fetch_crypto_twelve_data() -> tuple[int, list[str]]:
