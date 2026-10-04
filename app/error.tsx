@@ -23,7 +23,7 @@ export default function Error({
       <button
         onClick={() => reset()}
         className="mt-6 text-xs font-semibold px-4 py-2 rounded-lg cursor-pointer"
-        style={{ background: "var(--accent)", color: "#fff" }}
+        style={{ background: "var(--accent)", color: "var(--on-accent)" }}
       >
         Try again
       </button>

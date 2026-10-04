@@ -319,8 +319,8 @@ export default async function FictionalStockDetailPage({ params }: Props) {
           <section className="card rounded-xl p-4 space-y-3">
             <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--accent)" }}>Fictional Paper Trading</p>
             <p className="text-xs leading-relaxed" style={{ color: "var(--text-3)" }}>Invest in {company.name} with your dedicated $1,000 simulated portfolio.</p>
-            <Link href={`/fictional-market/paper?ticker=${encodeURIComponent(company.ticker)}`} className="block rounded-lg py-2.5 text-center text-sm font-semibold" style={{ background: "var(--accent)", color: "#fff" }}>Trade {company.ticker}</Link>
-            <Link href="/fictional-market/paper" className="block text-center text-xs nav-link">Portfolio &amp; rankings</Link>
+            <Link href={`/paper?market=fictional&ticker=${encodeURIComponent(company.ticker)}`} className="block rounded-lg py-2.5 text-center text-sm font-semibold" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>Trade {company.ticker}</Link>
+            <Link href="/paper?market=fictional" className="block text-center text-xs nav-link">Portfolio &amp; rankings</Link>
           </section>
           <section className="card rounded-xl p-4 space-y-3">
             <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>Overview</p>

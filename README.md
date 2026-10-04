@@ -69,7 +69,7 @@ A free, real-time US stock market intelligence platform covering **S&P 100 + 10 
 | **AI** | Groq (GPT-OSS 120B by default) |
 | **Charts** | lightweight-charts v5 |
 | **Market Data** | Twelve Data API + yfinance seeding |
-| **Styling** | Tailwind CSS (dark theme) |
+| **Styling** | Tailwind CSS (Dark / Light, Original / 2.0 layouts) |
 | **Testing** | Vitest |
 | **Deployment** | Vercel + GitHub Actions |
 | **Scripts** | Python (data pipeline, seed, backfill) |
@@ -157,13 +157,24 @@ stored values still fail and remain eligible for bounded remediation.
 
 ---
 
+## Appearance
+
+The header offers **Original / 2.0** and **Dark / Light** as independent controls.
+Design 2.0 adds a desktop navigation sidebar, mobile bottom navigation, a market
+overview with stored quotes, and a portfolio-first trading desk. The original
+layout is the default; the selected design persists on this device and syncs
+across tabs. Dark/Light preferences continue to sync with the signed-in account.
+Retired palettes automatically map to the matching dark or light mode; existing
+Supabase theme constraints remain compatible, so no database migration is needed.
+
 ## Fictional Paper Trading
 
-`/fictional-market/paper` provides a separate $1,000 simulated account for the
+`/paper?market=fictional` provides a $1,000 simulated account for the
 100 Fictional companies. It supports dollar or fractional-share buys and sells,
 full-position closes, holdings and returns, paginated transaction history, and a
-dedicated top-50 leaderboard. Entry points appear on the Fictional market,
-company detail pages, and the existing paper dashboard.
+dedicated top-50 leaderboard. The shared `/paper` workspace switches between
+stocks & crypto and Fictional, with portfolio, history, and leaderboard navigation.
+Legacy `/fictional-market/paper?ticker=...` links redirect with the selected ticker.
 
 The three `fictional_paper_*` tables do not share balances, positions, or rankings
 with real-market paper trading. Authenticated users can read only their own
@@ -189,7 +200,7 @@ app/
 ├── market-calendar/           # Market hours, holidays, settlement window
 ├── stock/[ticker]/             # Stock detail (chart, news, trade CTA)
 ├── stocks/                     # Screener (stocks / ETFs / crypto tabs)
-├── fictional-market/paper/     # Separate Fictional portfolio, trades and rankings
+├── fictional-market/paper/     # Redirect to the unified paper workspace
 ├── news/                       # News feed with sentiment filter
 ├── paper/                      # Paper trading dashboard
 │   ├── trade/[ticker]/         #   Buy / Sell / Short / Cover

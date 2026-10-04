@@ -23,7 +23,7 @@ export function CookieBanner() {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-50 px-4 py-3"
+      className="cookie-banner fixed bottom-0 left-0 right-0 z-50 px-4 py-3"
       style={{ background: "var(--surface)", borderTop: "1px solid var(--border-md)" }}
     >
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
@@ -34,7 +34,7 @@ export function CookieBanner() {
         <button
           onClick={accept}
           className="text-xs px-3 py-1.5 rounded-md font-medium transition-colors shrink-0"
-          style={{ background: "var(--accent)", color: "#fff" }}
+          style={{ background: "var(--accent)", color: "var(--on-accent)" }}
         >
           OK
         </button>

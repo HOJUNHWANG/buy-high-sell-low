@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import type { StockPriceHistory } from "@/lib/types";
 import { useTheme } from "@/components/ThemeProvider";
+import { useDesign } from "@/components/DesignProvider";
 import { assetPriceFractionDigits, formatAssetPrice } from "@/lib/price-format";
 
 interface Props {
@@ -76,6 +77,7 @@ function getRangeStats(data: StockPriceHistory[]) {
 export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
   const chartRef = useRef<HTMLDivElement>(null);
   const { theme } = useTheme();
+  const { design } = useDesign();
   const [range, setRange] = useState<Range>("1M");
   const [chartError, setChartError] = useState(false);
   const allRanges: Range[] = ["1D", "1W", "1M", "3M", "6M", "1Y"];
@@ -214,7 +216,7 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
     return () => {
       chart?.remove();
     };
-  }, [historyWithCurrent, range, isUp, priceDigits, theme]);
+  }, [historyWithCurrent, range, isUp, priceDigits, theme, design]);
 
   return (
     <div

@@ -72,7 +72,7 @@ export function UserMenu({ isAdmin = false }: { isAdmin?: boolean }) {
       <button
         onClick={() => setOpen((o) => !o)}
         className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-opacity hover:opacity-80"
-        style={{ background: "var(--accent)", color: "#fff" }}
+        style={{ background: "var(--accent)", color: "var(--on-accent)" }}
         aria-label="User menu"
       >
         {initial}

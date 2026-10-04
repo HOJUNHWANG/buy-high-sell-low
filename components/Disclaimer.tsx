@@ -1,7 +1,7 @@
 export function Disclaimer() {
   return (
     <footer
-      className="px-5 pt-8 pb-6"
+      className="app-footer px-5 pt-8 pb-6"
       style={{ borderTop: "1px solid var(--border)", color: "var(--text-3)" }}
     >
       <div className="max-w-7xl mx-auto space-y-4">

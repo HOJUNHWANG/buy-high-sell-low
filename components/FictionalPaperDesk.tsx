@@ -4,9 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { fictionalCompanies } from "@/data/fictional-market";
 import { FictionalTickerMark } from "@/components/FictionalTickerMark";
-import { PaperTradeBanner } from "@/components/PaperTradeBanner";
+import { paperWorkspaceHref, type PaperView } from "@/lib/paper-workspace";
 import {
-  FICTIONAL_STARTING_CASH, isFictionalQuoteFresh,
+  isFictionalQuoteFresh,
   type FictionalOrder, type FictionalPortfolio, type FictionalRanking, type FictionalTransaction,
 } from "@/lib/fictional-paper";
 
@@ -15,7 +15,7 @@ const quantity = (value: number) => value.toLocaleString("en-US", { maximumFract
 const tone = (value: number | null) => value === null ? "var(--text-3)" : value >= 0 ? "var(--up)" : "var(--down)";
 const companies = new Map(fictionalCompanies.map((company) => [company.ticker, company]));
 
-export function FictionalPaperDesk({ initialTicker }: { initialTicker?: string }) {
+export function FictionalPaperDesk({ initialTicker, view = "overview" }: { initialTicker?: string; view?: PaperView }) {
   const [portfolio, setPortfolio] = useState<FictionalPortfolio | null>(null);
   const [authRequired, setAuthRequired] = useState(false);
   const [error, setError] = useState("");
@@ -26,7 +26,7 @@ export function FictionalPaperDesk({ initialTicker }: { initialTicker?: string }
   const [busy, setBusy] = useState(false);
   const [tradeError, setTradeError] = useState("");
   const [lastTrade, setLastTrade] = useState<FictionalTransaction | null>(null);
-  const [tab, setTab] = useState<"holdings" | "history" | "rankings">("holdings");
+  const tab = view === "overview" ? "holdings" : view;
   const [transactions, setTransactions] = useState<FictionalTransaction[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -134,29 +134,18 @@ export function FictionalPaperDesk({ initialTicker }: { initialTicker?: string }
   const inputStyle = { background: "var(--surface)", border: "1px solid var(--border)", color: "var(--text)" };
 
   return (
-    <div className="max-w-7xl mx-auto px-5 py-8 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link href="/fictional-market" className="nav-link text-xs">← Fictional Market</Link>
-        <Link href="/paper" className="nav-link text-xs">Real-market paper account →</Link>
-      </div>
-      <header>
-        <span className="badge badge-muted">MULTIVERSE PORTFOLIO</span>
-        <h1 className="text-2xl sm:text-3xl font-bold mt-3" style={{ color: "var(--text)" }}>Fictional Paper Trading</h1>
-        <p className="text-sm mt-2" style={{ color: "var(--text-3)" }}>Start with {money(FICTIONAL_STARTING_CASH)} in simulated cash. Buy fractional shares, follow your returns, and climb the Fictional rankings.</p>
-        <p className="text-xs mt-1" style={{ color: "var(--text-3)" }}>Dedicated balance and rankings for Fictional stocks. Quotes update every 30 minutes, around the clock.</p>
-      </header>
-      <PaperTradeBanner />
+    <div className="fictional-paper-desk space-y-6">
 
-      {authRequired && <section className={card}>
+      {authRequired && view !== "rankings" && <section className={card}>
         <h2 className="text-lg font-semibold">Your multiverse portfolio starts here</h2>
         <p className="text-sm mt-2 mb-4" style={{ color: "var(--text-3)" }}>Sign in to receive your starting balance and place your first trade.</p>
         <Link href="/auth/login" className="btn-primary inline-flex px-5 py-2 rounded-lg text-sm">Sign in to trade</Link>
       </section>}
-      {error && <div role="alert" className={card} style={{ color: "var(--down)" }}>{error} <button onClick={() => void loadPortfolio()} className="underline ml-2">Retry</button></div>}
-      {!portfolio && !authRequired && !error && <div className="skeleton h-32 rounded-xl" aria-label="Loading portfolio" />}
+      {error && view !== "rankings" && <div role="alert" className={card} style={{ color: "var(--down)" }}>{error} <button onClick={() => void loadPortfolio()} className="underline ml-2">Retry</button></div>}
+      {!portfolio && !authRequired && !error && view !== "rankings" && <div className="skeleton h-32 rounded-xl" aria-label="Loading portfolio" />}
 
-      {portfolio && <>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {portfolio && view !== "rankings" && <>
+        {view === "overview" && <div className="portfolio-stats grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[["Portfolio value", portfolio.totalValue], ["Available cash", portfolio.cashBalance], ["Holdings value", portfolio.totalMarketValue], ["Total return", portfolio.totalPnl]].map(([label, value]) => (
             <section key={label as string} className="card rounded-xl p-4">
               <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>{label}</p>
@@ -164,13 +153,11 @@ export function FictionalPaperDesk({ initialTicker }: { initialTicker?: string }
               {label === "Total return" && portfolio.totalPnlPct !== null && <p className="text-xs mt-1" style={{ color: tone(portfolio.totalPnl) }}>{portfolio.totalPnlPct >= 0 ? "+" : ""}{portfolio.totalPnlPct.toFixed(2)}%</p>}
             </section>
           ))}
-        </div>
+        </div>}
         {portfolio.totalValue === null && <p role="status" className="text-xs" style={{ color: "var(--text-3)" }}>Some holding prices are unavailable. Totals will return when quotes recover.</p>}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start">
+        <div className={view === "overview" ? "fictional-desk-grid grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start" : "space-y-6"}>
           <section className={`${card} order-2 lg:order-1 overflow-hidden`}>
-            <div className="flex gap-5 mb-5 border-b pb-3" style={{ borderColor: "var(--border)" }}>
-              {(["holdings", "history", "rankings"] as const).map((view) => <button key={view} onClick={() => setTab(view)} aria-pressed={tab === view} className="text-sm font-semibold capitalize" style={{ color: tab === view ? "var(--accent)" : "var(--text-3)" }}>{view}</button>)}
-            </div>
+            <div className="flex justify-between gap-3 mb-5"><h2 className="font-semibold">{tab === "holdings" ? `Holdings (${portfolio.positions.length})` : tab === "history" ? "Trade history" : "Fictional leaderboard"}</h2><span className="text-xs" style={{ color: "var(--text-3)" }}>Fictional account</span></div>
             {tab === "holdings" && <>
               {!portfolio.positions.length && <div className="py-12 text-center"><p className="font-semibold">Your first investment awaits</p><p className="text-xs mt-2" style={{ color: "var(--text-3)" }}>Choose a company and buy as little as $1 of its shares.</p></div>}
               <div className="space-y-4">{portfolio.positions.map((position) => {
@@ -192,15 +179,9 @@ export function FictionalPaperDesk({ initialTicker }: { initialTicker?: string }
               </div>)}</div>
               {hasMore && <button disabled={historyBusy} className="mt-4 text-xs underline" onClick={() => void loadHistory(historyPage + 1)}>{historyBusy ? "Loading…" : "Load more trades"}</button>}
             </>}
-            {tab === "rankings" && <>
-              <p className="text-xs mb-4" style={{ color: "var(--text-3)" }}>Top 50 Fictional investors{myRank ? ` · Your rank: #${myRank}` : " · Place a trade to join"}</p>
-              {rankError && <p role="alert" className="text-sm" style={{ color: "var(--down)" }}>{rankError} <button className="underline" onClick={() => void loadRankings()}>Retry</button></p>}
-              {!rankings.length && !rankError && <p className="text-sm py-10 text-center" style={{ color: "var(--text-3)" }}>{rankLoaded ? "Be the first Fictional investor on the board." : "Loading rankings…"}</p>}
-              <div className="space-y-3">{rankings.map((entry) => <div key={entry.rank} className="flex items-center gap-3 text-sm rounded-lg px-3 py-3" style={{ background: entry.isMe ? "var(--accent-dim)" : "var(--surface)" }}><span className="w-6 font-bold" style={{ color: "var(--accent)" }}>#{entry.rank}</span><span className="flex-1">{entry.name}{entry.isMe ? " (you)" : ""}</span><div className="text-right"><p className="font-semibold">{money(entry.totalValue)}</p><p className="text-xs" style={{ color: tone(entry.pnl) }}>{entry.pnlPct >= 0 ? "+" : ""}{entry.pnlPct.toFixed(2)}%</p></div></div>)}</div>
-            </>}
           </section>
 
-          <form onSubmit={submitOrder} className={`${card} order-1 lg:order-2 space-y-4`}>
+          {view === "overview" && <form onSubmit={submitOrder} className={`${card} fictional-order-form order-1 lg:order-2 space-y-4`}>
             <div className="flex items-center gap-3"><FictionalTickerMark ticker={ticker} color={company.color} accent={company.accent} /><div className="min-w-0"><h2 className="font-semibold">Trade Fictional stocks</h2><p className="text-xs truncate" style={{ color: "var(--text-3)" }}>{company.name}</p></div></div>
             <label className="block text-xs space-y-2"><span>Company</span><select aria-label="Company" disabled={locked} value={ticker} onChange={(event) => changeOrder(() => { setTicker(event.target.value); setAmount(""); setUnit("dollars"); })} className="w-full rounded-lg p-2.5 text-sm" style={inputStyle}>{fictionalCompanies.map((stock) => <option value={stock.ticker} key={stock.ticker}>{stock.ticker} · {stock.name}</option>)}</select></label>
             <div><p className="text-3xl font-bold">{money(price)}</p><p className="text-[11px] mt-1" style={{ color: "var(--text-3)" }}>{quote ? `Quote as of ${new Date(quote.fetched_at).toLocaleString()}` : "Waiting for a stored quote"}</p></div>
@@ -212,12 +193,34 @@ export function FictionalPaperDesk({ initialTicker }: { initialTicker?: string }
             {!fresh && <p role="status" className="text-xs" style={{ color: "var(--down)" }}>Trading paused while the quote refreshes.</p>}
             {validAmount && !affordable && <p className="text-xs" style={{ color: "var(--down)" }}>{side === "buy" ? "Insufficient available cash." : "Not enough shares to sell."}</p>}
             {tradeError && <p role="alert" className="text-xs" style={{ color: "var(--down)" }}>{tradeError}</p>}
-            <button disabled={busy || (!pendingOrder && (!fresh || !validAmount || !affordable))} className="w-full rounded-lg py-3 text-sm font-bold disabled:opacity-40" style={{ background: "var(--accent)", color: "#fff" }}>{busy ? "Confirming…" : pendingOrder ? "Retry same order" : `${side === "buy" ? "Buy" : "Sell"} ${ticker}`}</button>
+            <button disabled={busy || (!pendingOrder && (!fresh || !validAmount || !affordable))} className="w-full rounded-lg py-3 text-sm font-bold disabled:opacity-40" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>{busy ? "Confirming…" : pendingOrder ? "Retry same order" : `${side === "buy" ? "Buy" : "Sell"} ${ticker}`}</button>
             <p className="text-[10px] leading-relaxed" style={{ color: "var(--text-3)" }}>Orders execute at the latest stored quote. Your final fill may differ from this estimate.</p>
             {lastTrade && <div role="status" className="rounded-lg p-3 text-xs space-y-1" style={{ background: "var(--up-dim)", color: "var(--up)" }}><p className="font-semibold">{lastTrade.side === "buy" ? "Bought" : "Sold"} {quantity(lastTrade.shares)} {lastTrade.ticker}</p><p>{money(lastTrade.price)} per share · Total {money(lastTrade.total)}</p><p>Available cash {money(lastTrade.cash_balance_after)}</p></div>}
-          </form>
+          </form>}
         </div>
       </>}
+      {tab === "rankings" && (
+        <section className={card}>
+          <h2 className="font-semibold mb-4">Fictional leaderboard</h2>
+          <p className="text-xs mb-4" style={{ color: "var(--text-3)" }}>Top 50 Fictional investors{myRank ? ` · Your rank: #${myRank}` : " · Place a trade to join"}</p>
+          {rankError && <p role="alert" className="text-sm" style={{ color: "var(--down)" }}>{rankError} <button className="underline" onClick={() => void loadRankings()}>Retry</button></p>}
+          {!rankings.length && !rankError && <p className="text-sm py-10 text-center" style={{ color: "var(--text-3)" }}>{rankLoaded ? "Be the first Fictional investor on the board." : "Loading rankings…"}</p>}
+          <div className="space-y-3">
+            {rankings.map((entry) => (
+              <div key={entry.rank} className="flex items-center gap-3 text-sm rounded-lg px-3 py-3" style={{ background: entry.isMe ? "var(--accent-dim)" : "var(--surface)" }}>
+                <span className="w-6 font-bold" style={{ color: "var(--accent)" }}>#{entry.rank}</span>
+                <span className="flex-1">{entry.name}{entry.isMe ? " (you)" : ""}</span>
+                <div className="text-right">
+                  <p className="font-semibold">{money(entry.totalValue)}</p>
+                  <p className="text-xs" style={{ color: tone(entry.pnl) }}>{entry.pnlPct >= 0 ? "+" : ""}{entry.pnlPct.toFixed(2)}%</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {view !== "overview" && <Link href={paperWorkspaceHref("fictional", "overview", initialTicker)} className="btn btn-secondary btn-sm">Back to portfolio & trading</Link>}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { FictionalPaperDesk } from "@/components/FictionalPaperDesk";
+import { redirect } from "next/navigation";
+import { paperWorkspaceHref } from "@/lib/paper-workspace";
 
 export const metadata: Metadata = {
   title: "Fictional Paper Trading",
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 
 export default async function FictionalPaperPage({ searchParams }: { searchParams: Promise<{ ticker?: string }> }) {
   const { ticker } = await searchParams;
-  return <FictionalPaperDesk initialTicker={ticker?.toUpperCase()} />;
+  redirect(paperWorkspaceHref("fictional", "overview", ticker));
 }

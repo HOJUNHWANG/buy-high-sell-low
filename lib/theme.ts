@@ -1,82 +1,6 @@
 export const THEMES = [
-  {
-    id: "midnight",
-    label: "Midnight",
-    description: "Focused dark",
-    swatches: ["#060608", "#7c6cfc", "#34d399"],
-  },
-  {
-    id: "aurora",
-    label: "Aurora",
-    description: "Cool green",
-    swatches: ["#071411", "#2dd4bf", "#67e8f9"],
-  },
-  {
-    id: "dusk",
-    label: "Dusk",
-    description: "Warm violet",
-    swatches: ["#120b1e", "#c084fc", "#f0abfc"],
-  },
-  {
-    id: "light",
-    label: "Light",
-    description: "Clean and bright",
-    swatches: ["#f5f7fb", "#4f46e5", "#0f9f6e"],
-  },
-  {
-    id: "white-gold",
-    label: "White & Gold",
-    description: "Warm ivory",
-    swatches: ["#fffdf7", "#a97912", "#e0bd5a"],
-  },
-  {
-    id: "black-gold",
-    label: "Black & Gold",
-    description: "Classic luxury",
-    swatches: ["#080706", "#d4a72c", "#f2d675"],
-  },
-  {
-    id: "black-red",
-    label: "Black & Red",
-    description: "Bold contrast",
-    swatches: ["#080606", "#dc2626", "#fb7185"],
-  },
-  {
-    id: "pastel-light",
-    label: "Light Pastel",
-    description: "Soft and airy",
-    swatches: ["#fbf8ff", "#8b7bb8", "#e6a8c7"],
-  },
-  {
-    id: "pastel-rose",
-    label: "Pastel Rose",
-    description: "Blush and berry",
-    swatches: ["#fff5f7", "#a64d6a", "#d69aae"],
-  },
-  {
-    id: "pastel-mint",
-    label: "Pastel Mint",
-    description: "Fresh and calm",
-    swatches: ["#f3fbf7", "#3f7f6a", "#91c9b4"],
-  },
-  {
-    id: "pastel-sky",
-    label: "Pastel Sky",
-    description: "Clear and serene",
-    swatches: ["#f4f8ff", "#526f9c", "#9db6d8"],
-  },
-  {
-    id: "pastel-peach",
-    label: "Pastel Peach",
-    description: "Warm and gentle",
-    swatches: ["#fff8f2", "#a75f43", "#dfaa86"],
-  },
-  {
-    id: "pastel-dark",
-    label: "Dark Pastel",
-    description: "Muted night",
-    swatches: ["#17151e", "#b6a4df", "#82c5b6"],
-  },
+  { id: "midnight", label: "Dark", swatches: ["#060608", "#7c6cfc"] },
+  { id: "light", label: "Light", swatches: ["#f5f7fb", "#4f46e5"] },
 ] as const;
 
 export type ThemeId = (typeof THEMES)[number]["id"];
@@ -84,7 +8,7 @@ export type ThemeId = (typeof THEMES)[number]["id"];
 export const DEFAULT_THEME: ThemeId = "midnight";
 export const THEME_STORAGE_KEY = "bhsl-theme";
 export const THEME_PREFERENCE_STORAGE_KEY = "bhsl-theme-preference-v2";
-const LEGACY_DATABASE_THEME_IDS = new Set<ThemeId>([
+const LEGACY_DATABASE_THEME_IDS = new Set<string>([
   "midnight",
   "aurora",
   "dusk",
@@ -106,6 +30,20 @@ export function isThemeId(value: unknown): value is ThemeId {
   return typeof value === "string" && THEMES.some((theme) => theme.id === value);
 }
 
+// Keep stored account preferences compatible while exposing only two themes.
+const LEGACY_THEME_MAP: Record<string, ThemeId> = {
+  dark: "midnight", aurora: "midnight", dusk: "midnight",
+  "black-gold": "midnight", "black-red": "midnight", "pastel-dark": "midnight",
+  "white-gold": "light", "pastel-light": "light", "pastel-rose": "light",
+  "pastel-mint": "light", "pastel-sky": "light", "pastel-peach": "light",
+};
+
+export function normalizeThemeId(value: unknown): ThemeId | null {
+  if (isThemeId(value)) return value;
+  return typeof value === "string" && Object.hasOwn(LEGACY_THEME_MAP, value)
+    ? LEGACY_THEME_MAP[value] : null;
+}
+
 function isValidTimestamp(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && Number.isFinite(Date.parse(value));
 }
@@ -115,13 +53,14 @@ export function parseThemePreference(value: unknown): ThemePreference | null {
   if (!value || typeof value !== "object") return null;
 
   const candidate = value as Record<string, unknown>;
-  if (!isThemeId(candidate.theme) || !isValidTimestamp(candidate.updatedAt)) return null;
+  const theme = normalizeThemeId(candidate.theme);
+  if (!theme || !isValidTimestamp(candidate.updatedAt)) return null;
   if (candidate.userId !== null && candidate.userId !== undefined && typeof candidate.userId !== "string") {
     return null;
   }
 
   return {
-    theme: candidate.theme,
+    theme,
     updatedAt: candidate.updatedAt,
     userId: typeof candidate.userId === "string" && candidate.userId.length > 0
       ? candidate.userId
@@ -150,10 +89,11 @@ export function readStoredThemePreference(
     }
   }
 
-  if (!isThemeId(legacyTheme) || !isValidTimestamp(migratedAt)) return null;
+  const theme = normalizeThemeId(legacyTheme);
+  if (!theme || !isValidTimestamp(migratedAt)) return null;
   return {
-    theme: legacyTheme,
-    updatedAt: LEGACY_DATABASE_THEME_IDS.has(legacyTheme)
+    theme,
+    updatedAt: LEGACY_DATABASE_THEME_IDS.has(legacyTheme ?? "")
       ? LEGACY_SYNCED_TIMESTAMP
       : migratedAt,
     userId: null,
@@ -220,7 +160,11 @@ export function resolveThemePreference(
   return { preference: remoteForUser, source: "remote" };
 }
 
-const themeIdsForBoot = JSON.stringify(THEMES.map(({ id }) => id));
+const themeMapForBoot = JSON.stringify({
+  ...LEGACY_THEME_MAP,
+  midnight: "midnight",
+  light: "light",
+});
 
-/** Runs before the interactive provider to avoid a default-theme flash. */
-export const THEME_BOOT_SCRIPT = `(()=>{try{const a=${themeIdsForBoot};let t=null;const r=localStorage.getItem(${JSON.stringify(THEME_PREFERENCE_STORAGE_KEY)});if(r){try{const p=JSON.parse(r);if(p&&a.includes(p.theme))t=p.theme}catch{}}if(!t){const l=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(a.includes(l))t=l}if(t)document.documentElement.dataset.theme=t}catch{}})();`;
+/** Runs before the interactive provider, including migration of retired colors. */
+export const THEME_BOOT_SCRIPT = `(()=>{try{const m=${themeMapForBoot};const n=v=>typeof v==="string"&&Object.hasOwn(m,v)?m[v]:null;let t=null;const r=localStorage.getItem(${JSON.stringify(THEME_PREFERENCE_STORAGE_KEY)});if(r){try{const p=JSON.parse(r);if(p&&Number.isFinite(Date.parse(p.updatedAt)))t=n(p.theme)}catch{}}if(!t)t=n(localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)}));if(t)document.documentElement.dataset.theme=t}catch{}})();`;

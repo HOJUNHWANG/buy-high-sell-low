@@ -4,6 +4,8 @@ import { MobileNav } from "@/components/MobileNav";
 import { SearchBar } from "@/components/SearchBar";
 import { UserMenu } from "@/components/UserMenu";
 import { ThemePicker } from "@/components/ThemePicker";
+import { DesignToggle } from "@/components/DesignToggle";
+import { WorkspaceNavigation, WorkspaceLocation } from "@/components/WorkspaceNavigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function Navbar() {
@@ -12,18 +14,16 @@ export async function Navbar() {
   const isAdmin = Boolean(process.env.ADMIN_EMAIL && user?.email === process.env.ADMIN_EMAIL);
 
   return (
-    <header
-      className="sticky top-0 z-50"
+    <><a href="#main-content" className="skip-link">Skip to content</a><WorkspaceNavigation isAdmin={isAdmin} /><header
+      className="app-header sticky top-0 z-50"
       style={{
         background: "var(--header-bg)",
-        backdropFilter: "blur(20px) saturate(180%)",
-        WebkitBackdropFilter: "blur(20px) saturate(180%)",
         borderBottom: "1px solid var(--border)",
       }}
     >
-      <div className="max-w-7xl mx-auto px-5 h-14 flex items-center gap-5">
+      <div className="app-header-inner max-w-7xl mx-auto px-5 h-14 flex items-center gap-5">
         {/* Logo */}
-        <Link href="/" className="text-sm font-bold tracking-tight shrink-0 flex items-center gap-1.5">
+        <Link href="/" className="header-brand text-sm font-bold tracking-tight shrink-0 flex items-center gap-1.5">
           <span
             className="w-5 h-5 rounded-md gradient-accent flex items-center justify-center text-[9px] font-black"
             style={{ color: "var(--on-accent)" }}
@@ -37,24 +37,25 @@ export async function Navbar() {
 
         {/* Desktop nav (client island — needs usePathname) */}
         <NavLinks isAdmin={isAdmin} />
+        <WorkspaceLocation />
 
         <div className="flex-1" />
 
         {/* Search */}
-        <div className="max-w-xs w-full hidden sm:block">
+        <div className="header-search max-w-xs w-full hidden sm:block">
           <SearchBar />
         </div>
 
         {/* User menu */}
-        <ThemePicker />
+        <div className="header-appearance"><DesignToggle /><ThemePicker /></div>
 
-        <div className="hidden sm:block">
+        <div className="header-user hidden sm:block">
           <UserMenu isAdmin={isAdmin} />
         </div>
 
         {/* Mobile hamburger + menu (client island — needs useState/usePathname) */}
         <MobileNav isAdmin={isAdmin} />
       </div>
-    </header>
+    </header></>
   );
 }

@@ -246,7 +246,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
   };
 
   return (
-    <div className="max-w-xl mx-auto px-5 py-8 space-y-5 fade-up">
+    <div className="real-order-desk max-w-xl mx-auto px-5 py-8 space-y-5 fade-up">
       <PaperTradeBanner />
 
       {/* Stock header */}

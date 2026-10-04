@@ -1,11 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LogoImage } from "@/components/LogoImage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { PaperTradeBanner } from "@/components/PaperTradeBanner";
 import { RoastCard } from "@/components/RoastCard";
 import { formatAssetPrice } from "@/lib/price-format";
 
@@ -84,7 +82,6 @@ function formatMoney(n: number): string {
 const ADMIN_ADJUSTMENT_AMOUNTS = [1000, 10000, 100000, 1000000];
 
 export default function PaperTradingPage() {
-  const router = useRouter();
   const supabase = createSupabaseBrowserClient();
   const [userId, setUserId] = useState<string | null>(null);
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -92,6 +89,7 @@ export default function PaperTradingPage() {
   const [liqStatus, setLiqStatus] = useState<LiquidationStatus | null>(null);
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [checkinResult, setCheckinResult] = useState<{ reward: number; streak: number; bonusMessage?: string } | null>(null);
   const [checkinDone, setCheckinDone] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
@@ -109,7 +107,7 @@ export default function PaperTradingPage() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) router.push("/auth/login");
+      if (!user) { setAuthed(false); setLoading(false); }
       else {
         setAuthed(true);
         setUserId(user.id);
@@ -119,7 +117,7 @@ export default function PaperTradingPage() {
           .catch(() => setIsAdmin(false));
       }
     });
-  }, [supabase, router]);
+  }, [supabase]);
 
   async function handleAdminRevive() {
     const res = await fetch("/api/paper/admin/revive", { method: "POST" });
@@ -142,27 +140,32 @@ export default function PaperTradingPage() {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const [portfolioRes, liqRes, challengeRes] = await Promise.all([
-      fetch("/api/paper/portfolio"),
-      fetch("/api/paper/liquidation"),
-      fetch("/api/paper/challenge"),
-    ]);
+    setLoadError("");
+    try {
+      const [portfolioRes, liqRes, challengeRes] = await Promise.all([
+        fetch("/api/paper/portfolio"),
+        fetch("/api/paper/liquidation"),
+        fetch("/api/paper/challenge"),
+      ]);
 
-    if (portfolioRes.ok) {
-      const data = await portfolioRes.json();
-      setPortfolio(data);
-      const today = new Date().toISOString().split("T")[0];
-      setCheckinDone(data.lastCheckin === today);
-    }
-    if (liqRes.ok) setLiqStatus(await liqRes.json());
-    if (challengeRes.ok) {
-      setChallengeError(null);
-      setChallenge(await challengeRes.json());
-    } else {
-      const err = await challengeRes.json().catch(() => null);
-      setChallengeError(err?.error ?? `Challenge unavailable (${challengeRes.status})`);
-    }
-    setLoading(false);
+      if (!portfolioRes.ok) throw new Error("Portfolio unavailable. Please try again.");
+      if (portfolioRes.ok) {
+        const data = await portfolioRes.json();
+        setPortfolio(data);
+        const today = new Date().toISOString().split("T")[0];
+        setCheckinDone(data.lastCheckin === today);
+      }
+      if (liqRes.ok) setLiqStatus(await liqRes.json());
+      if (challengeRes.ok) {
+        setChallengeError(null);
+        setChallenge(await challengeRes.json());
+      } else {
+        const err = await challengeRes.json().catch(() => null);
+        setChallengeError(err?.error ?? `Challenge unavailable (${challengeRes.status})`);
+      }
+    } catch (failure) {
+      setLoadError(failure instanceof Error ? failure.message : "Unable to load portfolio.");
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
@@ -244,11 +247,26 @@ export default function PaperTradingPage() {
     }
   }
 
+  if (authed === false) return (
+    <section className="card p-6 sm:p-10 text-center space-y-4">
+      <p className="page-kicker">START WITH $1,000 IN SIMULATED CASH</p>
+      <h2 className="text-2xl font-semibold">Your next idea starts here.</h2>
+      <p className="text-sm" style={{ color: "var(--text-2)" }}>Sign in to trade stocks and crypto, track your returns, and join the leaderboard.</p>
+      <Link href="/auth/login" className="btn btn-primary">Sign in to trade</Link>
+    </section>
+  );
+  if (loadError) return (
+    <section className="card p-6 space-y-3" role="alert">
+      <p>{loadError}</p>
+      <button onClick={() => void loadAll()} className="btn btn-secondary btn-sm">Retry</button>
+    </section>
+  );
+
   if (authed === null || loading) {
     return (
       <div className="max-w-4xl mx-auto px-5 py-8 space-y-4">
         <div className="skeleton h-8 w-48" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="portfolio-stats grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[...Array(4)].map((_, i) => <div key={i} className="skeleton h-20 rounded-xl" />)}
         </div>
         <div className="skeleton h-64 rounded-xl" />
@@ -261,7 +279,6 @@ export default function PaperTradingPage() {
     const isSuspended = liqStatus?.status === "suspended";
     return (
       <div className="max-w-2xl mx-auto px-5 py-8 space-y-6 fade-up">
-        <PaperTradeBanner />
         <div className="text-center space-y-3">
           <div className="text-5xl">{isSuspended ? "\u{1F6AB}" : "\u{1F480}"}</div>
           <h1 className="text-2xl font-bold" style={{ color: isSuspended ? "var(--text)" : "var(--down)" }}>
@@ -317,7 +334,7 @@ export default function PaperTradingPage() {
               ⚡ Admin
             </p>
             <button onClick={handleAdminRevive} className="btn btn-sm"
-              style={{ background: "var(--accent)", color: "#fff" }}>
+              style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
               Force Revive
             </button>
             {adminMsg && <p className="text-xs font-medium" style={{ color: "var(--accent)" }}>{adminMsg}</p>}
@@ -353,9 +370,7 @@ export default function PaperTradingPage() {
   const COLORS = ["#7c6cfc", "#4ade80", "#f87171", "#fbbf24", "#38bdf8", "#c084fc", "#fb7185", "#34d399"];
 
   return (
-    <div className="max-w-4xl mx-auto px-5 py-8 space-y-6 fade-up">
-      <PaperTradeBanner />
-
+    <div className="real-paper-dashboard space-y-6 fade-up">
       {/* Margin Call Warning */}
       {liqStatus?.status === "margin_call" && (
         <div className="rounded-xl p-4 text-center animate-pulse"
@@ -383,8 +398,7 @@ export default function PaperTradingPage() {
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Paper Trading</h1>
-            <Link href="/fictional-market/paper" className="inline-block mt-2 text-xs nav-link">Try Fictional stocks with a separate portfolio →</Link>
+            <h2 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Portfolio</h2>
             <button
               onClick={() => { setShowSettings(true); setNewNickname(portfolio.nickname || ""); setNicknameError(""); }}
               className="text-[10px] font-semibold px-2 py-1 rounded"
@@ -394,7 +408,7 @@ export default function PaperTradingPage() {
             </button>
           </div>
           <p className="text-xs mt-0.5" style={{ color: "var(--text-2)" }}>
-            For those too cowardly to risk real money...
+            Your stocks & crypto portfolio, at a glance.
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -447,290 +461,294 @@ export default function PaperTradingPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Holdings */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Weekly Challenge — Error / Retry */}
-          {!challenge && challengeError && (
-            <div className="rounded-xl p-4 text-center space-y-2"
-              style={{ background: "var(--surface-2)", border: "1px dashed var(--border-md)" }}>
-              <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>
-                Weekly Prediction
-              </p>
-              <p className="text-xs" style={{ color: "var(--text-2)" }}>{challengeError}</p>
-              <button
-                onClick={retryChallenge}
-                disabled={challengeRetrying}
-                className="btn btn-primary btn-sm"
-              >
-                {challengeRetrying ? "Retrying..." : "Retry"}
-              </button>
-            </div>
-          )}
-          {/* Weekly Challenge — Prediction */}
-          {challenge && challenge.picks && challenge.status === "active" && (
-            <div className="card-accent rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--accent)" }}>
-                  &#x1F3B0; Weekly Prediction
+        <div className="real-paper-main lg:col-span-2 space-y-4">
+          <div className="paper-challenges space-y-4">
+            {/* Weekly Challenge — Error / Retry */}
+            {!challenge && challengeError && (
+              <div className="rounded-xl p-4 text-center space-y-2"
+                style={{ background: "var(--surface-2)", border: "1px dashed var(--border-md)" }}>
+                <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>
+                  Weekly Prediction
                 </p>
-                <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
-                  Submit by {challenge.week_end} (Fri close)
-                </span>
-              </div>
-              <p className="text-xs" style={{ color: "var(--text-2)" }}>
-                Predict UP or DOWN for each. $100 per correct pick. 4+ correct = 1.5x, 5/5 = 2x!
-              </p>
-              <div className="space-y-2">
-                {challenge.picks.map((pick) => (
-                  <div key={pick.ticker} className="flex items-center justify-between rounded-lg p-2.5"
-                    style={{ background: "var(--surface-2)" }}>
-                    <div>
-                      <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{pick.ticker}</span>
-                      <span className="text-[10px] ml-2 tabular-nums" style={{ color: "var(--text-3)" }}>
-                        {formatAssetPrice(pick.base_price, pick.ticker)}
-                      </span>
-                      {pick.currentPct != null && (
-                        <span className="text-[10px] ml-1 tabular-nums"
-                          style={{ color: pick.currentPct >= 0 ? "var(--up)" : "var(--down)" }}>
-                          ({pick.currentPct >= 0 ? "+" : ""}{pick.currentPct.toFixed(2)}%)
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => setPredictions((prev) => ({ ...prev, [pick.ticker]: "up" }))}
-                        className="px-3 py-1 rounded text-[11px] font-semibold transition-all"
-                        style={{
-                          background: predictions[pick.ticker] === "up" ? "rgba(74,222,128,0.2)" : "var(--surface-3)",
-                          color: predictions[pick.ticker] === "up" ? "var(--up)" : "var(--text-3)",
-                          border: predictions[pick.ticker] === "up" ? "1px solid var(--up)" : "1px solid transparent",
-                        }}
-                      >
-                        &#x2B06; UP
-                      </button>
-                      <button
-                        onClick={() => setPredictions((prev) => ({ ...prev, [pick.ticker]: "down" }))}
-                        className="px-3 py-1 rounded text-[11px] font-semibold transition-all"
-                        style={{
-                          background: predictions[pick.ticker] === "down" ? "rgba(248,113,113,0.2)" : "var(--surface-3)",
-                          color: predictions[pick.ticker] === "down" ? "var(--down)" : "var(--text-3)",
-                          border: predictions[pick.ticker] === "down" ? "1px solid var(--down)" : "1px solid transparent",
-                        }}
-                      >
-                        &#x2B07; DOWN
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button
-                onClick={submitChallenge}
-                disabled={submittingChallenge || challenge.picks.some((p) => !predictions[p.ticker])}
-                className="btn btn-primary btn-sm btn-block"
-                style={{
-                  opacity: challenge.picks.every((p) => predictions[p.ticker]) ? 1 : 0.5,
-                }}
-              >
-                {submittingChallenge ? "Submitting..." : "Lock In Predictions"}
-              </button>
-            </div>
-          )}
-          {challenge && challenge.picks && challenge.status === "pending" && (
-            <div className="card-accent rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--accent)" }}>
-                  &#x1F3B0; Predictions Locked
-                </p>
-                <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
-                  Results on {challenge.week_end} (Fri close)
-                </span>
-              </div>
-              <div className="space-y-2">
-                {challenge.picks.map((pick) => (
-                  <div key={pick.ticker} className="flex items-center justify-between rounded-lg p-2.5"
-                    style={{ background: "var(--surface-2)" }}>
-                    <div>
-                      <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{pick.ticker}</span>
-                      <span className="text-[10px] ml-2 tabular-nums" style={{ color: "var(--text-3)" }}>
-                        {formatAssetPrice(pick.base_price, pick.ticker)}
-                      </span>
-                      {pick.currentPct != null && (
-                        <span className="text-[10px] ml-1 tabular-nums"
-                          style={{ color: pick.currentPct >= 0 ? "var(--up)" : "var(--down)" }}>
-                          ({pick.currentPct >= 0 ? "+" : ""}{pick.currentPct.toFixed(2)}%)
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded"
-                      style={{
-                        background: pick.direction === "up" ? "rgba(74,222,128,0.15)" : "rgba(248,113,113,0.15)",
-                        color: pick.direction === "up" ? "var(--up)" : "var(--down)",
-                      }}>
-                      {pick.direction === "up" ? "⬆ UP" : "⬇ DOWN"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {challenge && challenge.picks && challenge.status === "completed" && (
-            <div className="rounded-xl p-4 space-y-3"
-              style={{ background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.2)" }}>
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--up)" }}>
-                  &#x2705; Weekly Results
-                </p>
-                <span className="text-xs font-bold" style={{ color: "var(--up)" }}>
-                  {challenge.reward_usd > 0 ? `+$${challenge.reward_usd}` : "$0"}
-                </span>
-              </div>
-              <div className="space-y-1.5">
-                {challenge.picks.map((pick) => (
-                  <div key={pick.ticker} className="flex items-center justify-between rounded-lg p-2"
-                    style={{ background: "var(--surface-2)" }}>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">{pick.correct ? "✅" : "❌"}</span>
-                      <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{pick.ticker}</span>
-                      <span className="text-[10px] tabular-nums" style={{ color: "var(--text-3)" }}>
-                        {formatAssetPrice(pick.base_price, pick.ticker)} → {pick.final_price == null ? "?" : formatAssetPrice(pick.final_price, pick.ticker)}
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-semibold"
-                      style={{ color: pick.direction === "up" ? "var(--up)" : "var(--down)" }}>
-                      {pick.direction === "up" ? "⬆" : "⬇"} {pick.correct ? "$100" : "$0"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {/* Claim reward button — only if not yet claimed */}
-              {challenge.reward_usd > 0 && !challenge.claimed ? (
+                <p className="text-xs" style={{ color: "var(--text-2)" }}>{challengeError}</p>
                 <button
-                  onClick={claimReward}
-                  disabled={claimingReward}
-                  className="btn btn-primary btn-sm btn-block"
-                  style={{ background: "linear-gradient(135deg, var(--up), #22c55e)" }}
+                  onClick={retryChallenge}
+                  disabled={challengeRetrying}
+                  className="btn btn-primary btn-sm"
                 >
-                  {claimingReward ? "Claiming..." : `Claim $${challenge.reward_usd} Reward`}
+                  {challengeRetrying ? "Retrying..." : "Retry"}
                 </button>
-              ) : challenge.claimed ? (
-                <p className="text-[10px] text-center font-medium" style={{ color: "var(--up)" }}>
-                  &#x2705; Reward claimed!
+              </div>
+            )}
+            {/* Weekly Challenge — Prediction */}
+            {challenge && challenge.picks && challenge.status === "active" && (
+              <div className="card-accent rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--accent)" }}>
+                    &#x1F3B0; Weekly Prediction
+                  </p>
+                  <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
+                    Submit by {challenge.week_end} (Fri close)
+                  </span>
+                </div>
+                <p className="text-xs" style={{ color: "var(--text-2)" }}>
+                  Predict UP or DOWN for each. $100 per correct pick. 4+ correct = 1.5x, 5/5 = 2x!
                 </p>
-              ) : (
-                <p className="text-[10px] text-center" style={{ color: "var(--text-3)" }}>
-                  Better luck next week!
-                </p>
-              )}
-            </div>
-          )}
-          {challenge && challenge.status === "expired" && (
-            <div className="rounded-xl p-3 text-center"
-              style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
-              <p className="text-xs" style={{ color: "var(--text-3)" }}>
-                Weekly challenge expired. A new one will appear next Monday!
-              </p>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between">
-            <h2 className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>
-              Holdings ({portfolio.positions.length})
-            </h2>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleShare}
-                className="text-[11px] font-medium flex items-center gap-1"
-                style={{ color: "var(--text-3)" }}
-              >
-                <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-                </svg>
-                {shareMsg || "Share"}
-              </button>
-              <Link href="/paper/history" className="text-[11px] font-medium" style={{ color: "var(--accent)" }}>
-                Transaction History
-              </Link>
-            </div>
-          </div>
-
-          {portfolio.positions.length === 0 ? (
-            <div className="rounded-xl p-8 text-center" style={{ border: "1px dashed var(--border-md)" }}>
-              <p className="text-sm" style={{ color: "var(--text-2)" }}>No holdings yet.</p>
-              <Link href="/stocks" className="btn btn-primary btn-sm mt-3 inline-flex">
-                Make your first trade
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {portfolio.positions.map((p) => (
-                <Link
-                  key={p.ticker}
-                  href={`/paper/trade/${p.ticker}`}
-                  className="card-clickable rounded-xl p-4 flex flex-col gap-3"
-                >
-                  <div className="flex items-center gap-3 w-full">
-                    {p.logo_url && (
-                      <LogoImage src={p.logo_url} ticker={p.ticker} width={32} height={32}
-                        className="rounded-lg object-contain bg-white p-0.5 shrink-0"
-                        fallbackStyle={{ width: 32, height: 32, background: "var(--surface-3)", color: "var(--text-2)" }}
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{p.ticker}</span>
-                        {p.side === "short" && (
-                          <span className="text-[9px] font-bold px-1 py-0.5 rounded"
-                            style={{ background: "rgba(249,115,22,0.15)", color: "#f97316" }}>
-                            SHORT
+                <div className="space-y-2">
+                  {challenge.picks.map((pick) => (
+                    <div key={pick.ticker} className="flex items-center justify-between rounded-lg p-2.5"
+                      style={{ background: "var(--surface-2)" }}>
+                      <div>
+                        <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{pick.ticker}</span>
+                        <span className="text-[10px] ml-2 tabular-nums" style={{ color: "var(--text-3)" }}>
+                          {formatAssetPrice(pick.base_price, pick.ticker)}
+                        </span>
+                        {pick.currentPct != null && (
+                          <span className="text-[10px] ml-1 tabular-nums"
+                            style={{ color: pick.currentPct >= 0 ? "var(--up)" : "var(--down)" }}>
+                            ({pick.currentPct >= 0 ? "+" : ""}{pick.currentPct.toFixed(2)}%)
                           </span>
                         )}
-                        {p.leverage > 1 && (
-                          <span className="text-[9px] font-bold px-1 py-0.5 rounded"
-                            style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
-                            {p.leverage}x
-                          </span>
-                        )}
-                        <span className="text-xs truncate" style={{ color: "var(--text-3)" }}>{p.name}</span>
                       </div>
-                      <p className="text-[11px]" style={{ color: "var(--text-3)" }}>
-                        {p.shares.toFixed(4)} shares @ {formatAssetPrice(p.avg_cost, p.ticker)}
-                      </p>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => setPredictions((prev) => ({ ...prev, [pick.ticker]: "up" }))}
+                          className="px-3 py-1 rounded text-[11px] font-semibold transition-all"
+                          style={{
+                            background: predictions[pick.ticker] === "up" ? "rgba(74,222,128,0.2)" : "var(--surface-3)",
+                            color: predictions[pick.ticker] === "up" ? "var(--up)" : "var(--text-3)",
+                            border: predictions[pick.ticker] === "up" ? "1px solid var(--up)" : "1px solid transparent",
+                          }}
+                        >
+                          &#x2B06; UP
+                        </button>
+                        <button
+                          onClick={() => setPredictions((prev) => ({ ...prev, [pick.ticker]: "down" }))}
+                          className="px-3 py-1 rounded text-[11px] font-semibold transition-all"
+                          style={{
+                            background: predictions[pick.ticker] === "down" ? "rgba(248,113,113,0.2)" : "var(--surface-3)",
+                            color: predictions[pick.ticker] === "down" ? "var(--down)" : "var(--text-3)",
+                            border: predictions[pick.ticker] === "down" ? "1px solid var(--down)" : "1px solid transparent",
+                          }}
+                        >
+                          &#x2B07; DOWN
+                        </button>
+                      </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-semibold tabular-nums" style={{ color: "var(--text)" }}>
-                        {formatMoney(p.marketValue)}
-                      </p>
-                      <p className="text-xs font-medium tabular-nums"
-                        style={{ color: p.pnl >= 0 ? "var(--up)" : "var(--down)" }}>
-                        {p.pnl >= 0 ? "+" : ""}{formatMoney(p.pnl)} ({p.pnlPct >= 0 ? "+" : ""}{p.pnlPct.toFixed(2)}%)
-                      </p>
+                  ))}
+                </div>
+                <button
+                  onClick={submitChallenge}
+                  disabled={submittingChallenge || challenge.picks.some((p) => !predictions[p.ticker])}
+                  className="btn btn-primary btn-sm btn-block"
+                  style={{
+                    opacity: challenge.picks.every((p) => predictions[p.ticker]) ? 1 : 0.5,
+                  }}
+                >
+                  {submittingChallenge ? "Submitting..." : "Lock In Predictions"}
+                </button>
+              </div>
+            )}
+            {challenge && challenge.picks && challenge.status === "pending" && (
+              <div className="card-accent rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--accent)" }}>
+                    &#x1F3B0; Predictions Locked
+                  </p>
+                  <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
+                    Results on {challenge.week_end} (Fri close)
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {challenge.picks.map((pick) => (
+                    <div key={pick.ticker} className="flex items-center justify-between rounded-lg p-2.5"
+                      style={{ background: "var(--surface-2)" }}>
+                      <div>
+                        <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{pick.ticker}</span>
+                        <span className="text-[10px] ml-2 tabular-nums" style={{ color: "var(--text-3)" }}>
+                          {formatAssetPrice(pick.base_price, pick.ticker)}
+                        </span>
+                        {pick.currentPct != null && (
+                          <span className="text-[10px] ml-1 tabular-nums"
+                            style={{ color: pick.currentPct >= 0 ? "var(--up)" : "var(--down)" }}>
+                            ({pick.currentPct >= 0 ? "+" : ""}{pick.currentPct.toFixed(2)}%)
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded"
+                        style={{
+                          background: pick.direction === "up" ? "rgba(74,222,128,0.15)" : "rgba(248,113,113,0.15)",
+                          color: pick.direction === "up" ? "var(--up)" : "var(--down)",
+                        }}>
+                        {pick.direction === "up" ? "⬆ UP" : "⬇ DOWN"}
+                      </span>
                     </div>
-                  </div>
-                  
-                  {/* Position Health Bar for Leveraged Trades */}
-                  {p.leverage > 1 && (
-                    <div className="w-full pt-2 mt-1 border-t" style={{ borderColor: "var(--border)" }}>
-                      <div className="flex justify-between text-[10px] mb-1">
-                        <span style={{ color: "var(--text-3)" }}>Risk Health (Equity vs Debt)</span>
-                        <span style={{ color: (p.equity || 0) <= (p.borrowed || 0) * 0.1 ? "var(--down)" : "var(--text-2)", fontWeight: "bold" }}>
-                          {(p.equity || 0) <= 0 ? "🚨 Margin Call" : (p.equity || 0) <= (p.borrowed || 0) * 0.1 ? "⚠️ High Risk" : "OK"}
+                  ))}
+                </div>
+              </div>
+            )}
+            {challenge && challenge.picks && challenge.status === "completed" && (
+              <div className="rounded-xl p-4 space-y-3"
+                style={{ background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.2)" }}>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--up)" }}>
+                    &#x2705; Weekly Results
+                  </p>
+                  <span className="text-xs font-bold" style={{ color: "var(--up)" }}>
+                    {challenge.reward_usd > 0 ? `+$${challenge.reward_usd}` : "$0"}
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {challenge.picks.map((pick) => (
+                    <div key={pick.ticker} className="flex items-center justify-between rounded-lg p-2"
+                      style={{ background: "var(--surface-2)" }}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">{pick.correct ? "✅" : "❌"}</span>
+                        <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>{pick.ticker}</span>
+                        <span className="text-[10px] tabular-nums" style={{ color: "var(--text-3)" }}>
+                          {formatAssetPrice(pick.base_price, pick.ticker)} → {pick.final_price == null ? "?" : formatAssetPrice(pick.final_price, pick.ticker)}
                         </span>
                       </div>
-                      <div className="h-1.5 rounded-full overflow-hidden flex bg-gray-700 w-full relative">
-                        <div style={{
-                          width: `${Math.max(0, Math.min(100, ((p.equity || 0) / ((p.equity || 0) + (p.borrowed || 0))) * 100))}%`,
-                          background: (p.equity || 0) <= (p.borrowed || 0) * 0.1 ? "var(--down)" : "var(--up)"
-                        }} />
+                      <span className="text-[10px] font-semibold"
+                        style={{ color: pick.direction === "up" ? "var(--up)" : "var(--down)" }}>
+                        {pick.direction === "up" ? "⬆" : "⬇"} {pick.correct ? "$100" : "$0"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {/* Claim reward button — only if not yet claimed */}
+                {challenge.reward_usd > 0 && !challenge.claimed ? (
+                  <button
+                    onClick={claimReward}
+                    disabled={claimingReward}
+                    className="btn btn-primary btn-sm btn-block"
+                    style={{ background: "linear-gradient(135deg, var(--up), #22c55e)" }}
+                  >
+                    {claimingReward ? "Claiming..." : `Claim $${challenge.reward_usd} Reward`}
+                  </button>
+                ) : challenge.claimed ? (
+                  <p className="text-[10px] text-center font-medium" style={{ color: "var(--up)" }}>
+                    &#x2705; Reward claimed!
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-center" style={{ color: "var(--text-3)" }}>
+                    Better luck next week!
+                  </p>
+                )}
+              </div>
+            )}
+            {challenge && challenge.status === "expired" && (
+              <div className="rounded-xl p-3 text-center"
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+                <p className="text-xs" style={{ color: "var(--text-3)" }}>
+                  Weekly challenge expired. A new one will appear next Monday!
+                </p>
+              </div>
+            )}
+
+          </div>
+          <section className="paper-holdings space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>
+                Holdings ({portfolio.positions.length})
+              </h2>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleShare}
+                  className="text-[11px] font-medium flex items-center gap-1"
+                  style={{ color: "var(--text-3)" }}
+                >
+                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+                  </svg>
+                  {shareMsg || "Share"}
+                </button>
+                <Link href="/paper/history" className="text-[11px] font-medium" style={{ color: "var(--accent)" }}>
+                  Transaction History
+                </Link>
+              </div>
+            </div>
+
+            {portfolio.positions.length === 0 ? (
+              <div className="rounded-xl p-8 text-center" style={{ border: "1px dashed var(--border-md)" }}>
+                <p className="text-sm" style={{ color: "var(--text-2)" }}>No holdings yet.</p>
+                <Link href="/stocks" className="btn btn-primary btn-sm mt-3 inline-flex">
+                  Make your first trade
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {portfolio.positions.map((p) => (
+                  <Link
+                    key={p.ticker}
+                    href={`/paper/trade/${p.ticker}`}
+                    className="card-clickable rounded-xl p-4 flex flex-col gap-3"
+                  >
+                    <div className="flex items-center gap-3 w-full">
+                      {p.logo_url && (
+                        <LogoImage src={p.logo_url} ticker={p.ticker} width={32} height={32}
+                          className="rounded-lg object-contain bg-white p-0.5 shrink-0"
+                          fallbackStyle={{ width: 32, height: 32, background: "var(--surface-3)", color: "var(--text-2)" }}
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{p.ticker}</span>
+                          {p.side === "short" && (
+                            <span className="text-[9px] font-bold px-1 py-0.5 rounded"
+                              style={{ background: "rgba(249,115,22,0.15)", color: "#f97316" }}>
+                              SHORT
+                            </span>
+                          )}
+                          {p.leverage > 1 && (
+                            <span className="text-[9px] font-bold px-1 py-0.5 rounded"
+                              style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
+                              {p.leverage}x
+                            </span>
+                          )}
+                          <span className="text-xs truncate" style={{ color: "var(--text-3)" }}>{p.name}</span>
+                        </div>
+                        <p className="text-[11px]" style={{ color: "var(--text-3)" }}>
+                          {p.shares.toFixed(4)} shares @ {formatAssetPrice(p.avg_cost, p.ticker)}
+                        </p>
                       </div>
-                      <div className="flex justify-between text-[10px] mt-1 opacity-70">
-                        <span style={{ color: "var(--up)" }}>Eq: {formatMoney(p.equity || 0)}</span>
-                        <span style={{ color: "var(--down)" }}>Debt: {formatMoney(p.borrowed || 0)}</span>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-semibold tabular-nums" style={{ color: "var(--text)" }}>
+                          {formatMoney(p.marketValue)}
+                        </p>
+                        <p className="text-xs font-medium tabular-nums"
+                          style={{ color: p.pnl >= 0 ? "var(--up)" : "var(--down)" }}>
+                          {p.pnl >= 0 ? "+" : ""}{formatMoney(p.pnl)} ({p.pnlPct >= 0 ? "+" : ""}{p.pnlPct.toFixed(2)}%)
+                        </p>
                       </div>
                     </div>
-                  )}
-                </Link>
-              ))}
-            </div>
-          )}
+
+                    {/* Position Health Bar for Leveraged Trades */}
+                    {p.leverage > 1 && (
+                      <div className="w-full pt-2 mt-1 border-t" style={{ borderColor: "var(--border)" }}>
+                        <div className="flex justify-between text-[10px] mb-1">
+                          <span style={{ color: "var(--text-3)" }}>Risk Health (Equity vs Debt)</span>
+                          <span style={{ color: (p.equity || 0) <= (p.borrowed || 0) * 0.1 ? "var(--down)" : "var(--text-2)", fontWeight: "bold" }}>
+                            {(p.equity || 0) <= 0 ? "🚨 Margin Call" : (p.equity || 0) <= (p.borrowed || 0) * 0.1 ? "⚠️ High Risk" : "OK"}
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full overflow-hidden flex bg-gray-700 w-full relative">
+                          <div style={{
+                            width: `${Math.max(0, Math.min(100, ((p.equity || 0) / ((p.equity || 0) + (p.borrowed || 0))) * 100))}%`,
+                            background: (p.equity || 0) <= (p.borrowed || 0) * 0.1 ? "var(--down)" : "var(--up)"
+                          }} />
+                        </div>
+                        <div className="flex justify-between text-[10px] mt-1 opacity-70">
+                          <span style={{ color: "var(--up)" }}>Eq: {formatMoney(p.equity || 0)}</span>
+                          <span style={{ color: "var(--down)" }}>Debt: {formatMoney(p.borrowed || 0)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
 
         {/* Sidebar */}
@@ -829,14 +847,14 @@ export default function PaperTradingPage() {
               &times; CLOSE
             </button>
             <h2 className="text-lg font-bold" style={{ color: "var(--text)" }}>Settings</h2>
-            
+
             <div className="space-y-1">
               <label className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>Leaderboard Alias</label>
-              <input 
-                type="text" 
-                value={newNickname} 
+              <input
+                type="text"
+                value={newNickname}
                 onChange={(e) => setNewNickname(e.target.value)}
-                placeholder="e.g. StonksKing" 
+                placeholder="e.g. StonksKing"
                 className="input input-lg w-full"
                 maxLength={20}
               />

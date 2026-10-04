@@ -6,18 +6,14 @@ import { useState, useEffect } from "react";
 import { SearchBar } from "@/components/SearchBar";
 import { UserMenu } from "@/components/UserMenu";
 import { ThemePicker } from "@/components/ThemePicker";
-
-const navLinks = [
-  { href: "/",             label: "Home"         },
-  { href: "/stocks",       label: "Stocks"       },
-  { href: "/fictional-market", label: "Fictional" },
-  { href: "/news",         label: "News"         },
-  { href: "/market-brief", label: "Market Brief" },
-  { href: "/paper",        label: "Paper Trade"  },
-];
+import { DesignToggle } from "@/components/DesignToggle";
+import { navigation, isNavigationActive } from "@/lib/navigation";
+import { useDesign } from "@/components/DesignProvider";
 
 export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const { design } = useDesign();
+  const navLinks = navigation.map((item) => ({ href: item.href as string, label: (design === "2.0" ? item.label : item.originalLabel) as string }));
   const links = isAdmin
     ? [...navLinks, { href: "/admin/data-health", label: "Data Health" }]
     : navLinks;
@@ -35,11 +31,21 @@ export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
     return () => { document.body.style.overflow = ""; };
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setMenuOpen(false); };
+    const media = window.matchMedia(design === "2.0" ? "(min-width: 1024px)" : "(min-width: 1400px)");
+    const resize = () => { if (media.matches) setMenuOpen(false); };
+    window.addEventListener("keydown", close);
+    media.addEventListener("change", resize);
+    return () => { window.removeEventListener("keydown", close); media.removeEventListener("change", resize); };
+  }, [menuOpen, design]);
+
   return (
     <>
       <button
         onClick={() => setMenuOpen((o) => !o)}
-        className="sm:hidden p-2 rounded-lg transition-colors shrink-0"
+        className="mobile-menu-trigger p-2 rounded-lg transition-colors shrink-0"
         style={{ color: "var(--text-2)", background: menuOpen ? "var(--surface-2)" : "transparent" }}
         aria-label="Toggle menu"
         aria-expanded={menuOpen}
@@ -59,13 +65,13 @@ export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
         <>
           {/* Backdrop */}
           <div
-            className="sm:hidden fixed inset-0 z-40"
-            style={{ top: "56px", background: "var(--overlay)" }}
+            className="mobile-menu-backdrop fixed inset-0 z-40"
+            style={{ top: design === "2.0" ? "64px" : "56px", background: "var(--overlay)" }}
             onClick={() => setMenuOpen(false)}
           />
           {/* Dropdown panel — positioned absolutely below the sticky header */}
           <div
-            className="sm:hidden absolute top-full left-0 right-0 z-50 px-4 pb-6 pt-3 space-y-3 slide-down"
+            className="mobile-menu-panel absolute top-full left-0 right-0 z-50 px-4 pb-6 pt-3 space-y-3 slide-down"
             style={{
               borderTop: "1px solid var(--border)",
               background: "var(--header-bg)",
@@ -76,11 +82,12 @@ export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
             <SearchBar />
             <nav className="flex flex-col gap-0.5">
               {links.map(({ href, label }) => {
-                const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+                const active = isNavigationActive(pathname, href);
                 return (
                   <Link
                     key={href}
                     href={href}
+                    aria-current={active ? "page" : undefined}
                     onClick={() => setMenuOpen(false)}
                     className="px-3 py-3 rounded-lg text-sm font-medium transition-colors"
                     style={{
@@ -93,7 +100,7 @@ export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
                 );
               })}
             </nav>
-            <ThemePicker mobile />
+            <div className="flex flex-wrap gap-3"><DesignToggle /><ThemePicker mobile /></div>
             <div className="pt-2" style={{ borderTop: "1px solid var(--border)" }}>
               <UserMenu isAdmin={isAdmin} />
             </div>

@@ -187,7 +187,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     if (resolution.preference) {
       commitPreference(resolution.preference);
-      if (resolution.source === "local") {
+      if (resolution.source === "local" || data?.theme !== resolution.preference.theme) {
         queueRemoteSync(resolution.preference, true);
       }
       return;

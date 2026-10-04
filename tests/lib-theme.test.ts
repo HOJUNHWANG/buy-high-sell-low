@@ -8,6 +8,7 @@ import {
   THEME_STORAGE_KEY,
   THEMES,
   isThemeId,
+  normalizeThemeId,
   parseThemePreference,
   readStoredThemePreference,
   readThemePreferenceFromStorage,
@@ -44,22 +45,8 @@ afterEach(() => {
 describe("theme configuration", () => {
   it("ships a safe default and all selectable themes", () => {
     expect(DEFAULT_THEME).toBe("midnight");
-    expect(THEMES.map((theme) => theme.id)).toEqual([
-      "midnight",
-      "aurora",
-      "dusk",
-      "light",
-      "white-gold",
-      "black-gold",
-      "black-red",
-      "pastel-light",
-      "pastel-rose",
-      "pastel-mint",
-      "pastel-sky",
-      "pastel-peach",
-      "pastel-dark",
-    ]);
-    expect(THEMES.filter((theme) => theme.id.startsWith("pastel-"))).toHaveLength(6);
+    expect(THEMES.map((theme) => theme.id)).toEqual(["midnight", "light"]);
+    expect(THEMES.map((theme) => theme.label)).toEqual(["Dark", "Light"]);
   });
 
   it("defines CSS tokens for every non-default theme", () => {
@@ -71,14 +58,16 @@ describe("theme configuration", () => {
   });
 
   it("only accepts known theme identifiers", () => {
-    expect(isThemeId("aurora")).toBe(true);
-    expect(isThemeId("pastel-rose")).toBe(true);
-    expect(isThemeId("pastel-dark")).toBe(true);
+    expect(isThemeId("midnight")).toBe(true);
+    expect(isThemeId("light")).toBe(true);
+    expect(isThemeId("aurora")).toBe(false);
+    expect(isThemeId("pastel-rose")).toBe(false);
+    expect(isThemeId("pastel-dark")).toBe(false);
     expect(isThemeId("unknown-theme")).toBe(false);
     expect(isThemeId(null)).toBe(false);
   });
 
-  it("keeps the UI, bootstrap schema, and production allow-list in lockstep", () => {
+  it("keeps both selectable themes compatible with existing database constraints", () => {
     const expected = [...THEMES.map((theme) => theme.id)].sort();
     const schema = readFileSync(resolve(process.cwd(), "supabase/schema.sql"), "utf8");
     const migration = readFileSync(
@@ -89,14 +78,26 @@ describe("theme configuration", () => {
       "utf8",
     );
 
-    expect(themeIdsFromDatabaseCheck(schema).sort()).toEqual(expected);
-    expect(themeIdsFromDatabaseCheck(migration).sort()).toEqual(expected);
+    expect(themeIdsFromDatabaseCheck(schema)).toEqual(expect.arrayContaining(expected));
+    expect(themeIdsFromDatabaseCheck(migration)).toEqual(expect.arrayContaining(expected));
   });
 });
 
 describe("theme preference persistence", () => {
+  it("maps every retired palette into its corresponding dark or light mode", () => {
+    for (const theme of ["dark", "aurora", "dusk", "black-gold", "black-red", "pastel-dark"]) {
+      expect(normalizeThemeId(theme)).toBe("midnight");
+      expect(parseThemePreference({ theme, updatedAt: later, userId: "user-a" })).toEqual(preference("midnight", later));
+    }
+    for (const theme of ["white-gold", "pastel-light", "pastel-rose", "pastel-mint", "pastel-sky", "pastel-peach"]) {
+      expect(normalizeThemeId(theme)).toBe("light");
+      expect(parseThemePreference({ theme, updatedAt: later, userId: "user-a" })).toEqual(preference("light", later));
+    }
+    expect(normalizeThemeId("toString")).toBeNull();
+  });
+
   it("round-trips a valid versioned preference", () => {
-    const stored = preference("pastel-mint", later);
+    const stored = preference("light", later);
     expect(parseThemePreference(JSON.parse(serializeThemePreference(stored)))).toEqual(stored);
   });
 
@@ -108,13 +109,13 @@ describe("theme preference persistence", () => {
 
   it("migrates the legacy local value with the supplied migration time", () => {
     expect(readStoredThemePreference(null, "pastel-peach", later)).toEqual(
-      preference("pastel-peach", later, null),
+      preference("light", later, null),
     );
   });
 
   it("marks a legacy database-supported value as older than any remote row", () => {
     expect(readStoredThemePreference("{bad json", "dusk", later)).toEqual(
-      preference("dusk", "1970-01-01T00:00:00.000Z", null),
+      preference("midnight", "1970-01-01T00:00:00.000Z", null),
     );
   });
 
@@ -122,10 +123,10 @@ describe("theme preference persistence", () => {
     const legacy = readStoredThemePreference(null, "aurora", later);
     expect(resolveThemePreference(
       legacy,
-      preference("pastel-mint", earlier),
+      preference("light", earlier),
       "user-a",
     )).toEqual({
-      preference: preference("pastel-mint", earlier),
+      preference: preference("light", earlier),
       source: "remote",
     });
   });
@@ -147,52 +148,60 @@ describe("theme preference persistence", () => {
 
   it("uses the newest preference for the current account", () => {
     const localWins = resolveThemePreference(
-      preference("pastel-sky", later, null),
-      preference("aurora", earlier),
+      preference("light", later, null),
+      preference("midnight", earlier),
       "user-a",
     );
     expect(localWins).toEqual({
-      preference: preference("pastel-sky", later),
+      preference: preference("light", later),
       source: "local",
     });
 
     const remoteWins = resolveThemePreference(
       preference("midnight", earlier),
-      preference("pastel-rose", later),
+      preference("light", later),
       "user-a",
     );
     expect(remoteWins).toEqual({
-      preference: preference("pastel-rose", later),
+      preference: preference("light", later),
       source: "remote",
     });
   });
 
   it("does not carry another account's local preference into the current account", () => {
     const resolution = resolveThemePreference(
-      preference("aurora", later, "user-b"),
-      preference("pastel-mint", earlier, "user-a"),
+      preference("midnight", later, "user-b"),
+      preference("light", earlier, "user-a"),
       "user-a",
     );
     expect(resolution).toEqual({
-      preference: preference("pastel-mint", earlier, "user-a"),
+      preference: preference("light", earlier, "user-a"),
       source: "remote",
     });
   });
 });
 
 describe("pre-hydration theme boot", () => {
+  it("migrates retired palettes before the first paint", () => {
+    const dataset = {};
+    vi.stubGlobal("localStorage", { getItem: (key) => key === THEME_STORAGE_KEY ? "black-gold" : JSON.stringify({ theme: "pastel-mint", updatedAt: later }) });
+    vi.stubGlobal("document", { documentElement: { dataset } });
+    Function(THEME_BOOT_SCRIPT)();
+    expect(dataset.theme).toBe("light");
+  });
+
   it("applies the versioned local theme before React hydration", () => {
     const dataset: Record<string, string> = {};
     const values = new Map<string, string>([
       [THEME_STORAGE_KEY, "aurora"],
-      [THEME_PREFERENCE_STORAGE_KEY, serializeThemePreference(preference("pastel-rose", later))],
+      [THEME_PREFERENCE_STORAGE_KEY, serializeThemePreference(preference("light", later))],
     ]);
     vi.stubGlobal("localStorage", { getItem: (key: string) => values.get(key) ?? null });
     vi.stubGlobal("document", { documentElement: { dataset } });
 
     Function(THEME_BOOT_SCRIPT)();
 
-    expect(dataset.theme).toBe("pastel-rose");
+    expect(dataset.theme).toBe("light");
   });
 
   it("ignores invalid storage and leaves the CSS default intact", () => {

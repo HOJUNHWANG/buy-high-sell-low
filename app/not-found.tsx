@@ -19,7 +19,7 @@ export default function NotFound() {
         <Link
           href="/"
           className="text-xs font-semibold px-4 py-2 rounded-lg"
-          style={{ background: "var(--accent)", color: "#fff" }}
+          style={{ background: "var(--accent)", color: "var(--on-accent)" }}
         >
           Go home
         </Link>

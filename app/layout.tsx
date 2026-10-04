@@ -7,6 +7,7 @@ import { Disclaimer } from "@/components/Disclaimer";
 import { CookieBanner } from "@/components/CookieBanner";
 import { Analytics } from "@vercel/analytics/react";
 import { SITE_URL } from "@/lib/site-url";
+import { DESIGN_BOOT_SCRIPT } from "@/lib/design";
 
 const geist = Geist({ subsets: ["latin"] });
 
@@ -40,10 +41,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={geist.className} suppressHydrationWarning>
+      <head><script id="bhsl-design-init" dangerouslySetInnerHTML={{ __html: DESIGN_BOOT_SCRIPT }} /></head>
       <body className="min-h-screen flex flex-col" style={{ background: "var(--bg)", color: "var(--text)" }}>
         <Providers>
           <Navbar />
-          <main className="flex-1">{children}</main>
+          <main id="main-content" className="app-main flex-1">{children}</main>
           <Disclaimer />
           <CookieBanner />
         </Providers>

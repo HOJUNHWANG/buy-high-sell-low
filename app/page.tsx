@@ -17,6 +17,7 @@ import { gateSummaries } from "@/lib/summary-gate";
 import type { UserTier } from "@/lib/summary-gate";
 import { getAllStockPrices } from "@/lib/cached-data";
 import { getMarketStatus } from "@/lib/market-hours";
+import { MarketOverview } from "@/components/MarketOverview";
 
 async function getMovers(): Promise<{
   stockGainers: (StockPrice & { stocks: Stock })[];
@@ -105,10 +106,10 @@ export default async function HomePage() {
       ];
 
   return (
-    <div>
+    <div className="home-page">
       {/* ── Landing hero (guest only) ── */}
       {!user && (
-        <div className="hero-gradient relative overflow-hidden">
+        <div className="classic-home-hero hero-gradient relative overflow-hidden">
           <div className="max-w-7xl mx-auto px-5 pt-24 pb-20 text-center">
             <div
               className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-8 text-[11px] font-semibold uppercase tracking-wider scale-in"
@@ -171,12 +172,13 @@ export default async function HomePage() {
           </div>
         </div>
       )}
+      <Suspense fallback={<div className="design-v2-only max-w-7xl mx-auto px-5 py-8"><div className="skeleton h-64" /></div>}><MarketOverview /></Suspense>
 
       {/* ── 3-column layout ── */}
-      <div className="max-w-7xl mx-auto px-5 py-8" id="markets">
+      <div className="home-markets max-w-7xl mx-auto px-5 py-8" id="markets">
 
         {/* Page title — always visible */}
-        <div className="mb-8">
+        <div className="home-markets-title mb-8">
           <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text)" }}>
             Markets
           </h1>
@@ -187,10 +189,10 @@ export default async function HomePage() {
 
         <MarketClosedBanner />
 
-        <div className="flex gap-5 items-start">
+        <div className="home-layout flex gap-5 items-start">
 
           {/* ── Left sidebar ── */}
-          <aside className="hidden xl:flex flex-col gap-4 w-48 shrink-0 sticky top-16">
+          <aside className="home-context hidden xl:flex flex-col gap-4 w-48 shrink-0 sticky top-16">
             <MarketStatusWidget />
             <Suspense fallback={<div className="card rounded-xl p-3"><SidebarSkeleton /></div>}>
               <SectorWidget />
@@ -198,7 +200,7 @@ export default async function HomePage() {
           </aside>
 
           {/* ── Main content ── */}
-          <div className="flex-1 min-w-0">
+          <div className="home-feed flex-1 min-w-0">
 
             {/* Watchlist (logged-in only) */}
             {user && (
@@ -217,7 +219,7 @@ export default async function HomePage() {
             )}
 
             {/* Movers */}
-            <section className="mb-10">
+            <section className="home-movers mb-10">
               <div className="flex items-center justify-between mb-4">
                 <p
                   className="text-[11px] font-semibold uppercase tracking-widest"
@@ -238,7 +240,7 @@ export default async function HomePage() {
                   Market data unavailable — updates during trading hours (9:30 AM – 4:00 PM ET)
                 </div>
               ) : (
-                <div className="space-y-6">
+                <div className="home-mover-groups space-y-6">
                   {moverGroups.map((group) => (
                     group.gainers.length > 0 && (
                       <MoverGroup key={group.label} {...group} />
@@ -267,7 +269,7 @@ export default async function HomePage() {
                   No news yet.
                 </p>
               ) : (
-                <div className="space-y-2">
+                <div className="home-news-grid space-y-2">
                   {news.map((article) => (
                     <NewsCard key={article.id} article={article} isLoggedIn={!!user} />
                   ))}
@@ -296,7 +298,7 @@ export default async function HomePage() {
           </div>
 
           {/* ── Right sidebar ── */}
-          <aside className="hidden xl:flex flex-col gap-4 w-48 shrink-0 sticky top-16">
+          <aside className="home-insights hidden xl:flex flex-col gap-4 w-48 shrink-0 sticky top-16">
             <Suspense fallback={<div className="card rounded-xl p-3"><SidebarSkeleton /></div>}>
               <MarketStatsWidget />
             </Suspense>

@@ -2,15 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { navigation, isNavigationActive } from "@/lib/navigation";
 
-const navLinks = [
-  { href: "/",             label: "Home"         },
-  { href: "/stocks",       label: "Stocks"       },
-  { href: "/fictional-market", label: "Fictional" },
-  { href: "/news",         label: "News"         },
-  { href: "/market-brief", label: "Market Brief" },
-  { href: "/paper",        label: "Paper Trade"  },
-];
+const navLinks = navigation.filter((item) => item.href !== "/market-calendar").map((item) => ({ href: item.href as string, label: item.originalLabel as string }));
 
 export function NavLinks({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
@@ -18,14 +12,15 @@ export function NavLinks({ isAdmin = false }: { isAdmin?: boolean }) {
     ? [...navLinks, { href: "/admin/data-health", label: "Data Health" }]
     : navLinks;
   return (
-    <nav className="hidden md:flex items-center gap-0.5">
+    <nav className="classic-nav hidden md:flex items-center gap-0.5" aria-label="Main navigation">
       <div className="h-5 w-px mx-2" style={{ background: "var(--border-md)" }} />
       {links.map(({ href, label }) => {
-        const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+        const active = isNavigationActive(pathname, href);
         return (
           <Link
             key={href}
             href={href}
+            aria-current={active ? "page" : undefined}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all relative ${active ? "nav-link-active" : "nav-link"}`}
             style={{
               color:      active ? "var(--text)" : "var(--text-2)",
