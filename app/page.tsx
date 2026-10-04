@@ -172,7 +172,6 @@ export default async function HomePage() {
           </div>
         </div>
       )}
-      <Suspense fallback={<div className="design-v2-only max-w-7xl mx-auto px-5 py-8"><div className="skeleton h-64" /></div>}><MarketOverview /></Suspense>
 
       {/* ── 3-column layout ── */}
       <div className="home-markets max-w-7xl mx-auto px-5 py-8" id="markets">
@@ -190,14 +189,7 @@ export default async function HomePage() {
         <MarketClosedBanner />
 
         <div className="home-layout flex gap-5 items-start">
-
-          {/* ── Left sidebar ── */}
-          <aside className="home-context hidden xl:flex flex-col gap-4 w-48 shrink-0 sticky top-16">
-            <MarketStatusWidget />
-            <Suspense fallback={<div className="card rounded-xl p-3"><SidebarSkeleton /></div>}>
-              <SectorWidget />
-            </Suspense>
-          </aside>
+          <Suspense fallback={<div className="market-overview design-v2-only"><div className="skeleton h-64" /></div>}><MarketOverview /></Suspense>
 
           {/* ── Main content ── */}
           <div className="home-feed flex-1 min-w-0">
@@ -297,41 +289,51 @@ export default async function HomePage() {
             </section>
           </div>
 
-          {/* ── Right sidebar ── */}
-          <aside className="home-insights hidden xl:flex flex-col gap-4 w-48 shrink-0 sticky top-16">
-            <Suspense fallback={<div className="card rounded-xl p-3"><SidebarSkeleton /></div>}>
-              <MarketStatsWidget />
-            </Suspense>
-            <Suspense fallback={<div className="card rounded-xl p-3"><SidebarSkeleton /></div>}>
-              <SentimentWidget />
-            </Suspense>
+          <div className="home-sidebar">
+            {/* Market status and sectors lead the dashboard in 2.0. */}
+            <aside className="home-context hidden xl:flex flex-col gap-4 w-48 shrink-0 sticky top-16" aria-label="Market status and sectors">
+              <MarketStatusWidget />
+              <Suspense fallback={<div className="card rounded-xl p-3"><SidebarSkeleton /></div>}>
+                <SectorWidget />
+              </Suspense>
+            </aside>
 
-            {/* Quick links */}
-            <div className="card rounded-xl p-3 space-y-2">
-              <p
-                className="text-[10px] font-semibold uppercase tracking-widest"
-                style={{ color: "var(--text-3)" }}
-              >
-                Quick Links
-              </p>
-              {[
-                { href: "/stocks", label: "📊 Stock Screener" },
-                { href: "/news",   label: "📰 News Feed"      },
-                { href: "/paper",  label: "💰 Paper Trading" },
-                { href: "/market-calendar", label: "🗓️ Market Calendar" },
-                { href: "/auth/login", label: "⭐ My Watchlist" },
-              ].map(({ href, label }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className="block text-xs py-1 rounded transition-colors"
-                  style={{ color: "var(--text-2)" }}
+            {/* ── Market insights ── */}
+            <aside className="home-insights hidden xl:flex flex-col gap-4 w-48 shrink-0 sticky top-16">
+              <Suspense fallback={<div className="card rounded-xl p-3"><SidebarSkeleton /></div>}>
+                <MarketStatsWidget />
+              </Suspense>
+              <Suspense fallback={<div className="card rounded-xl p-3"><SidebarSkeleton /></div>}>
+                <SentimentWidget />
+              </Suspense>
+
+              {/* Quick links */}
+              <div className="card rounded-xl p-3 space-y-2">
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-widest"
+                  style={{ color: "var(--text-3)" }}
                 >
-                  {label}
-                </Link>
-              ))}
-            </div>
-          </aside>
+                  Quick Links
+                </p>
+                {[
+                  { href: "/stocks", label: "📊 Stock Screener" },
+                  { href: "/news",   label: "📰 News Feed"      },
+                  { href: "/paper",  label: "💰 Paper Trading" },
+                  { href: "/market-calendar", label: "🗓️ Market Calendar" },
+                  { href: "/auth/login", label: "⭐ My Watchlist" },
+                ].map(({ href, label }) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    className="block text-xs py-1 rounded transition-colors"
+                    style={{ color: "var(--text-2)" }}
+                  >
+                    {label}
+                  </Link>
+                ))}
+              </div>
+            </aside>
+          </div>
 
         </div>
       </div>
