@@ -21,7 +21,7 @@ export async function Navbar() {
         borderBottom: "1px solid var(--border)",
       }}
     >
-      <div className="app-header-inner max-w-7xl mx-auto px-5 h-14 flex items-center gap-5">
+      <div className="app-header-inner max-w-[1440px] mx-auto px-5 h-14 flex items-center gap-4">
         {/* Logo */}
         <Link href="/" className="header-brand text-sm font-bold tracking-tight shrink-0 flex items-center gap-1.5">
           <span
@@ -42,14 +42,14 @@ export async function Navbar() {
         <div className="flex-1" />
 
         {/* Search */}
-        <div className="header-search max-w-xs w-full hidden sm:block">
+        <div className="header-search hidden sm:block">
           <SearchBar />
         </div>
 
         {/* User menu */}
         <div className="header-appearance"><DesignToggle /><ThemePicker /></div>
 
-        <div className="header-user hidden sm:block">
+        <div className="header-user shrink-0 whitespace-nowrap hidden sm:block">
           <UserMenu isAdmin={isAdmin} />
         </div>
 
