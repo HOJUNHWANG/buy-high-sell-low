@@ -129,7 +129,11 @@ instead of GitHub's scheduled trigger to avoid delayed starts.
 | `audit_with_remediation.py` | Daily | Full market-data audit; on the second consecutive failure, refresh only affected canonical price/cap fields once and re-audit |
 | `seed_history.py` | Manual/bootstrap | 1Y daily chart history via yfinance |
 | `seed_etfs.py` | Manual/bootstrap | ETF metadata + 1Y daily history via Twelve Data, with yfinance fallback |
-| `cleanup.py` | Daily | Data retention (30d intraday, 1Y daily, 90d news) |
+| `cleanup.py` | Weekly | Data retention (30d intraday, 1Y daily, 90d news) |
+
+Price ingestion keeps its 10-minute cadence while batching database requests.
+See [Disk I/O optimization and validation](docs/disk-io-optimization.md) for the
+applied database changes, regression checks, and rollout status.
 
 The audit wrapper never copies its independent reference values into the
 database. The first failure is observation-only. A second consecutive failure

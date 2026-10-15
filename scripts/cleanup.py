@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from supabase import create_client
 from asset_retention import protected_inactive_tickers
+from market_storage import delete_with_count
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env.local"))
 load_dotenv()  # fallback to .env
@@ -39,8 +40,9 @@ def log_result(job: str, status: str, fetched: int, failed: int, error: str = ""
 
 
 def deleted_count(result) -> int:
-    """Supabase returns deleted rows only when the API is configured to do so."""
-    return len(result.data) if result.data else 0
+    """Count deletions without transferring every expired row from Postgres."""
+    count = getattr(result, "count", None)
+    return count if count is not None else len(result.data or [])
 
 
 def get_protected_inactive_tickers(inactive_tickers: list[str]) -> set[str]:
@@ -76,7 +78,7 @@ def cleanup_inactive_asset_data() -> int:
         ticker_deleted = 0
         for table in INACTIVE_DATA_TABLES:
             deleted = deleted_count(
-                supabase.table(table).delete().eq("ticker", ticker).execute()
+                delete_with_count(supabase.table(table).delete(count="exact", returning="minimal").eq("ticker", ticker))
             )
             ticker_deleted += deleted
         total_deleted += ticker_deleted
@@ -108,14 +110,14 @@ def main():
 
     # Delete price history older than 30 days (intraday data)
     cutoff_30d_history = (datetime.utcnow() - timedelta(days=30)).isoformat()
-    result = supabase.table("stock_price_history").delete().lt("recorded_at", cutoff_30d_history).execute()
+    result = delete_with_count(supabase.table("stock_price_history").delete(count="exact", returning="minimal").lt("recorded_at", cutoff_30d_history))
     deleted = deleted_count(result)
     total_deleted += deleted
     print(f"  Price history cleanup done ({deleted} rows deleted)")
 
     # Delete daily chart history older than 1 year.
     cutoff_1y_daily = (datetime.utcnow() - timedelta(days=366)).date().isoformat()
-    result = supabase.table("price_history_long").delete().lt("date", cutoff_1y_daily).execute()
+    result = delete_with_count(supabase.table("price_history_long").delete(count="exact", returning="minimal").lt("date", cutoff_1y_daily))
     deleted = deleted_count(result)
     total_deleted += deleted
     print(f"  Daily chart history cleanup done ({deleted} rows deleted)")
@@ -126,14 +128,14 @@ def main():
 
     # Delete fetch logs older than 30 days
     cutoff_30d = (datetime.utcnow() - timedelta(days=30)).isoformat()
-    result = supabase.table("fetch_logs").delete().lt("executed_at", cutoff_30d).execute()
+    result = delete_with_count(supabase.table("fetch_logs").delete(count="exact", returning="minimal").lt("executed_at", cutoff_30d))
     deleted = deleted_count(result)
     total_deleted += deleted
     print(f"  Fetch logs cleanup done ({deleted} rows deleted)")
 
     # Delete news articles older than 90 days
     cutoff_90d = (datetime.utcnow() - timedelta(days=90)).isoformat()
-    result = supabase.table("news_articles").delete().lt("fetched_at", cutoff_90d).execute()
+    result = delete_with_count(supabase.table("news_articles").delete(count="exact", returning="minimal").lt("fetched_at", cutoff_90d))
     deleted = deleted_count(result)
     total_deleted += deleted
     print(f"  News articles cleanup done ({deleted} rows deleted)")

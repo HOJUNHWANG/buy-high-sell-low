@@ -1,0 +1,46 @@
+name: Check Market Ingestion
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "scripts/**"
+      - "tests_py/**"
+      - "tests/test_*.py"
+      - "tests/sql/**"
+      - "supabase/migrations/*_reduce_market_ingestion_io.sql"
+      - "supabase/migrations/*_remove_duplicate_daily_price_constraint.sql"
+      - ".github/workflows/check-market-ingestion.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/**"
+      - "tests_py/**"
+      - "tests/test_*.py"
+      - "tests/sql/**"
+      - "supabase/migrations/*_reduce_market_ingestion_io.sql"
+      - "supabase/migrations/*_remove_duplicate_daily_price_constraint.sql"
+      - ".github/workflows/check-market-ingestion.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  market-storage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: scripts/requirements.txt
+      - run: python -m pip install --disable-pip-version-check -r scripts/requirements.txt
+      - run: python -m unittest discover -s tests_py -p 'test_*.py'
+      - run: python -m unittest discover -s tests -p 'test_*.py'
+      # Hosted Ubuntu includes Node.js. This temporary package does not alter app dependencies.
+      - run: npm install --prefix "$RUNNER_TEMP/bhsl-io-sql" --no-save --package-lock=false @electric-sql/pglite@0.3.9
+      - run: node tests/sql/check-market-ingestion.mjs "$RUNNER_TEMP/bhsl-io-sql/node_modules/@electric-sql/pglite/dist/index.js"

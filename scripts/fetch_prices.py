@@ -37,6 +37,7 @@ from price_adjustments import (
     record_price_anomaly,
 )
 from market_calendar import is_market_holiday, previous_market_day
+from market_storage import persist_price_batch
 
 BATCH_SIZE = 25  # Recommended batch size for stocks
 CRYPTO_BATCH_SIZE = 5  # Keep crypto requests small to reduce provider timeouts
@@ -186,9 +187,9 @@ def build_current_price_row(
 
 def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict | None = None) -> tuple[int, list[str]]:
     """Upsert price data. ticker_map converts API symbols back to DB tickers (for crypto)."""
-    fetched, failed = 0, []
+    failed = []
+    current_rows, daily_rows, anomalies = [], [], []
     ingested_at = datetime.now(pytz.utc)
-    now = ingested_at.isoformat()
     cutoff = (ingested_at - timedelta(minutes=HISTORY_DEDUP_MINUTES)).isoformat()
 
     resolved_tickers = {
@@ -245,6 +246,15 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
             price = float(data["close"])
             if not math.isfinite(price) or price <= 0:
                 raise ValueError("close must be a positive finite number")
+            provider_change_pct = (
+                float(data["percent_change"])
+                if data.get("percent_change") not in (None, "") else None
+            )
+            if provider_change_pct is not None and not math.isfinite(provider_change_pct):
+                raise ValueError("percent_change must be finite")
+            volume = int(data["volume"]) if data.get("volume") not in (None, "") else None
+            if volume is not None and volume < 0:
+                raise ValueError("volume must be non-negative")
             parsed_ohlc: dict[str, float] = {}
             for field in ("open", "high", "low"):
                 value = data.get(field)
@@ -273,11 +283,6 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
             print(f"  Rejected invalid quote time for {db_ticker}: {exc}")
             failed.append(api_ticker)
             continue
-        provider_change_pct = (
-            float(data["percent_change"])
-            if data.get("percent_change") not in (None, "")
-            else None
-        )
         market_date = utc_market_date if is_crypto else et_market_date
         previous_close = previous_closes.get((db_ticker.upper(), market_date))
         calculated_change_pct, change_source = calculate_change_pct(
@@ -326,7 +331,6 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
             )
         if adjustment_note:
             print(f"  Price adjustment: {adjustment_note}")
-        volume     = int(data["volume"])             if data.get("volume")         not in (None, "") else None
 
         # Parse and validate provider time independently, but do not confuse a
         # session-open timestamp with when this worker actually fetched data.
@@ -348,49 +352,22 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
         if volume is not None:
             row_long["volume"] = volume
 
-        # Always update current price
-        execute_db(supabase.table("stock_prices").upsert(row_price), operation='fetch_prices:stock_prices', retry_safe=True)
+        current_rows.append(row_price)
+        daily_rows.append(row_long)
+        anomalies.append({
+            "ticker": db_ticker, "market_date": market_date, "price": price,
+            "provider_change_pct": provider_change_pct, "applied_change_pct": change_pct,
+            "reason": anomaly_reason, "details": adjustment_note,
+        })
 
-        anomaly_error = record_price_anomaly(
-            supabase,
-            ticker=db_ticker,
-            market_date=market_date,
-            price=price,
-            provider_change_pct=provider_change_pct,
-            applied_change_pct=change_pct,
-            reason=anomaly_reason,
-            details=adjustment_note,
-        )
+    fetched = persist_price_batch(
+        supabase, current_rows=current_rows, daily_rows=daily_rows,
+        history_cutoff=cutoff, force_history=force_history,
+    )
+    for anomaly in anomalies:
+        anomaly_error = record_price_anomaly(supabase, **anomaly)
         if anomaly_error:
-            print(
-                f"  Warning: failed to record price anomaly for "
-                f"{db_ticker}: {anomaly_error}"
-            )
-
-        # Only insert history if no recent entry (prevents duplicate rows)
-        should_insert_history = force_history
-        if not should_insert_history:
-            recent = execute_db(supabase.table("stock_price_history") \
-                .select("id") \
-                .eq("ticker", db_ticker) \
-                .gte("recorded_at", cutoff) \
-                .limit(1), operation='fetch_prices:stock_price_history', retry_safe=True)
-            should_insert_history = len(recent.data) == 0
-
-        if should_insert_history:
-            try:
-                execute_db(supabase.table("stock_price_history").insert({
-                    "ticker": db_ticker, "price": price, "recorded_at": now,
-                }), operation='fetch_prices:stock_price_history', retry_safe=False)
-            except Exception as e:
-                print(f"  Warning: failed to record to stock_price_history for {db_ticker}: {e}")
-
-        try:
-            execute_db(supabase.table("price_history_long").upsert(row_long, on_conflict="ticker,date"), operation='fetch_prices:price_history_long', retry_safe=True)
-        except Exception as e:
-            # Most likely 'id' column default issue or constraint
-            print(f"  Warning: failed to record to price_history_long for {db_ticker}: {e}")
-        fetched += 1
+            print(f"  Warning: failed to record price anomaly for {anomaly['ticker']}: {anomaly_error}")
 
     return fetched, failed
 

@@ -1,9 +1,9 @@
 """
 fetch_news.py — Fetch news + generate AI summaries via Groq.
-Schedule: 0 * * * * (every hour)
+Schedule: every 30 minutes (Cronjob.org)
 
 Root cause fix (2026-03-24):
-- get_existing_urls() paginated to overcome PostgREST 1000-row limit
+- get_existing_urls() checks incoming URLs across the full retention window
 - Within-batch dedup to avoid cross-feed duplicate inserts
 - Insert-first, then Groq: only spend AI quota on successfully inserted articles
 - Backfill uses all remaining quota after new articles are processed
@@ -36,6 +36,7 @@ groq     = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 sys.path.insert(0, os.path.dirname(__file__))
 from groq_config import get_completion_settings, get_json_response_format
 from tickers import COMPANY_NAMES
+from market_storage import existing_news_urls
 
 ALL_KNOWN_TICKERS = sorted(COMPANY_NAMES.keys())
 TICKER_LIST_STR = ", ".join(ALL_KNOWN_TICKERS)
@@ -180,23 +181,9 @@ def generate_ai_summary(title: str, content: str) -> dict | None:
         return None
 
 
-def get_existing_urls() -> set[str]:
-    """Paginated fetch of all existing URLs to avoid PostgREST 1000-row cap."""
-    since = (datetime.utcnow() - timedelta(days=7)).isoformat()
-    urls: set[str] = set()
-    offset = 0
-    page_size = 1000
-    while True:
-        result = execute_db(supabase.table("news_articles") \
-            .select("url") \
-            .gte("fetched_at", since) \
-            .range(offset, offset + page_size - 1), operation='fetch_news:news_articles', retry_safe=True)
-        for row in result.data:
-            urls.add(row["url"])
-        if len(result.data) < page_size:
-            break
-        offset += page_size
-    return urls
+def get_existing_urls(candidate_urls: list[str]) -> set[str]:
+    """Check only incoming URLs, including articles older than seven days."""
+    return existing_news_urls(supabase, candidate_urls)
 
 
 def main():
@@ -212,7 +199,7 @@ def main():
         except Exception as e:
             print(f"  NewsAPI also failed ({e})")
 
-    existing_urls = get_existing_urls()
+    existing_urls = get_existing_urls([a.get("url", "") for a in articles])
     print(f"  Existing URLs in DB: {len(existing_urls)}")
 
     # Dedup: against DB + within batch (cross-feed duplicates)
@@ -246,7 +233,12 @@ def main():
         }
 
         try:
-            result = execute_db(supabase.table("news_articles").insert(row), operation='fetch_news:news_articles', retry_safe=False)
+            result = execute_db(supabase.table("news_articles").upsert(
+                row, on_conflict="url", ignore_duplicates=True,
+            ), operation='fetch_news:news_articles', retry_safe=False)
+            if not result.data:
+                skipped += 1
+                continue
             new_id = result.data[0]["id"]
             inserted.append({
                 "id": new_id,

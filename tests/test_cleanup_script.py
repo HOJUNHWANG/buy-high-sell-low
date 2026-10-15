@@ -45,6 +45,12 @@ def load_cleanup_module():
 
 
 class FictionalMarketCleanupTests(unittest.TestCase):
+    def test_deleted_count_uses_exact_count_with_minimal_response(self):
+        module = load_cleanup_module()
+        self.assertEqual(module.deleted_count(types.SimpleNamespace(data=[], count=1234)), 1234)
+        self.assertEqual(module.deleted_count(types.SimpleNamespace(data=[], count=0)), 0)
+        self.assertEqual(module.deleted_count(types.SimpleNamespace(data=[{}], count=None)), 1)
+
     def test_rpc_failure_is_logged_and_raised(self):
         module = load_cleanup_module()
         module.supabase = FakeSupabase(RuntimeError("rpc unavailable"))

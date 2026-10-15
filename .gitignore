@@ -46,6 +46,9 @@ __pycache__/
 *.pyc
 .venv/
 
+# Supabase CLI cache
+/supabase/.temp/
+
 # vercel
 .vercel
 
