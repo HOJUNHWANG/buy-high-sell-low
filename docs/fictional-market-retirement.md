@@ -30,3 +30,24 @@ users, cash balances, positions, and transaction rows byte-for-byte.
 Removing these writes does not by itself prove that every Disk IO warning or
 system-disk swap problem has been resolved. Disk and memory metrics need a later
 comparison over comparable collection windows.
+
+
+## Applied result
+
+- Main deployment and Check Market Ingestion CI succeeded for commit `78228b8`.
+- The live old scheduler endpoint returns 410. Former listings, details, and
+  Fictional trading APIs return 404; the real paper-trading workspace remains available.
+- Production migration history recorded `20261031025045_retire_fictional_market`.
+  The CLI-created local migration was renamed to that authoritative production
+  version so subsequent migration comparisons stay aligned.
+- Verified zero Fictional tables, dedicated functions, and retention markers remain.
+- Auth user IDs and all real paper-account, position, and transaction contents
+  have identical before/after aggregate hashes and row counts.
+- DB size fell from 190,114,963 to 151,694,483 bytes (about 36.6 MiB reclaimed).
+- Local validation: app 159 tests, Python 149 tests, type check, changed-file lint,
+  production build, and isolated PostgreSQL removal/rollback/preservation checks passed.
+- Security/performance advisors report no new findings introduced by the removal.
+- The external Cronjob.org entry could not be edited because the browser tool's
+  launcher still fails on its D: volume. Its former target is proven inert for
+  both GET and POST, and the underlying tables/functions are removed, so those
+  calls cannot resume Fictional database writes.
