@@ -48,3 +48,21 @@ an extra grace period. Existing ordinary historical-data retention still applies
   quotes, insufficient history, and an incorrect ETF metric. Successful activation
   preserves the real user ledger and all existing price/history rows.
 - Paper buy/short API tests reject all four inactive retired assets.
+
+## Production verification
+
+The refresh migration was applied as `20261031032753_refresh_etf_crypto_universe.sql`
+after commit `44e2c73` deployed successfully. All eight flags are correct; active
+counts are 102 equities, 11 ETFs, and 19 crypto assets. All four new symbols are
+returned by public search and all four retired symbols are excluded. Each new
+stock detail page returns HTTP 200.
+
+Fingerprints of all paper accounts, positions, transactions, challenges, and
+watchlist rows matched before and after activation. Account/position/transaction
+counts remain 32 / 305 / 53. Targeted external-reference audit passed with zero
+critical findings and full price/value coverage; its UNI time-alignment warning
+was checked against live CoinGecko simple-price and markets responses, both of
+which confirmed the stored approximately $4.38 billion capitalization.
+
+GitHub's index configuration, ingestion/SQL checks, and Twelve history seed all
+succeeded on the published commit.
