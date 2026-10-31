@@ -10,9 +10,18 @@ from datetime import datetime, timezone
 from html.parser import HTMLParser
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode, urljoin
 from bs4 import BeautifulSoup
-from tickers import COMPANY_NAMES
+from tickers import COMPANY_NAMES, SP100_TICKERS, TRACKED_EQUITY_TICKERS, to_yf
 
 QUALITY_VERSION = 2
+
+def yahoo_feed_url(at: float | None = None) -> str:
+    """Yahoo requires symbols; rotate the tracked stock universe every 30m."""
+    tickers=list(dict.fromkeys(TRACKED_EQUITY_TICKERS+SP100_TICKERS))
+    groups=[tickers[i:i+8] for i in range(0,len(tickers),8)]
+    slot=int(datetime.now(timezone.utc).timestamp() if at is None else at)//1800
+    symbols=','.join(to_yf(t) for t in groups[slot % len(groups)])
+    return 'https://feeds.finance.yahoo.com/rss/2.0/headline?'+urlencode({'s':symbols,'region':'US','lang':'en-US'})
+
 ALIASES = {
     "SPCX": ["SpaceX", "Space Exploration Technologies"], "INTC": ["Intel"],
     "GOOG": ["Google", "Alphabet"], "GOOGL": ["Google", "Alphabet"],

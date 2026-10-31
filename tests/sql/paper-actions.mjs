@@ -27,13 +27,16 @@ try {
  INSERT INTO stocks(ticker,name,is_active) VALUES('AAPL','Apple',true),('MSFT','Microsoft',true),('NVDA','Nvidia',true),('AMZN','Amazon',true),('META','Meta',true),('OLD','Retired',false);
  INSERT INTO stock_prices(ticker,price) SELECT ticker,100 FROM stocks;
  GRANT USAGE ON SCHEMA public,auth TO service_role;
- GRANT SELECT ON auth.users TO service_role;
+ REVOKE ALL ON auth.users FROM service_role;
  GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
  GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;`);
  await db.exec(readFileSync('supabase/migrations/20261015213638_reduce_market_ingestion_io.sql','utf8').split('CREATE TRIGGER skip_unchanged_fictional_daily')[0]);
  await db.exec(migration('_add_atomic_paper_actions.sql'));
+ await db.exec(migration('_remove_paper_auth_lookup.sql'));
  await db.exec('SET ROLE service_role');
+ assert.equal((await one("SELECT has_table_privilege('service_role','auth.users','select') ok")).ok,false);
  await act('init');
+ await assert.rejects(()=>db.query("SELECT execute_paper_action('00000000-0000-4000-8000-000000000099','init')"),e=>e.code==='23503');
  for (const [date,deadline] of [['2026-07-10','2026-07-10T20:00:00Z'],['2026-01-09','2026-01-09T21:00:00Z'],['2026-11-27','2026-11-27T18:00:00Z']]) assert.equal((await db.query('SELECT private.paper_challenge_deadline($1)=$2::timestamptz ok',[date,deadline])).rows[0].ok,true);
  // Requests launched together conserve cash and assets. PGlite serializes SQL
  // connections; the production account FOR UPDATE provides the same ordering.

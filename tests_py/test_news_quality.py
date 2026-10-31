@@ -3,9 +3,21 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
-from news_quality import baseline_analysis,entity_evidence,grounded_summary,canonical_url,event_key,allowed_source_url,extract_article_text
+from news_quality import baseline_analysis,entity_evidence,grounded_summary,canonical_url,event_key,allowed_source_url,extract_article_text,yahoo_feed_url
+from urllib.parse import urlsplit,parse_qs
+from tickers import SP100_TICKERS,TRACKED_EQUITY_TICKERS,to_yf
 
 class NewsQualityTests(unittest.TestCase):
+    def test_yahoo_feed_requires_symbols_and_rotates_all_tracked_stocks(self):
+        symbols=set();urls=set()
+        for slot in range(13):
+            url=yahoo_feed_url(slot*1800);urls.add(url)
+            group=parse_qs(urlsplit(url).query)['s'][0].split(',')
+            self.assertTrue(1<=len(group)<=8);symbols.update(group)
+        self.assertEqual(len(urls),13)
+        self.assertEqual(symbols,{to_yf(t) for t in TRACKED_EQUITY_TICKERS+SP100_TICKERS})
+        self.assertIn('BRK-B',symbols)
+
     def tags(self,title,content=''): return set(baseline_analysis(title,content)[0]['related_tickers'])
     def test_explicit_issuers(self):
         for title,ticker in [('SpaceX shares rise after revenue update','SPCX'),('Intel confirms chip demand in earnings report','INTC'),('Apple earnings beat expectations','AAPL'),('Nvidia raises revenue guidance','NVDA'),('Meta stock falls on spending outlook','META')]:

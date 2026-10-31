@@ -17,7 +17,7 @@ const client=createClient(url,process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,{auth:{p
 const { chromium }=await import(pathToFileURL(resolve(process.env.PLAYWRIGHT_MODULE ?? '.venv/ui-audit/node_modules/playwright-core/index.mjs')).href);
 const email=`qa-remediation-${randomUUID()}@bhsl.invalid`;
 const password=randomUUID()+'aB!9';
-const checks=[];let userId;let browser;let cleanup=false;let failure;
+const checks=[];let userId;let browser;let cleanup=false;let failure;let cleanupFailure;
 const ok=(name)=>checks.push(name);
 try {
   // Admin createUser with email_confirm sends no verification email.
@@ -102,14 +102,14 @@ finally {
       assert.equal(identity.data.user?.email,email);
       for(const table of ['paper_positions','paper_transactions','paper_challenges','paper_graveyard','paper_achievements','paper_ai_usage','watchlist','ai_why_usage','summary_unlocks','user_preferences','user_profiles','paper_accounts']){
         const result=await admin.from(table).delete().eq('user_id',userId);
-        if(result.error)throw result.error;
+        if(result.error && !["42P01","PGRST205"].includes(result.error.code))throw new Error(`Cleanup ${table}: ${result.error.message}`);
       }
       const removed=await admin.auth.admin.deleteUser(userId);
       if(removed.error)throw removed.error;
       cleanup=true;
-    } catch(error) { failure=failure ?? error; }
+    } catch(error) { cleanupFailure=error;failure=failure ?? error; }
   }
 }
-const report={checks,cleanupSucceeded:cleanup,error:failure?.message?.slice(0,240) ?? null};
+const report={checks,cleanupSucceeded:cleanup,cleanupError:cleanupFailure?.message?.slice(0,240) ?? null,error:failure?.message?.slice(0,240) ?? null};
 console.log(JSON.stringify(report));
 if(failure||!cleanup)process.exitCode=1;

@@ -1,14 +1,14 @@
 {
   "codeValidation": {
     "typescript": 178,
-    "python": 168,
+    "python": 169,
     "lint": "passed",
     "typecheck": "passed",
     "productionBuild": "passed",
     "runtimeAuditVulnerabilities": 0,
     "isolatedPostgres": "passed"
   },
-  "productionRollout": "pending",
+  "productionRollout": "completed",
   "browserPages": [
     {
       "requestedDesign": "2.0",
@@ -688,5 +688,313 @@
       "summary_words": 24,
       "analysis_error": null
     }
-  ]
+  ],
+  "productionVerification": {
+    "ada": {
+      "source": "coingecko.markets.market_cap",
+      "marketCap": 7277815577
+    },
+    "bkng": {
+      "rows": 252,
+      "latestDate": "2026-10-30",
+      "earliestDate": "2025-10-30",
+      "splitAdjustedRows": 252
+    },
+    "newsRows": 9852,
+    "feedErrors": 0,
+    "legacyNews": 0,
+    "migrations": 7,
+    "cronLogRows": 0,
+    "invalidOhlc": 0,
+    "cronLogBytes": 16384,
+    "qaIdentities": 0,
+    "genuineAccounts": 2,
+    "newsRegressions": [
+      {
+        "id": 102417,
+        "tags": [],
+        "method": "source_excerpt",
+        "coverage": "full_text"
+      },
+      {
+        "id": 102427,
+        "tags": [
+          "ETH-USD",
+          "SPCX",
+          "USDC-USD",
+          "USDT-USD"
+        ],
+        "method": "source_excerpt",
+        "coverage": "full_text"
+      },
+      {
+        "id": 102428,
+        "tags": [
+          "INTC"
+        ],
+        "method": "headline_only",
+        "coverage": "headline"
+      },
+      {
+        "id": 102443,
+        "tags": [
+          "USDC-USD",
+          "USDT-USD"
+        ],
+        "method": "source_excerpt",
+        "coverage": "full_text"
+      },
+      {
+        "id": 102448,
+        "tags": [],
+        "method": "source_excerpt",
+        "coverage": "full_text"
+      }
+    ],
+    "archivedDemoRows": 335,
+    "demoLiveAccounts": 0,
+    "fictionalObjects": 0,
+    "newsArchivedRows": 10547,
+    "overdueChallenges": 0,
+    "fictionalFunctions": 0,
+    "incompleteMetadata": 0,
+    "invalidSessionBars": 0,
+    "clientCanUpdateCash": false,
+    "genuineTransactions": 53,
+    "genuineCashUnchanged": true,
+    "bannedSeededIdentities": 60,
+    "serviceCanReadAuthUsers": false
+  },
+  "productionBrowserPages": [
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/stocks",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": [],
+      "firstRowY": 649.375
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/stock/AAPL",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/news",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/auth/login",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/paper",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/stocks",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": [],
+      "firstRowY": 620.09375
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/stock/AAPL",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/news",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/auth/login",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/paper",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    }
+  ],
+  "productionBrowserFlows": {
+    "checks": [
+      {
+        "name": "Default workspace and pagination",
+        "ok": true
+      },
+      {
+        "name": "ETF and crypto universe, filter and views",
+        "ok": true
+      },
+      {
+        "name": "Keyboard search Escape, ArrowUp, Enter",
+        "ok": true
+      },
+      {
+        "name": "Chart interval controls",
+        "ok": true
+      },
+      {
+        "name": "Watchlist login return and signup",
+        "ok": true
+      },
+      {
+        "name": "Paper login return",
+        "ok": true
+      },
+      {
+        "name": "Appearance selection persists",
+        "ok": true
+      },
+      {
+        "name": "Mobile menu Escape and navigation",
+        "ok": true
+      }
+    ],
+    "errors": []
+  },
+  "authenticatedQa": {
+    "checks": [
+      "password login returns to original ticker",
+      "simultaneous purchases conserve account cash",
+      "idempotent retry executes one transaction",
+      "buy preserves the same ticker short position",
+      "direct financial writes and service RPCs are denied",
+      "cash agrees with the complete transaction ledger",
+      "sell/cover close positions and concurrent check-in pays once",
+      "QA identity is excluded from rankings",
+      "authenticated portfolio, history and ranking screens load"
+    ],
+    "cleanupSucceeded": true,
+    "cleanupError": null,
+    "error": null
+  },
+  "ioObservation": {
+    "windowSeconds": 171.0,
+    "context": "after bulk repairs and browser verification",
+    "sampledDiskMetrics": [
+      {
+        "device": "nvme0n1",
+        "mountpoint": "/",
+        "busyPercent": 22.25,
+        "readWriteIops": 1005.15,
+        "readMiBPerSecond": 20.7893,
+        "writeMiBPerSecond": 2.6702
+      },
+      {
+        "device": "nvme1n1",
+        "mountpoint": "/data",
+        "busyPercent": 0.37,
+        "readWriteIops": 8.66,
+        "readMiBPerSecond": 0.2385,
+        "writeMiBPerSecond": 0.3498
+      }
+    ],
+    "dailyBudgetWarningCleared": null,
+    "node_vmstat_pswpinPerSecond": 646.47,
+    "node_vmstat_pswpoutPerSecond": 677.13
+  },
+  "marketCapAction": {
+    "url": "https://github.com/HOJUNHWANG/buy-high-sell-low/actions/runs/41228400313",
+    "updated": 132,
+    "failed": 0
+  },
+  "initialMainRolloutCommit": "a6a674c3fa3aea6b8705ef34f0bc78ef3780b592"
 }

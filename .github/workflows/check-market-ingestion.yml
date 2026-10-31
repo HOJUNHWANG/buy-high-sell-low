@@ -18,6 +18,7 @@ on:
       - "supabase/migrations/*_enforce_market_history_quality.sql"
       - "supabase/migrations/*_quarantine_seeded_demo_ledger.sql"
       - "supabase/migrations/*_repair_verified_legacy_market_data.sql"
+      - "supabase/migrations/*_remove_paper_auth_lookup.sql"
       - ".github/workflows/check-market-ingestion.yml"
   push:
     branches: [main]
@@ -36,6 +37,7 @@ on:
       - "supabase/migrations/*_enforce_market_history_quality.sql"
       - "supabase/migrations/*_quarantine_seeded_demo_ledger.sql"
       - "supabase/migrations/*_repair_verified_legacy_market_data.sql"
+      - "supabase/migrations/*_remove_paper_auth_lookup.sql"
       - ".github/workflows/check-market-ingestion.yml"
 
 permissions:

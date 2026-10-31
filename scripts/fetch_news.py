@@ -14,7 +14,7 @@ from db_requests import execute_db
 from market_storage import existing_news_urls
 from groq_config import get_completion_settings, get_json_response_format
 from tickers import SP100_TICKERS, TRACKED_EQUITY_TICKERS, COMPANY_NAMES
-from news_quality import baseline_analysis, plain_text, canonical_url, source_lead, grounded_summary
+from news_quality import baseline_analysis, plain_text, canonical_url, source_lead, grounded_summary, yahoo_feed_url
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env.local")); load_dotenv()
 supabase=create_client(os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABASE_URL"],os.environ["SUPABASE_SERVICE_ROLE_KEY"])
@@ -53,7 +53,9 @@ def fetch_from_rss():
     for url in RSS_FEEDS:
         health={"feed_url":url,"entries":0,"error":None}
         try:
-            response=http_session.get(url,timeout=(5,15)); health["http_status"]=response.status_code; response.raise_for_status()
+            request_url=yahoo_feed_url() if url.startswith('https://feeds.finance.yahoo.com/rss/2.0/headline') else url
+            health['request_url']=request_url
+            response=http_session.get(request_url,timeout=(5,15)); health["http_status"]=response.status_code; response.raise_for_status()
             feed=feedparser.parse(response.content); health.update(entries=len(feed.entries),parse_warning=bool(feed.bozo))
             for entry in feed.entries[:30]:
                 content="\n".join(c.get("value","") for c in entry.get("content",[]) if isinstance(c,dict)) or entry.get("summary","")
