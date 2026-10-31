@@ -249,9 +249,9 @@ class SafeWriteTests(unittest.TestCase):
 
 class PrimaryProviderTests(unittest.TestCase):
     def test_all_tracked_crypto_have_explicit_coingecko_ids(self):
-        from update_market_caps import CRYPTO_TICKERS
+        from update_market_caps import ALL_CRYPTO_TICKERS
 
-        self.assertEqual(set(CRYPTO_TICKERS), set(CRYPTO_COINGECKO_IDS))
+        self.assertEqual(set(ALL_CRYPTO_TICKERS), set(CRYPTO_COINGECKO_IDS))
 
     def test_equity_uses_nasdaq_primary_with_yfinance_cross_check(self):
         provider = MarketDataProvider(session=MagicMock())

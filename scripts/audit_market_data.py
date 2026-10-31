@@ -43,7 +43,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from market_calendar import is_market_holiday, previous_market_day
-from tickers import ETF_TICKERS
+from tickers import ALL_ETF_TICKERS as ETF_TICKERS
 
 
 EXIT_OK = 0
@@ -111,6 +111,8 @@ COINGECKO_IDS = {
     "LTC-USD": "litecoin",
     "DOT-USD": "polkadot",
     "AAVE-USD": "aave",
+    "NEAR-USD": "near",
+    "UNI-USD": "uniswap",
 }
 
 

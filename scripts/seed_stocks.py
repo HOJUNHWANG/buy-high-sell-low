@@ -23,6 +23,7 @@ from tickers import (
     TRACKED_EQUITY_METADATA,
     CRYPTO_TICKERS,
     ETF_TICKERS,
+    ETF_EXCHANGES,
     COMPANY_NAMES,
 )
 
@@ -95,7 +96,7 @@ def seed_etfs():
         row = {
             "ticker": ticker,
             "name": COMPANY_NAMES.get(ticker, ticker),
-            "exchange": "NYSE ARCA",
+            "exchange": ETF_EXCHANGES.get(ticker, "NYSE ARCA"),
             "sector": "ETF",
         }
         supabase.table("stocks").upsert(row).execute()
@@ -110,6 +111,7 @@ CRYPTO_LOGO_MAP = {
     "DOGE-USD": "doge", "ZEC-USD": "zec", "ADA-USD": "ada", "XLM-USD": "xlm",
     "XMR-USD": "xmr", "LINK-USD": "link", "BCH-USD": "bch",
     "AVAX-USD": "avax", "LTC-USD": "ltc", "DOT-USD": "dot", "AAVE-USD": "aave",
+    "NEAR-USD": "https://assets.coingecko.com/coins/images/10365/large/near.jpg", "UNI-USD": "uni",
 }
 
 
@@ -119,7 +121,7 @@ def seed_crypto():
     for ticker in CRYPTO_TICKERS:
         name = COMPANY_NAMES.get(ticker, ticker.replace("-USD", ""))
         symbol = CRYPTO_LOGO_MAP.get(ticker)
-        logo_url = f"{CRYPTO_ICON_BASE}/{symbol}.png" if symbol else None
+        logo_url = (symbol if symbol.startswith("https://") else f"{CRYPTO_ICON_BASE}/{symbol}.png") if symbol else None
         row = {
             "ticker": ticker,
             "name": name,

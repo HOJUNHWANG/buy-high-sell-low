@@ -7,7 +7,7 @@ export async function MarketOverview() {
   const prices = await getAllStockPrices().catch(() => []);
   const status = getMarketStatus();
   const instruments = [
-    { ticker: "SPY", label: "S&P 500 ETF", type: "US equities" },
+    { ticker: "VOO", label: "S&P 500 ETF", type: "US equities" },
     { ticker: "QQQ", label: "Nasdaq 100 ETF", type: "US equities" },
     { ticker: "BTC-USD", label: "Bitcoin", type: "Crypto · 24/7" },
     { ticker: "ETH-USD", label: "Ethereum", type: "Crypto · 24/7" },

@@ -2,7 +2,10 @@
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from tickers import ALL_TICKERS, SP100_REBALANCE_DATE, SP100_REMOVALS
+from tickers import (
+    ALL_TICKERS, SP100_REBALANCE_DATE, SP100_REMOVALS,
+    MARKET_UNIVERSE_REFRESH_DATE, RETAINED_ETF_TICKERS, RETAINED_CRYPTO_TICKERS,
+)
 
 RETIREMENT_DATES = {"HON": date(2026, 9, 8), **{t: SP100_REBALANCE_DATE for t in SP100_REMOVALS}}
 RETIREMENT_GRACE_DAYS = 30
@@ -10,7 +13,12 @@ RETIREMENT_GRACE_DAYS = 30
 
 def expired_retirements(as_of: date | None = None) -> set[str]:
     today = as_of or datetime.now(ZoneInfo("America/New_York")).date()
-    return {t for t, retired in RETIREMENT_DATES.items() if today >= retired + timedelta(days=RETIREMENT_GRACE_DAYS)}
+    expired = {t for t, retired in RETIREMENT_DATES.items() if today >= retired + timedelta(days=RETIREMENT_GRACE_DAYS)}
+    # No extra collection grace for these replacements: keep only user-needed
+    # retired assets, using the same reference checks as index retirements.
+    if today >= MARKET_UNIVERSE_REFRESH_DATE:
+        expired.update((*RETAINED_ETF_TICKERS, *RETAINED_CRYPTO_TICKERS))
+    return expired
 
 
 def paged_rows(make_query):

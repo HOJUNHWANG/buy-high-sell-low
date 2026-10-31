@@ -26,7 +26,10 @@ TWELVE_DATA_API_KEY = os.environ["TWELVE_DATA_API_KEY"]
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import ALL_EQUITY_TICKERS, CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_crypto
+from tickers import (
+    ALL_EQUITY_TICKERS, ALL_CRYPTO_TICKERS, ALL_ETF_TICKERS,
+    CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_crypto,
+)
 from asset_retention import filter_collectable_tickers
 from price_adjustments import (
     calculate_change_pct,
@@ -130,7 +133,7 @@ def already_completed_settlement_close_today(
         datetime(target_date.year, target_date.month, target_date.day, 16, 45)
     )
     settlement_start_utc = settlement_start_et.astimezone(pytz.utc).isoformat()
-    expected_count = len(filter_collectable_tickers(supabase, ALL_EQUITY_TICKERS, now_et.date())) + len(ETF_TICKERS)
+    expected_count = len(filter_collectable_tickers(supabase, ALL_EQUITY_TICKERS + ALL_ETF_TICKERS, now_et.date()))
     result = execute_db(supabase.table("fetch_logs") \
         .select("id") \
         .eq("job_name", "prices_close_settlement") \
@@ -384,8 +387,8 @@ def fetch_selected_prices(
     requested = list(
         dict.fromkeys(str(ticker).strip().upper() for ticker in tickers if ticker)
     )
-    crypto = [ticker for ticker in requested if ticker in CRYPTO_TICKERS]
-    stocks = [ticker for ticker in requested if ticker not in CRYPTO_TICKERS]
+    crypto = [ticker for ticker in requested if ticker in ALL_CRYPTO_TICKERS]
+    stocks = [ticker for ticker in requested if ticker not in ALL_CRYPTO_TICKERS]
     total_fetched = 0
     failed_db_tickers: list[str] = []
 
@@ -452,14 +455,15 @@ def log_result(job: str, status: str, fetched: int, failed: list[str], error: st
 
 def fetch_crypto_twelve_data() -> tuple[int, list[str]]:
     """Fetch crypto prices via Twelve Data (24/7, no market hours check)."""
-    if not CRYPTO_TICKERS:
+    tickers = filter_collectable_tickers(supabase, ALL_CRYPTO_TICKERS)
+    if not tickers:
         return 0, []
-    print(f"\nFetching crypto prices for {len(CRYPTO_TICKERS)} tickers via Twelve Data...")
+    print(f"\nFetching crypto prices for {len(tickers)} tickers via Twelve Data...")
 
     # Build API symbols and mapping back to DB tickers
     # Twelve Data uses BTC/USD format, our DB uses BTC-USD
-    api_symbols = [to_twelve_data_crypto(t) for t in CRYPTO_TICKERS]
-    ticker_map = {to_twelve_data_crypto(t): t for t in CRYPTO_TICKERS}
+    api_symbols = [to_twelve_data_crypto(t) for t in tickers]
+    ticker_map = {to_twelve_data_crypto(t): t for t in tickers}
 
     total_fetched, all_failed = 0, []
     batches = [api_symbols[i:i+CRYPTO_BATCH_SIZE] for i in range(0, len(api_symbols), CRYPTO_BATCH_SIZE)]
@@ -547,7 +551,7 @@ def main() -> int:
             "before the next session..."
         )
 
-    stock_tickers = filter_collectable_tickers(supabase, ALL_EQUITY_TICKERS) + ETF_TICKERS
+    stock_tickers = filter_collectable_tickers(supabase, ALL_EQUITY_TICKERS + ALL_ETF_TICKERS)
     print(f"Fetching prices for {len(stock_tickers)} stock tickers...")
     total_fetched, all_failed = 0, []
 

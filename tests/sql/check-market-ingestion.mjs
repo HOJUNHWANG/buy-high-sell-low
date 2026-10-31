@@ -112,6 +112,55 @@ try {
   assert.equal((await db.query("SELECT count(*)::integer AS count FROM private.market_maintenance_state")).rows[0].count, 0);
   assert.equal((await db.query("SELECT to_regprocedure('public.skip_unchanged_market_daily_update()') IS NOT NULL AS kept")).rows[0].kept, true);
 
+  // A universe refresh must fail atomically until every replacement is ready.
+  const refreshFiles = readdirSync(resolve("supabase/migrations"))
+    .filter((file) => file.endsWith("_refresh_etf_crypto_universe.sql"));
+  assert.equal(refreshFiles.length, 1);
+  const refresh = read(`supabase/migrations/${refreshFiles[0]}`);
+  await db.exec(`
+    INSERT INTO public.stocks(ticker,name,is_active)
+      SELECT t,t,true FROM unnest(ARRAY['SPY','OEF','DOT-USD','XMR-USD']) t;
+  `);
+  await assert.rejects(db.transaction((tx) => tx.exec(refresh)), /not ready/);
+  assert.equal((await db.query("SELECT count(*)::integer AS count FROM public.stocks WHERE ticker IN ('SOXQ','VXUS','NEAR-USD','UNI-USD')")).rows[0].count, 0);
+  await db.exec(`
+    INSERT INTO public.stocks(ticker,name,sector,is_active,market_cap,
+      market_cap_updated_at,market_cap_source,market_cap_metric)
+      SELECT t,t,CASE WHEN t LIKE '%-USD' THEN 'Cryptocurrency' ELSE 'ETF' END,
+        false,1000000000,now(),
+        CASE WHEN t LIKE '%-USD' THEN 'coingecko.simple.usd_market_cap' ELSE 'nasdaq.etf.summary.AUM' END,
+        CASE WHEN t LIKE '%-USD' THEN 'circulating_market_cap' ELSE 'aum' END
+      FROM unnest(ARRAY['SOXQ','VXUS','NEAR-USD','UNI-USD']) t;
+    INSERT INTO public.stock_prices(ticker,price,fetched_at)
+      SELECT t,100,now() FROM unnest(ARRAY['SOXQ','VXUS','NEAR-USD','UNI-USD']) t;
+    INSERT INTO public.price_history_long(ticker,date,close)
+      SELECT t,current_date-d,100 FROM unnest(ARRAY['SOXQ','VXUS','NEAR-USD','UNI-USD']) t,
+        generate_series(1,200) d;
+    UPDATE public.stock_prices SET fetched_at=now()-interval '2 hours' WHERE ticker='UNI-USD';
+  `);
+  await assert.rejects(db.transaction((tx) => tx.exec(refresh)), /not ready/);
+  await db.exec(`
+    UPDATE public.stock_prices SET fetched_at=now() WHERE ticker='UNI-USD';
+    DELETE FROM public.price_history_long WHERE ticker='SOXQ' AND date=current_date-200;
+  `);
+  await assert.rejects(db.transaction((tx) => tx.exec(refresh)), /not ready/);
+  await db.exec(`
+    INSERT INTO public.price_history_long(ticker,date,close) VALUES ('SOXQ',current_date-200,100);
+    UPDATE public.stocks SET market_cap_metric='equity_market_cap' WHERE ticker='SOXQ';
+  `);
+  await assert.rejects(db.transaction((tx) => tx.exec(refresh)), /not ready/);
+  await db.exec("UPDATE public.stocks SET market_cap_metric='aum' WHERE ticker='SOXQ'");
+  const marketDataQuery = `SELECT jsonb_build_object(
+    'prices',(SELECT jsonb_agg(t ORDER BY ticker) FROM public.stock_prices t),
+    'history',(SELECT jsonb_agg(t ORDER BY ticker,date) FROM public.price_history_long t)
+  ) AS data`;
+  const beforeRefreshData = await db.query(marketDataQuery);
+  await db.transaction((tx) => tx.exec(refresh));
+  assert.deepEqual((await db.query("SELECT ticker FROM public.stocks WHERE ticker <> 'REAL_KEEP' AND is_active ORDER BY ticker")).rows,
+    ['NEAR-USD','SOXQ','UNI-USD','VXUS'].map((ticker) => ({ ticker })));
+  assert.deepEqual((await db.query(realLedgerQuery)).rows, beforeRemoval.rows);
+  assert.deepEqual((await db.query(marketDataQuery)).rows, beforeRefreshData.rows);
+
   console.log(JSON.stringify({ status: "passed", postgres: (await db.query("SELECT version() AS version")).rows[0].version }));
 } finally {
   await db.close();

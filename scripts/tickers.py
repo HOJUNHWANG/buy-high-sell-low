@@ -92,15 +92,24 @@ TRACKED_EQUITY_METADATA = {
 CRYPTO_TICKERS = [
     "BTC-USD", "ETH-USD", "USDT-USD", "BNB-USD", "USDC-USD", "XRP-USD",
     "SOL-USD", "TRX-USD", "DOGE-USD", "ZEC-USD", "ADA-USD", "XLM-USD",
-    "XMR-USD", "LINK-USD", "BCH-USD", "AVAX-USD", "LTC-USD", "DOT-USD",
+    "UNI-USD", "LINK-USD", "BCH-USD", "AVAX-USD", "LTC-USD", "NEAR-USD",
     "AAVE-USD",
 ]  # 19 crypto
 
 # Core market ETFs: broad benchmarks and major macro/sector proxies.
 ETF_TICKERS = [
-    "VOO", "QQQ", "SPY", "VTI", "IWM",
-    "DIA", "GLD", "TLT", "AGG", "XLK", "OEF",
+    "VOO", "QQQ", "SOXQ", "VTI", "IWM",
+    "DIA", "GLD", "TLT", "AGG", "XLK", "VXUS",
 ]
+
+# Retired assets are collected only while user positions, watchlists, or open
+# challenges reference them. Active membership is controlled by stocks.is_active.
+MARKET_UNIVERSE_REFRESH_DATE = date(2026, 10, 30)
+RETAINED_ETF_TICKERS = ("SPY", "OEF")
+RETAINED_CRYPTO_TICKERS = ("DOT-USD", "XMR-USD")
+ALL_ETF_TICKERS = ETF_TICKERS + list(RETAINED_ETF_TICKERS)
+ALL_CRYPTO_TICKERS = CRYPTO_TICKERS + list(RETAINED_CRYPTO_TICKERS)
+ETF_EXCHANGES = {"SOXQ": "NASDAQ", "VXUS": "NASDAQ"}
 
 # Combined lists for scripts that handle multiple asset classes
 # Preload announced additions and keep their quotes/caps/history fresh while
@@ -109,11 +118,11 @@ ALL_EQUITY_TICKERS = list(dict.fromkeys(
     SP100_TICKERS + TRACKED_EQUITY_TICKERS + list(SP100_ADDITIONS)
     + list(RETAINED_EQUITY_TICKERS)
 ))
-ALL_TICKERS = ALL_EQUITY_TICKERS + CRYPTO_TICKERS + ETF_TICKERS
+ALL_TICKERS = ALL_EQUITY_TICKERS + ALL_CRYPTO_TICKERS + ALL_ETF_TICKERS
 
 # Tickers eligible for an up-to-1Y backfill. Newly listed equities naturally
 # receive only the history that exists since listing.
-HISTORY_SEED_TICKERS = ALL_EQUITY_TICKERS + CRYPTO_TICKERS + ETF_TICKERS
+HISTORY_SEED_TICKERS = list(ALL_TICKERS)
 
 # Official company names for news ticker mapping
 COMPANY_NAMES = {
@@ -164,6 +173,8 @@ COMPANY_NAMES = {
     "GLD": "SPDR Gold Shares", "TLT": "iShares 20+ Year Treasury Bond ETF",
     "AGG": "iShares Core U.S. Aggregate Bond ETF", "XLK": "Technology Select Sector SPDR Fund",
     "OEF": "iShares S&P 100 ETF",
+    "SOXQ": "Invesco PHLX Semiconductor ETF",
+    "VXUS": "Vanguard Total International Stock ETF",
     # Crypto
     "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "USDT-USD": "Tether",
     "BNB-USD": "BNB", "USDC-USD": "USD Coin", "XRP-USD": "XRP",
@@ -171,4 +182,5 @@ COMPANY_NAMES = {
     "ADA-USD": "Cardano", "XLM-USD": "Stellar", "XMR-USD": "Monero",
     "LINK-USD": "Chainlink", "BCH-USD": "Bitcoin Cash", "AVAX-USD": "Avalanche",
     "LTC-USD": "Litecoin", "DOT-USD": "Polkadot", "AAVE-USD": "Aave",
+    "NEAR-USD": "NEAR Protocol", "UNI-USD": "Uniswap",
 }

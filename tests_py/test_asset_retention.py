@@ -59,5 +59,23 @@ class RetentionTests(unittest.TestCase):
         client = Client(paper_challenges=[dict(ticker="CL", status="settled", picks=[dict(ticker="NKE")])])
         self.assertEqual(referenced_tickers(client, ["CL", "NKE"]), set())
 
+    def test_fund_crypto_replacements_keep_only_referenced_retired_assets(self):
+        retired = ["SPY", "OEF", "DOT-USD", "XMR-USD"]
+        client = Client(
+            stocks=[dict(ticker=t, is_active=False) for t in retired],
+            paper_positions=[dict(ticker="SPY", shares=1)],
+            watchlist=[dict(ticker="DOT-USD")],
+            paper_challenges=[dict(ticker="AAPL", status="pending", picks=[dict(ticker="XMR-USD")])],
+        )
+        tickers = ["SOXQ", "VXUS", "NEAR-USD", "UNI-USD", *retired]
+        self.assertEqual(filter_collectable_tickers(client, tickers, date(2026, 10, 30)),
+                         tickers[:4] + ["SPY", "DOT-USD", "XMR-USD"])
+        client.tables = {"stocks": client.tables["stocks"]}
+        self.assertEqual(filter_collectable_tickers(client, tickers, date(2026, 10, 30)), tickers[:4])
+
+    def test_unapplied_refresh_never_stops_still_active_assets(self):
+        client = Client(stocks=[dict(ticker="OEF", is_active=True)])
+        self.assertEqual(filter_collectable_tickers(client, ["OEF"], date(2026, 10, 30)), ["OEF"])
+
 
 if __name__ == "__main__": unittest.main()

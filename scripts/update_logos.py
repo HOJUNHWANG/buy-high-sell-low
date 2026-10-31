@@ -27,6 +27,8 @@ from tickers import CRYPTO_TICKERS, ETF_TICKERS
 CRYPTO_ICON_BASE = "https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/color"
 
 CRYPTO_LOGO_MAP = {
+    "NEAR-USD": "https://assets.coingecko.com/coins/images/10365/large/near.jpg",
+    "UNI-USD": f"{CRYPTO_ICON_BASE}/uni.png",
     "BTC-USD": f"{CRYPTO_ICON_BASE}/btc.png",
     "ETH-USD": f"{CRYPTO_ICON_BASE}/eth.png",
     "USDT-USD": f"{CRYPTO_ICON_BASE}/usdt.png",
@@ -248,6 +250,7 @@ STOCK_DOMAINS = {
     "ZTS": "zoetis.com",
     # ETFs
     "SPY": "ssga.com", "QQQ": "invesco.com", "DIA": "ssga.com", "IWM": "ishares.com", "OEF": "ishares.com",
+    "SOXQ": "invesco.com", "VXUS": "vanguard.com",
     "XLK": "ssga.com", "XLF": "ssga.com", "XLE": "ssga.com", "XLV": "ssga.com",
     "XLI": "ssga.com", "XLP": "ssga.com", "XLY": "ssga.com", "XLU": "ssga.com",
     "XLRE": "ssga.com", "XLC": "ssga.com", "XLB": "ssga.com",

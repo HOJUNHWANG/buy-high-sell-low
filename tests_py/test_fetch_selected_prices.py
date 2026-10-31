@@ -107,7 +107,7 @@ class FetchSelectedPricesTests(unittest.TestCase):
         builder.eq.assert_any_call("records_failed", 0)
         builder.gte.assert_any_call(
             "records_fetched",
-            len(fetch_prices.ALL_EQUITY_TICKERS) + len(fetch_prices.ETF_TICKERS),
+            len(fetch_prices.ALL_EQUITY_TICKERS) + len(fetch_prices.ALL_ETF_TICKERS),
         )
 
     def test_provider_errors_redact_api_key(self):

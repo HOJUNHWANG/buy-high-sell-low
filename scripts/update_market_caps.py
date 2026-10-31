@@ -42,8 +42,8 @@ sys.path.insert(0, SCRIPT_DIR)
 from tickers import (  # noqa: E402
     ALL_EQUITY_TICKERS,
     ALL_TICKERS,
-    CRYPTO_TICKERS,
-    ETF_TICKERS,
+    ALL_CRYPTO_TICKERS,
+    ALL_ETF_TICKERS,
     to_yf,
 )
 from audit_market_data import NasdaqReferenceProvider, ReferenceQuote  # noqa: E402
@@ -119,11 +119,13 @@ CRYPTO_COINGECKO_IDS = {
     "LTC-USD": "litecoin",
     "DOT-USD": "polkadot",
     "AAVE-USD": "aave",
+    "NEAR-USD": "near",
+    "UNI-USD": "uniswap",
 }
 
 _EQUITY_SET = frozenset(t.upper() for t in ALL_EQUITY_TICKERS)
-_ETF_SET = frozenset(t.upper() for t in ETF_TICKERS)
-_CRYPTO_SET = frozenset(t.upper() for t in CRYPTO_TICKERS)
+_ETF_SET = frozenset(t.upper() for t in ALL_ETF_TICKERS)
+_CRYPTO_SET = frozenset(t.upper() for t in ALL_CRYPTO_TICKERS)
 _ALL_SET = frozenset(t.upper() for t in ALL_TICKERS)
 
 # Kept as a module-level name for compatibility with scripts/tests that patch it.
@@ -1250,9 +1252,9 @@ def resolve_tickers(
     if normalized_class == ASSET_EQUITY:
         return list(ALL_EQUITY_TICKERS)
     if normalized_class == ASSET_ETF:
-        return list(ETF_TICKERS)
+        return list(ALL_ETF_TICKERS)
     if normalized_class == ASSET_CRYPTO:
-        return list(CRYPTO_TICKERS)
+        return list(ALL_CRYPTO_TICKERS)
     return list(ALL_TICKERS)
 
 

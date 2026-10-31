@@ -24,10 +24,11 @@ TWELVE_DATA_API_KEY = os.environ.get("TWELVE_DATA_API_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import ETF_TICKERS, COMPANY_NAMES
+from tickers import ETF_TICKERS, ETF_EXCHANGES, COMPANY_NAMES
 
 # ETF logo domains for DuckDuckGo favicon
 ETF_DOMAINS = {
+    "SOXQ": "invesco.com", "VXUS": "vanguard.com",
     "VOO": "vanguard.com", "SPY": "ssga.com", "QQQ": "invesco.com", "VTI": "vanguard.com",
     "DIA": "ssga.com", "IWM": "ishares.com", "AGG": "ishares.com", "OEF": "ishares.com",
     "XLK": "ssga.com", "XLF": "ssga.com", "XLE": "ssga.com", "XLV": "ssga.com",
@@ -51,7 +52,7 @@ def seed_etf_stocks():
         row = {
             "ticker": ticker,
             "name": name,
-            "exchange": "NYSE ARCA",
+            "exchange": ETF_EXCHANGES.get(ticker, "NYSE ARCA"),
             "sector": "ETF",
         }
         supabase.table("stocks").upsert(row).execute()

@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from tickers import SP100_ADDITIONS, SP100_REMOVALS, SP100_REBALANCE_DATE, RETAINED_EQUITY_TICKERS, get_sp100_tickers
 from asset_retention import RETIREMENT_DATES
+from tickers import ALL_TICKERS, CRYPTO_TICKERS, ETF_TICKERS
 
 
 class RebalanceContractTests(unittest.TestCase):
@@ -28,12 +29,21 @@ class RebalanceContractTests(unittest.TestCase):
                 clock.now.return_value = now
                 self.assertEqual(get_sp100_tickers(), get_sp100_tickers(day))
 
-    def test_backfill_defaults_cover_exactly_the_announced_additions(self):
+    def test_backfill_defaults_cover_current_reviewed_additions(self):
         source = (ROOT / ".github/workflows/seed-market-history.yml").read_text(encoding="utf-8")
         default = re.search(r'default:\s*"([^"]+)"', source)[1]
         fallback = re.search(r"inputs.tickers\s*\|\|\s*'([^']+)'", source)[1]
-        self.assertEqual(set(default.split()), set(SP100_ADDITIONS))
-        self.assertEqual(set(fallback.split()), set(SP100_ADDITIONS))
+        additions = {"SOXQ", "VXUS", "NEAR-USD", "UNI-USD"}
+        self.assertEqual(set(default.split()), additions)
+        self.assertEqual(set(fallback.split()), additions)
+        self.assertTrue(additions <= set(ETF_TICKERS + CRYPTO_TICKERS))
+
+    def test_refresh_keeps_active_counts_and_retired_collection_candidates(self):
+        self.assertEqual(len(set(ETF_TICKERS)), 11)
+        self.assertEqual(len(set(CRYPTO_TICKERS)), 19)
+        retired = {"SPY", "OEF", "DOT-USD", "XMR-USD"}
+        self.assertTrue(retired.isdisjoint(ETF_TICKERS + CRYPTO_TICKERS))
+        self.assertTrue(retired <= set(ALL_TICKERS))
 
     def test_retirement_ledger_and_collection_candidates_stay_in_sync(self):
         self.assertTrue(set(RETIREMENT_DATES) <= set(RETAINED_EQUITY_TICKERS))

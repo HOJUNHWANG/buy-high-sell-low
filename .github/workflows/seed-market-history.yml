@@ -14,7 +14,7 @@ on:
       tickers:
         description: "Space-separated tickers to backfill"
         required: true
-        default: "DELL PANW ANET SNDK"
+        default: "SOXQ VXUS NEAR-USD UNI-USD"
 
 permissions:
   contents: read
@@ -50,6 +50,8 @@ jobs:
         env:
           # workflow_dispatch can override this; push runs use the maintained
           # default list below instead of accidentally seeding the full universe.
-          TICKERS: ${{ inputs.tickers || 'DELL PANW ANET SNDK' }}
+          TICKERS: ${{ inputs.tickers || 'SOXQ VXUS NEAR-USD UNI-USD' }}
+          BHSL_HISTORY_SOURCE: twelve
+          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

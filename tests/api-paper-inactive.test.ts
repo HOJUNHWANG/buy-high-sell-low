@@ -36,7 +36,7 @@ describe("Paper trading during index changes", () => {
       expect(getInsertCalls()).toHaveLength(0);
       expect(getUpdateCalls()).toHaveLength(0);
     });
-    for (const ticker of ["DELL", "NKE"]) {
+    for (const ticker of ["DELL", "NKE", "SPY", "OEF", "DOT-USD", "XMR-USD"]) {
       it(`rejects ${action} for inactive ${ticker} even when a price exists`, async () => {
         setMockData("stock_prices", [{ ticker, price: 100, "stocks.is_active": false }]);
         const { POST } = action === "buy"

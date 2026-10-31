@@ -20,6 +20,7 @@ load_dotenv()
 
 sys.path.insert(0, os.path.dirname(__file__))
 from groq_config import get_completion_settings, get_json_response_format
+from tickers import CRYPTO_TICKERS
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
@@ -72,9 +73,9 @@ def fetch_movers(limit: int = 8) -> tuple[list[dict], list[dict]]:
 
     # Get asset metadata and remove ETFs from the stock/crypto movers list.
     all_tickers = [r["ticker"] for r in prices]
-    names_res = supabase.table("stocks").select("ticker, name, sector").in_("ticker", all_tickers).execute()
+    names_res = supabase.table("stocks").select("ticker, name, sector").in_("ticker", all_tickers).eq("is_active", True).execute()
     metadata = {r["ticker"]: r for r in (names_res.data or [])}
-    prices = [r for r in prices if metadata.get(r["ticker"], {}).get("sector") != "ETF"]
+    prices = [r for r in prices if r["ticker"] in metadata and metadata[r["ticker"]].get("sector") != "ETF"]
     name_map = {ticker: row["name"] for ticker, row in metadata.items()}
 
     def enrich(rows: list[dict]) -> list[dict]:
@@ -103,14 +104,6 @@ def fetch_recent_news(hours: int = 24) -> list[dict]:
         .limit(60) \
         .execute()
     return result.data or []
-
-
-CRYPTO_TICKERS = [
-    "BTC-USD", "ETH-USD", "USDT-USD", "BNB-USD", "SOL-USD", "XRP-USD",
-    "ADA-USD", "DOGE-USD", "AVAX-USD", "DOT-USD",
-    "LINK-USD", "ATOM-USD", "LTC-USD", "FIL-USD",
-    "NEAR-USD", "APT-USD", "ARB-USD", "OP-USD", "AAVE-USD",
-]
 
 
 def fetch_crypto_prices() -> list[dict]:

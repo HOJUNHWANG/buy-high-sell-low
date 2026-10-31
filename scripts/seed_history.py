@@ -27,7 +27,7 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABAS
 supabase = create_client(SUPABASE_URL, os.environ["SUPABASE_SERVICE_ROLE_KEY"])
 
 sys.path.insert(0, os.path.dirname(__file__))
-from tickers import ALL_EQUITY_TICKERS, CRYPTO_TICKERS, HISTORY_SEED_TICKERS, to_yf
+from tickers import ALL_EQUITY_TICKERS, ALL_CRYPTO_TICKERS as CRYPTO_TICKERS, HISTORY_SEED_TICKERS, to_yf, to_twelve_data_crypto
 
 BATCH_SIZE = int(os.environ.get("YF_BATCH_SIZE", "10"))
 SLEEP_BETWEEN_BATCHES = float(os.environ.get("YF_SLEEP_SECONDS", "5"))
@@ -202,6 +202,27 @@ def seed_ticker_from_fallback(ticker: str) -> tuple[int, int]:
 def seed_ticker_history(tickers: list[str]):
     """Download 1 year of daily data and insert missing rows."""
     print(f"Downloading 1Y daily data for {len(tickers)} tickers...")
+
+    if HISTORY_SOURCE in {"twelve", "twelvedata"}:
+        from seed_etfs import fetch_twelve_history
+        cutoff = (datetime.utcnow() - timedelta(days=365)).date().isoformat()
+        failed = []
+        for ticker in tickers:
+            try:
+                symbol = to_twelve_data_crypto(ticker) if ticker in CRYPTO_TICKERS else ticker
+                rows = fetch_twelve_history(symbol)
+                rows = [{**row, "ticker": ticker} for row in rows if row["date"] >= cutoff]
+                if not rows:
+                    raise ValueError("No daily history returned")
+                upsert_daily_rows(ticker, rows)
+            except Exception as exc:
+                # HTTP exception URLs can contain the API key. Log the type only.
+                print(f"  {ticker}: Twelve Data backfill failed ({type(exc).__name__})")
+                failed.append(ticker)
+            time.sleep(2)
+        if failed:
+            raise RuntimeError("Twelve Data backfill failed: " + ", ".join(failed))
+        return
 
     if HISTORY_SOURCE in {"yahoo", "chart", "direct"}:
         print("Using direct Yahoo chart endpoint per ticker...")
