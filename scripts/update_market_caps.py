@@ -46,7 +46,7 @@ from tickers import (  # noqa: E402
     ETF_TICKERS,
     to_yf,
 )
-from audit_market_data import NasdaqReferenceProvider  # noqa: E402
+from audit_market_data import NasdaqReferenceProvider, ReferenceQuote  # noqa: E402
 
 
 load_dotenv(dotenv_path=os.path.join(SCRIPT_DIR, "..", ".env.local"))
@@ -443,6 +443,8 @@ class MarketDataProvider:
         self._nasdaq = NasdaqReferenceProvider(
             timeout=HTTP_TIMEOUT_SECONDS, session=self.session
         )
+        self._equity_quotes: dict[str, ReferenceQuote | None] = {}
+        self._equity_errors: dict[str, list[str]] = {}
         self._coingecko_rows: dict[str, Mapping[str, Any]] | None = None
         self._coingecko_error: str | None = None
         self._etf_aum: dict[str, float] = {}
@@ -485,9 +487,27 @@ class MarketDataProvider:
         except Exception as exc:
             return None, str(exc)
 
+    def prefetch_equities(self, tickers: Sequence[str]) -> None:
+        """Resolve selected dated references with the provider's four-worker bound."""
+        missing = list(dict.fromkeys(
+            ticker.upper() for ticker in tickers
+            if ticker.upper() in _EQUITY_SET and ticker.upper() not in self._equity_quotes
+        ))
+        if not missing:
+            return
+        quotes, errors = self._nasdaq.fetch_equities(missing)
+        for ticker in missing:
+            # Cache missing results too, so an outage does not cause a second
+            # round of primary requests during the same run's Yahoo fallback.
+            self._equity_quotes[ticker] = quotes.get(ticker)
+            self._equity_errors[ticker] = [
+                error for error in errors if f"for {ticker}:" in error
+            ]
+
     def _fetch_equity(self, ticker: str) -> MarketCapObservation:
-        quotes, errors = self._nasdaq.fetch_equities([ticker])
-        quote = quotes.get(ticker)
+        self.prefetch_equities([ticker])
+        quote = self._equity_quotes[ticker]
+        errors = self._equity_errors[ticker]
         yfinance_observation, yfinance_error = self._try_yfinance(ticker)
         if quote is not None and quote.as_of is not None and quote.price is not None:
             market_cap = quote.market_cap
@@ -668,12 +688,16 @@ class MarketDataProvider:
 _default_market_data_provider: MarketDataProvider | None = None
 
 
-def fetch_market_cap_observation(ticker: str) -> MarketCapObservation:
-    """Fetch from the appropriate primary provider with live secondary data."""
+def get_market_data_provider() -> MarketDataProvider:
     global _default_market_data_provider
     if _default_market_data_provider is None:
         _default_market_data_provider = MarketDataProvider()
-    return _default_market_data_provider.fetch_observation(ticker)
+    return _default_market_data_provider
+
+
+def fetch_market_cap_observation(ticker: str) -> MarketCapObservation:
+    """Fetch from the appropriate primary provider with live secondary data."""
+    return get_market_data_provider().fetch_observation(ticker)
 
 
 def _first_row(response: Any) -> Mapping[str, Any] | None:
@@ -1289,6 +1313,7 @@ def main(argv: Sequence[str] | None = None) -> RunSummary:
         tickers = filter_collectable_tickers(client, tickers)
     mode = "Validating" if args.dry_run else "Updating"
     print(f"{mode} {len(tickers)} market-cap values...")
+    get_market_data_provider().prefetch_equities(tickers)
     summary = run_update(
         tickers,
         client,

@@ -73,7 +73,8 @@ Market Cap 액션 최근 10회 중 4회가 실패했고, audit 최근 12회는 �
 날짜가 있는 info와 Twelve Data/Yahoo는 10월 30일 $65.76이었다. screener
 시가총액을 최신 Yahoo 가격/주식수와 결합한 검증 및 audit의 전일 가격 비교가
 원인이었다. 주식 수집·수동 감사 모두 날짜가 맞는 종목별 info/summary를 사용한다.
-검증 한도는 올리지 않았다.
+검증 한도는 올리지 않았다. 선택 종목의 Nasdaq 참조는 최대 4개 동시 요청으로
+사전 조회하고 실패 결과도 캐시해, 공급자 장애 때 종목별 재요청이 반복되지 않게 했다.
 
 자동 audit과 자동 재수집, Data Health의 audit 전용 조회·표시는 제거했다.
 날짜 수정 후에도 XMR은 Twelve Data의 유일한 XMR/USD 거래소인 HitBTC

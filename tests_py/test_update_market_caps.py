@@ -283,6 +283,18 @@ class PrimaryProviderTests(unittest.TestCase):
         self.assertEqual(observation.source, "nasdaq.equity.summary.MarketCap")
         self.assertEqual(observation.cross_check_market_cap, 929_500_000_000)
 
+    def test_prefetch_batches_selected_equities_and_reuses_missing_results(self):
+        provider = MarketDataProvider(session=MagicMock())
+        provider._nasdaq.fetch_equities = MagicMock(return_value=(
+            {}, ["Nasdaq equity live quote failed for MU: unavailable"],
+        ))
+        provider._try_yfinance = MagicMock(return_value=(None, "unavailable"))
+        provider.prefetch_equities(["MU", "INTC", "MU", "BTC-USD", "QQQ"])
+        for _ in range(2):
+            with self.assertRaises(MarketCapProviderError):
+                provider.fetch_observation("MU")
+        provider._nasdaq.fetch_equities.assert_called_once_with(["MU", "INTC"])
+
     def test_equity_formula_uses_primary_price_without_mixing_sessions(self):
         provider = MarketDataProvider(session=MagicMock())
         provider._nasdaq.fetch_equities = MagicMock(return_value=({
