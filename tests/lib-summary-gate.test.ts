@@ -20,10 +20,23 @@ function makeArticle(id: number, hasSummary: boolean): NewsArticle {
     ai_sentiment: hasSummary ? "positive" : null,
     ai_caution: null,
     ai_generated_at: hasSummary ? new Date().toISOString() : null,
+    summary_method: "verified_ai",
+    quality_version: 2,
   } as NewsArticle;
 }
 
 describe("gateSummaries", () => {
+  it("hides legacy and unversioned analysis even for premium users and prior unlocks", () => {
+    const articles = [
+      { ...makeArticle(1, true), summary_method: "legacy_unverified" },
+      { ...makeArticle(2, true), summary_method: undefined, quality_version: undefined },
+    ] as NewsArticle[];
+    for (const tier of ["guest", "free", "premium"] as const) {
+      const result = gateSummaries(articles, tier, new Set([1, 2]));
+      expect(result.every(a => a.ai_summary === null && a.ai_sentiment === null && !a.summaryLocked)).toBe(true);
+    }
+  });
+
   it("premium tier returns all articles unchanged", () => {
     const articles = Array.from({ length: 10 }, (_, i) => makeArticle(i + 1, true));
     const result = gateSummaries(articles, "premium");

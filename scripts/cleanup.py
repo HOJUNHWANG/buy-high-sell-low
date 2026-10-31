@@ -21,7 +21,6 @@ supabase = create_client(SUPABASE_URL, os.environ["SUPABASE_SERVICE_ROLE_KEY"])
 INACTIVE_DATA_TABLES = (
     "stock_prices",
     "stock_price_history",
-    "price_history_long",
     "price_anomalies",
 )
 
@@ -94,6 +93,9 @@ def cleanup_inactive_asset_data() -> int:
 
 def main():
     print("Running cleanup...")
+    maintenance = supabase.rpc("maintain_operational_history", {}).execute()
+    print("  Operational retention:", maintenance.data)
+    supabase.rpc("resolve_paper_challenges", {"p_limit": 500}).execute()
     total_deleted = 0
 
     # Delete price history older than 30 days (intraday data)

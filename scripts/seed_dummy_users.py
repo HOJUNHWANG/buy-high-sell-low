@@ -14,6 +14,10 @@ if not url or not key:
     print("Error: Missing SUPABASE environment variables.")
     exit(1)
 
+from urllib.parse import urlparse
+if urlparse(url).hostname not in {"localhost", "127.0.0.1", "::1"}:
+    raise SystemExit("Demo seeding is restricted to a local development database.")
+
 supabase: Client = create_client(url, key)
 
 print("Starting dummy user generation...")

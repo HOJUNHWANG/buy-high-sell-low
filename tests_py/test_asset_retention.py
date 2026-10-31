@@ -73,6 +73,10 @@ class RetentionTests(unittest.TestCase):
         client.tables = {"stocks": client.tables["stocks"]}
         self.assertEqual(filter_collectable_tickers(client, tickers, date(2026, 10, 30)), tickers[:4])
 
+    def test_expired_pending_challenge_does_not_keep_current_quotes_alive(self):
+        client = Client(paper_challenges=[dict(ticker="OEF", status="pending", week_end="2026-10-09", picks=[dict(ticker="XMR-USD")])])
+        self.assertEqual(referenced_tickers(client, ["OEF", "XMR-USD"], date(2026,10,31)), set())
+
     def test_unapplied_refresh_never_stops_still_active_assets(self):
         client = Client(stocks=[dict(ticker="OEF", is_active=True)])
         self.assertEqual(filter_collectable_tickers(client, ["OEF"], date(2026, 10, 30)), ["OEF"])

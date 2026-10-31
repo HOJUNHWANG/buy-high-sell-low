@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useId } from "react";
 import { useRouter } from "next/navigation";
 import { LogoImage } from "./LogoImage";
 import type { Stock } from "@/lib/types";
@@ -12,6 +12,8 @@ export function SearchBar() {
   const [query,   setQuery]   = useState("");
   const [debounced, setDebounced] = useState("");
   const [open,    setOpen]    = useState(false);
+  const [active, setActive] = useState(-1);
+  const listId = useId();
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -21,11 +23,12 @@ export function SearchBar() {
     return () => clearTimeout(t);
   }, [query]);
 
-  const { data: results = [], isFetching } = useQuery<(Stock & { index_notice?: IndexNotice | null })[]>({
+  const { data: results = [], isFetching, isError } = useQuery<(Stock & { index_notice?: IndexNotice | null })[]>({
     queryKey: ["search", debounced],
     queryFn: async () => {
       if (!debounced) return [];
       const res = await fetch(`/api/search?q=${encodeURIComponent(debounced)}`);
+      if (!res.ok) throw new Error("Search unavailable");
       return res.json();
     },
     enabled: debounced.length > 0,
@@ -61,8 +64,24 @@ export function SearchBar() {
         </svg>
         <input
           type="search"
+          role="combobox"
+          aria-label="Search assets"
+          aria-autocomplete="list"
+          aria-expanded={open && results.length > 0 && query === debounced}
+          aria-controls={listId}
+          aria-activedescendant={open && query === debounced && active >= 0 && results[active] ? `${listId}-${active}` : undefined}
           value={query}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+          onChange={(e) => { setQuery(e.target.value); setActive(-1); setOpen(true); }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") { e.preventDefault(); setOpen(false); setActive(-1); }
+            if (e.key === "Tab") setOpen(false);
+            if (query !== debounced || !results.length) return;
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              e.preventDefault(); setOpen(true);
+              setActive((old) => e.key === "ArrowDown" ? (old + 1) % results.length : old <= 0 ? results.length - 1 : old - 1);
+            }
+            if (e.key === "Enter" && open && results[active >= 0 ? active : 0]) { e.preventDefault(); handleSelect(results[active >= 0 ? active : 0].ticker); }
+          }}
           onFocus={(e) => { e.target.style.borderColor = "var(--border-md)"; setOpen(true); }}
           onBlur={(e) => { e.target.style.borderColor = "var(--border)"; }}
           placeholder="Search assets..."
@@ -79,21 +98,25 @@ export function SearchBar() {
         )}
       </div>
 
-      {open && results.length > 0 && (
+      {open && query === debounced && results.length > 0 && (
         <ul
+          id={listId} role="listbox" aria-label="Asset results"
           className="absolute top-full mt-1.5 w-full rounded-lg overflow-hidden z-50"
           style={{
             background: "var(--surface)",
             border: "1px solid var(--border-md)",
             boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+            maxHeight: "min(360px, 50vh)", overflowY: "auto",
           }}
         >
-          {results.map((stock) => (
-            <li key={stock.ticker}>
+          {results.map((stock, index) => (
+            <li key={stock.ticker} role="presentation">
               <button
+                id={`${listId}-${index}`} role="option" aria-selected={active === index} tabIndex={-1}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleSelect(stock.ticker)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors"
-                style={{ borderBottom: "1px solid var(--border)" }}
+                style={{ borderBottom: "1px solid var(--border)", background: active === index ? "var(--surface-2)" : undefined }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
@@ -142,7 +165,7 @@ export function SearchBar() {
             color: "var(--text-2)",
           }}
         >
-          No results for &ldquo;{query}&rdquo;
+          {isError ? "Search unavailable. Please retry." : <>No results for &ldquo;{query}&rdquo;</>}
         </div>
       )}
     </div>

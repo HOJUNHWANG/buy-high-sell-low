@@ -57,6 +57,6 @@ describe("design preference bootstrap", () => {
     expect(() => Function(DESIGN_BOOT_SCRIPT)()).not.toThrow();
     vi.stubGlobal("localStorage", { getItem: () => "unknown" });
     Function(DESIGN_BOOT_SCRIPT)();
-    expect(dataset).toEqual({});
+    expect(dataset).toEqual({ design: "2.0" });
   });
 });

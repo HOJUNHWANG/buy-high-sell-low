@@ -21,6 +21,7 @@ type PriceRow = {
   ticker: string;
   price: number;
   fetched_at: string;
+  provider_session_date?: string | null;
   stocks: { name: string; sector: string | null } | null;
 };
 
@@ -180,10 +181,12 @@ export default async function DataHealthPage() {
     { data: logs },
     { data: prices },
     { data: anomalies },
+    { data: newsHealth },
   ] = await Promise.all([
     admin.from("fetch_logs").select("*").order("executed_at", { ascending: false }).limit(30),
-    admin.from("stock_prices").select("ticker, price, fetched_at, stocks(name, sector)").order("fetched_at", { ascending: true }).limit(500),
+    admin.from("stock_prices").select("ticker, price, fetched_at, provider_session_date, stocks(name, sector)").order("fetched_at", { ascending: true }).limit(500),
     admin.from("price_anomalies").select("*").order("detected_at", { ascending: false }).limit(50),
+    admin.rpc("get_news_quality_health"),
   ]);
 
   const typedLogs = (logs ?? []) as FetchLog[];
@@ -198,7 +201,7 @@ export default async function DataHealthPage() {
     if (!latestByJob.has(log.job_name)) latestByJob.set(log.job_name, log);
   }
   const stalePrices = typedPrices.filter((row) => {
-    const state = getPriceFreshness(row.fetched_at, row.ticker).state;
+    const state = getPriceFreshness(row.fetched_at, row.ticker, new Date(), undefined, row.provider_session_date).state;
     return state === "delayed" || state === "unavailable";
   }).slice(0, 25);
   const settlement = latestByJob.get("prices_close_settlement");
@@ -344,7 +347,7 @@ export default async function DataHealthPage() {
             ) : stalePrices.map((row) => (
               <div key={row.ticker} className="flex items-center justify-between gap-3 text-xs">
                 <span style={{ color: "var(--text)" }}>{row.ticker}</span>
-                <span style={{ color: "var(--text-3)" }}>{getPriceFreshness(row.fetched_at, row.ticker).label}</span>
+                <span style={{ color: "var(--text-3)" }}>{getPriceFreshness(row.fetched_at, row.ticker, new Date(), undefined, row.provider_session_date).label}</span>
               </div>
             ))}
           </div>
@@ -365,6 +368,14 @@ export default async function DataHealthPage() {
         </section>
       </div>
 
+      <section className="card rounded-xl p-4 space-y-3">
+        <h2 className="text-sm font-semibold">News quality · last 24 hours</h2>
+        <p className="text-xs" style={{ color: "var(--text-2)" }}>{newsHealth?.coverage?.checked ?? 0} source-checked summaries · {newsHealth?.coverage?.excerpts ?? 0} source excerpts · {newsHealth?.coverage?.headlines ?? 0} headline-only · {newsHealth?.coverage?.unreviewed ?? 0} awaiting review</p>
+        {(newsHealth?.feeds ?? []).map((feed: { feed_url: string; entries: number; error?: string | null; http_status?: number; checked_at: string }) => <div key={feed.feed_url} className="flex flex-wrap justify-between gap-2 text-xs">
+          <span className="break-all">{feed.feed_url.startsWith("newsapi:") ? "NewsAPI · rotating stock coverage" : new URL(feed.feed_url).hostname}</span>
+          <span style={{ color: feed.error ? "var(--warn)" : "var(--text-2)" }}>{feed.error ? `${feed.http_status ?? ""} ${feed.error}` : `${feed.entries} entries`} · {fmtTime(feed.checked_at)}</span>
+        </div>)}
+      </section>
       <section className="card rounded-xl p-4 overflow-x-auto">
         <h2 className="text-sm font-semibold mb-3" style={{ color: "var(--text)" }}>Recent Fetch Logs</h2>
         <table className="w-full text-xs">

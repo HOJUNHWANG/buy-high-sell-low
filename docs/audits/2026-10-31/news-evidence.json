@@ -1,0 +1,888 @@
+{
+  "as_of": "2026-10-31 America/New_York morning",
+  "scope": "read-only, no AI generation or retag writes",
+  "aggregate": {
+    "counts": {
+      "total": 10428,
+      "last_day": 88,
+      "no_match": 6459,
+      "last_week": 829,
+      "max_matches": 15
+    },
+    "by_source": [
+      {
+        "ai": 281,
+        "latest": "2026-10-31T11:00:01+00:00",
+        "oldest": "2026-10-24T10:58:30+00:00",
+        "source": "US Top News and Analysis",
+        "matched": 90,
+        "articles": 281
+      },
+      {
+        "ai": 156,
+        "latest": "2026-10-31T04:30:00+00:00",
+        "oldest": "2026-10-24T11:30:00+00:00",
+        "source": "MarketWatch.com - Top Stories",
+        "matched": 36,
+        "articles": 156
+      },
+      {
+        "ai": 120,
+        "latest": "2026-10-31T05:01:32+00:00",
+        "oldest": "2026-10-24T12:00:00+00:00",
+        "source": "CoinDesk: Bitcoin, Ethereum, Crypto News and Price Data",
+        "matched": 71,
+        "articles": 120
+      },
+      {
+        "ai": 107,
+        "latest": "2026-10-31T09:58:50+00:00",
+        "oldest": "2026-10-25T11:42:00+00:00",
+        "source": "Cointelegraph.com News",
+        "matched": 58,
+        "articles": 107
+      },
+      {
+        "ai": 90,
+        "latest": "2026-10-30T21:16:04+00:00",
+        "oldest": "2026-10-24T13:01:02+00:00",
+        "source": "Decrypt",
+        "matched": 48,
+        "articles": 90
+      },
+      {
+        "ai": 69,
+        "latest": "2026-10-30T18:00:24+00:00",
+        "oldest": "2026-10-23T23:11:31+00:00",
+        "source": "BBC News",
+        "matched": 8,
+        "articles": 69
+      },
+      {
+        "ai": 6,
+        "latest": "2026-10-29T19:30:01+00:00",
+        "oldest": "2026-10-25T12:00:01+00:00",
+        "source": "Business News",
+        "matched": 0,
+        "articles": 6
+      }
+    ],
+    "top_matched": [
+      {
+        "ticker": "BTC-USD",
+        "articles": 133
+      },
+      {
+        "ticker": "ETH-USD",
+        "articles": 63
+      },
+      {
+        "ticker": "BNB-USD",
+        "articles": 32
+      },
+      {
+        "ticker": "GOOGL",
+        "articles": 28
+      },
+      {
+        "ticker": "GOOG",
+        "articles": 22
+      },
+      {
+        "ticker": "MSFT",
+        "articles": 20
+      },
+      {
+        "ticker": "USDT-USD",
+        "articles": 17
+      },
+      {
+        "ticker": "XOM",
+        "articles": 15
+      },
+      {
+        "ticker": "AMZN",
+        "articles": 15
+      },
+      {
+        "ticker": "USDC-USD",
+        "articles": 14
+      },
+      {
+        "ticker": "INTC",
+        "articles": 14
+      },
+      {
+        "ticker": "XRP-USD",
+        "articles": 13
+      },
+      {
+        "ticker": "NVDA",
+        "articles": 12
+      },
+      {
+        "ticker": "CVX",
+        "articles": 12
+      },
+      {
+        "ticker": "META",
+        "articles": 12
+      },
+      {
+        "ticker": "AAPL",
+        "articles": 9
+      },
+      {
+        "ticker": "SOL-USD",
+        "articles": 9
+      },
+      {
+        "ticker": "ORCL",
+        "articles": 6
+      },
+      {
+        "ticker": "BA",
+        "articles": 6
+      },
+      {
+        "ticker": "LLY",
+        "articles": 6
+      },
+      {
+        "ticker": "AMD",
+        "articles": 5
+      },
+      {
+        "ticker": "SPY",
+        "articles": 5
+      },
+      {
+        "ticker": "WMT",
+        "articles": 4
+      },
+      {
+        "ticker": "KO",
+        "articles": 4
+      },
+      {
+        "ticker": "TSLA",
+        "articles": 4
+      }
+    ]
+  },
+  "quality": {
+    "coverage": [
+      {
+        "assets": 19,
+        "category": "crypto",
+        "no_week_news": 4
+      },
+      {
+        "assets": 102,
+        "category": "equity",
+        "no_week_news": 53
+      },
+      {
+        "assets": 11,
+        "category": "etf",
+        "no_week_news": 8
+      }
+    ],
+    "many_tags": [
+      {
+        "id": 102326,
+        "url": "https://www.coindesk.com/business/2026/10/29/potential-multi-billion-binance-hack-hitting-crypto-markets",
+        "related_tickers": [
+          "ADA-USD",
+          "BNB-USD",
+          "BTC-USD",
+          "DOGE-USD",
+          "ETH-USD",
+          "LTC-USD",
+          "SOL-USD",
+          "XRP-USD"
+        ]
+      },
+      {
+        "id": 102058,
+        "url": "https://www.cnbc.com/2026/10/28/magnificent-seven-stocks-correlation-breakdown.html",
+        "related_tickers": [
+          "AAPL",
+          "AMZN",
+          "GOOG",
+          "GOOGL",
+          "META",
+          "MSFT",
+          "NVDA",
+          "TSLA"
+        ]
+      },
+      {
+        "id": 102416,
+        "url": "https://www.marketwatch.com/story/this-strategist-correctly-recommended-shorting-big-tech-debt-last-year-now-he-says-the-yields-make-it-attractive-3ec2e0fe?mod=mw_rss_topstories",
+        "related_tickers": [
+          "AAPL",
+          "AMZN",
+          "GOOGL",
+          "META",
+          "MSFT",
+          "NVDA"
+        ]
+      },
+      {
+        "id": 101776,
+        "url": "https://www.coindesk.com/policy/2026/10/26/south-korea-weighs-fourth-delay-on-its-crypto-gains-tax-pushing-it-to-2029",
+        "related_tickers": [
+          "ADA-USD",
+          "BNB-USD",
+          "BTC-USD",
+          "ETH-USD",
+          "SOL-USD",
+          "XRP-USD"
+        ]
+      },
+      {
+        "id": 101742,
+        "url": "https://www.coindesk.com/markets/2026/10/26/calpers-pulls-back-from-big-tech-as-ai-jitters-deepen-neocloud-sell-off",
+        "related_tickers": [
+          "AAPL",
+          "AMZN",
+          "GOOG",
+          "GOOGL",
+          "MSFT",
+          "NVDA"
+        ]
+      },
+      {
+        "id": 102433,
+        "url": "https://www.coindesk.com/tech/2026/10/30/binance-uncovers-wider-breach-in-usd6-3-billion-exploit-targets-sunday-withdrawal-restart",
+        "related_tickers": [
+          "BNB-USD",
+          "BTC-USD",
+          "ETH-USD",
+          "USDC-USD",
+          "USDT-USD"
+        ]
+      },
+      {
+        "id": 102328,
+        "url": "https://decrypt.co/382191/binance-suspected-hack-5-billion-tether-circle-freeze-crypto",
+        "related_tickers": [
+          "BNB-USD",
+          "BTC-USD",
+          "ETH-USD",
+          "USDC-USD",
+          "USDT-USD"
+        ]
+      },
+      {
+        "id": 102367,
+        "url": "https://www.coindesk.com/markets/2026/10/30/live-news-binance-hack-rattles-crypto-as-intel-plunges-and-ai-spending-fears-hit-tech",
+        "related_tickers": [
+          "BNB-USD",
+          "BTC-USD",
+          "ETH-USD",
+          "INTC"
+        ]
+      }
+    ],
+    "trending_old_field": {
+      "last_day_primary": 0,
+      "last_day_related": 42
+    },
+    "canonical_duplicates": {
+      "clusters": 0,
+      "extra_rows": 0
+    },
+    "explicit_mention_misses": [
+      {
+        "id": 102428,
+        "url": "https://www.marketwatch.com/story/after-intels-historic-stock-drop-analysts-say-theres-no-reason-to-buy-the-dip-068446af?mod=mw_rss_topstories",
+        "expected": "INTC",
+        "related_tickers": []
+      },
+      {
+        "id": 102427,
+        "url": "https://decrypt.co/382236/elon-musk-cz-trade-blows-spacex-shares-binance-hack",
+        "expected": "SPCX",
+        "related_tickers": []
+      },
+      {
+        "id": 102185,
+        "url": "https://www.marketwatch.com/story/samsung-electronics-earned-nearly-as-much-as-microsoft-and-alphabet-combined-what-the-korean-giant-is-now-saying-about-the-memory-chip-outlook-e5c94b94?mod=mw_rss_topstories",
+        "expected": "MSFT",
+        "related_tickers": []
+      },
+      {
+        "id": 102120,
+        "url": "https://www.bbc.co.uk/news/articles/c63djl148n3eo?at_medium=RSS&at_campaign=rss",
+        "expected": "SPCX",
+        "related_tickers": []
+      },
+      {
+        "id": 102002,
+        "url": "https://www.cnbc.com/2026/10/28/jio-ipo-india-listing-.html",
+        "expected": "META",
+        "related_tickers": []
+      },
+      {
+        "id": 101986,
+        "url": "https://www.cnbc.com/2026/10/28/india-us-stocks-retail-access.html",
+        "expected": "SPCX",
+        "related_tickers": [
+          "AAPL",
+          "NVDA"
+        ]
+      },
+      {
+        "id": 101899,
+        "url": "https://www.cnbc.com/make-it/2026/10/27/spacex-tesla-anthropic-and-sp-500-index-rules.html",
+        "expected": "SPCX",
+        "related_tickers": [
+          "SPY",
+          "TSLA"
+        ]
+      },
+      {
+        "id": 101817,
+        "url": "https://www.cnbc.com/investingclub/2026/10/26/meta-spacex-anthropic-stoke-the-ai-funding-frenzy-what-it-means-for-our-stocks.html",
+        "expected": "SPCX",
+        "related_tickers": [
+          "META"
+        ]
+      },
+      {
+        "id": 101802,
+        "url": "https://decrypt.co/381848/spacex-40-billion-ai-chips-elon-musk-warns-most-neoclouds-will-die",
+        "expected": "SPCX",
+        "related_tickers": []
+      },
+      {
+        "id": 101717,
+        "url": "https://www.coindesk.com/markets/2026/10/26/elon-musk-confirms-usd40-billion-spacex-debt-deal-for-ai-chips-warns-of-neocloud-shakeout",
+        "expected": "SPCX",
+        "related_tickers": []
+      },
+      {
+        "id": 101714,
+        "url": "https://www.marketwatch.com/story/musk-says-spacex-landed-a-40-billion-debt-deal-and-forecasts-doom-for-some-ai-rivals-a0a4991e?mod=mw_rss_topstories",
+        "expected": "SPCX",
+        "related_tickers": []
+      },
+      {
+        "id": 101710,
+        "url": "https://www.cnbc.com/2026/10/26/spacex-closes-40-billion-debt-deal-for-ai-chips-elon-musk-.html",
+        "expected": "SPCX",
+        "related_tickers": [
+          "AMD",
+          "NVDA"
+        ]
+      }
+    ]
+  },
+  "named": {
+    "spcx_news": 0,
+    "named_coverage": [
+      {
+        "name": "Apple",
+        "ticker": "AAPL",
+        "matched": 5,
+        "named_articles": 5
+      },
+      {
+        "name": "Intel",
+        "ticker": "INTC",
+        "matched": 13,
+        "named_articles": 14
+      },
+      {
+        "name": "Meta",
+        "ticker": "META",
+        "matched": 6,
+        "named_articles": 7
+      },
+      {
+        "name": "Microsoft",
+        "ticker": "MSFT",
+        "matched": 16,
+        "named_articles": 17
+      },
+      {
+        "name": "Nvidia",
+        "ticker": "NVDA",
+        "matched": 7,
+        "named_articles": 7
+      },
+      {
+        "name": "SpaceX",
+        "ticker": "SPCX",
+        "matched": 0,
+        "named_articles": 9
+      }
+    ],
+    "unmatched_examples": [
+      {
+        "id": 102473,
+        "url": "https://www.cnbc.com/2026/10/31/trump-big-oil-refining-profits.html"
+      },
+      {
+        "id": 102428,
+        "url": "https://www.marketwatch.com/story/after-intels-historic-stock-drop-analysts-say-theres-no-reason-to-buy-the-dip-068446af?mod=mw_rss_topstories"
+      },
+      {
+        "id": 102427,
+        "url": "https://decrypt.co/382236/elon-musk-cz-trade-blows-spacex-shares-binance-hack"
+      },
+      {
+        "id": 102120,
+        "url": "https://www.bbc.co.uk/news/articles/c63djl148n3eo?at_medium=RSS&at_campaign=rss"
+      },
+      {
+        "id": 102121,
+        "url": "https://cointelegraph.com/news/sam-bankman-fried-actor-anthony-boyle-netflix?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound"
+      },
+      {
+        "id": 101932,
+        "url": "https://www.cnbc.com/2026/10/27/oracle-openai-chatgpt-codex-google-tpus.html"
+      },
+      {
+        "id": 101877,
+        "url": "https://www.cnbc.com/2026/10/27/uk-national-security-raf-fairford-iran.html"
+      },
+      {
+        "id": 101819,
+        "url": "https://www.marketwatch.com/story/a-possible-doordash-instacart-deal-is-all-about-keeping-up-with-walmart-and-amazon-analysts-say-17049bb1?mod=mw_rss_topstories"
+      },
+      {
+        "id": 101808,
+        "url": "https://www.marketwatch.com/story/mcdonalds-new-bet-on-chicken-hits-a-snag-as-franchisees-say-the-birds-are-too-big-c3e8dd77?mod=mw_rss_topstories"
+      },
+      {
+        "id": 101802,
+        "url": "https://decrypt.co/381848/spacex-40-billion-ai-chips-elon-musk-warns-most-neoclouds-will-die"
+      },
+      {
+        "id": 101717,
+        "url": "https://www.coindesk.com/markets/2026/10/26/elon-musk-confirms-usd40-billion-spacex-debt-deal-for-ai-chips-warns-of-neocloud-shakeout"
+      },
+      {
+        "id": 101714,
+        "url": "https://www.marketwatch.com/story/musk-says-spacex-landed-a-40-billion-debt-deal-and-forecasts-doom-for-some-ai-rivals-a0a4991e?mod=mw_rss_topstories"
+      }
+    ],
+    "ticker_source_mismatch": {
+      "all_with_related": 3969,
+      "all_ticker_nonnull": 0
+    }
+  },
+  "latest60": {
+    "latest_count": 60,
+    "tagged": 27,
+    "unmatched": 33,
+    "binance": 16
+  },
+  "latest_articles": [
+    {
+      "id": 102477,
+      "url": "https://www.cnbc.com/2026/10/31/anthropic-ipo-ai-spending.html",
+      "related_tickers": []
+    },
+    {
+      "id": 102476,
+      "url": "https://www.cnbc.com/make-it/2026/10/23/giant-halloween-skeleton-decorations.html",
+      "related_tickers": []
+    },
+    {
+      "id": 102475,
+      "url": "https://cointelegraph.com/news/binance-63b-record-hack-sparks-pre-election-political-chatter?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+      "related_tickers": [
+        "BNB-USD",
+        "BTC-USD",
+        "ETH-USD"
+      ]
+    },
+    {
+      "id": 102474,
+      "url": "https://www.cnbc.com/2026/10/31/ai-construction-worker-safety.html",
+      "related_tickers": []
+    },
+    {
+      "id": 102473,
+      "url": "https://www.cnbc.com/2026/10/31/trump-big-oil-refining-profits.html",
+      "related_tickers": []
+    },
+    {
+      "id": 102472,
+      "url": "https://www.coindesk.com/markets/2026/10/31/bitcoin-stolen-from-binance-tops-tesla-s-holdings-and-is-over-twice-el-salvador-s-reserve",
+      "related_tickers": [
+        "BNB-USD",
+        "BTC-USD"
+      ]
+    },
+    {
+      "id": 102471,
+      "url": "https://www.marketwatch.com/story/grand-theft-callout-gta-6-fans-are-missing-work-on-the-games-release-day-because-they-dont-want-to-wait-anymore-5f2fa2e3?mod=mw_rss_topstories",
+      "related_tickers": []
+    },
+    {
+      "id": 102470,
+      "url": "https://www.coindesk.com/business/2026/10/30/openai-reportedly-cuts-fundraising-target-amid-ai-jitters",
+      "related_tickers": []
+    },
+    {
+      "id": 102469,
+      "url": "https://www.marketwatch.com/story/has-the-tech-bubble-burst-why-the-nasdaqs-rough-ride-looks-eerily-like-2000-5bcefcb2?mod=mw_rss_topstories",
+      "related_tickers": []
+    },
+    {
+      "id": 102468,
+      "url": "https://www.cnbc.com/2026/10/30/jim-cramer-consumer-staples-stocks.html",
+      "related_tickers": []
+    },
+    {
+      "id": 102465,
+      "url": "https://www.cnbc.com/2026/10/30/meta-outlook-to-revised-to-negative-by-sp-after-cash-flow-negative.html",
+      "related_tickers": [
+        "META"
+      ]
+    },
+    {
+      "id": 102464,
+      "url": "https://www.marketwatch.com/story/this-cybersecurity-stock-will-be-the-next-to-join-the-s-p-500-dc976803?mod=mw_rss_topstories",
+      "related_tickers": []
+    },
+    {
+      "id": 102466,
+      "url": "https://www.cnbc.com/2026/10/30/jim-cramer-week-ahead-apple-amd-jobs-report.html",
+      "related_tickers": [
+        "AAPL",
+        "AMD"
+      ]
+    },
+    {
+      "id": 102467,
+      "url": "https://cointelegraph.com/magazine/binance-hackers-raced-to-move-billions-before-could-be-frozen?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+      "related_tickers": [
+        "BNB-USD",
+        "USDC-USD",
+        "USDT-USD"
+      ]
+    },
+    {
+      "id": 102463,
+      "url": "https://www.marketwatch.com/story/why-gold-plunged-to-its-lowest-price-in-a-year-despite-renewed-iran-jitters-365be0e2?mod=mw_rss_topstories",
+      "related_tickers": [
+        "GLD"
+      ]
+    },
+    {
+      "id": 102462,
+      "url": "https://decrypt.co/382285/binance-hack-why-offshore-exchanges-need-us-oversight-cftc-chair",
+      "related_tickers": [
+        "BNB-USD",
+        "BTC-USD",
+        "ETH-USD"
+      ]
+    },
+    {
+      "id": 102461,
+      "url": "https://decrypt.co/382287/intel-stock-suffers-worst-crash-in-50-years-as-weak-forecast-overshadows-ai-chip-demand",
+      "related_tickers": [
+        "INTC"
+      ]
+    },
+    {
+      "id": 102458,
+      "url": "https://www.marketwatch.com/story/the-selloff-in-tech-stocks-is-shifting-into-overdrive-afb50975?mod=mw_rss_topstories",
+      "related_tickers": []
+    },
+    {
+      "id": 102459,
+      "url": "https://decrypt.co/382282/crypto-hacks-buy-bitcoin-proxies-stock-market-wall-street",
+      "related_tickers": [
+        "BTC-USD"
+      ]
+    },
+    {
+      "id": 102456,
+      "url": "https://www.coindesk.com/business/2026/10/30/experts-divided-over-binance-hack-asset-freezes-warn-recovery-is-another-matter",
+      "related_tickers": [
+        "BNB-USD",
+        "BTC-USD",
+        "ETH-USD"
+      ]
+    },
+    {
+      "id": 102454,
+      "url": "https://www.marketwatch.com/story/the-fed-held-interest-rates-steady-but-these-officials-see-more-hikes-coming-soon-2098bbd8?mod=mw_rss_topstories",
+      "related_tickers": []
+    },
+    {
+      "id": 102455,
+      "url": "https://www.cnbc.com/make-it/2026/10/30/binance-crypto-hack-customer-funds.html",
+      "related_tickers": []
+    },
+    {
+      "id": 102457,
+      "url": "https://decrypt.co/382276/reddit-stock-plunges-30-googles-ai-search",
+      "related_tickers": [
+        "GOOG",
+        "GOOGL"
+      ]
+    },
+    {
+      "id": 102453,
+      "url": "https://cointelegraph.com/news/tethers-excess-reserves-nearly-double-to-8b-as-q3-profit-hits-15b?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+      "related_tickers": [
+        "USDT-USD"
+      ]
+    },
+    {
+      "id": 102452,
+      "url": "https://www.cnbc.com/investingclub/2026/10/30/tech-gets-crushed-defensive-stocks-shine-how-were-making-sense-of-it-all.html",
+      "related_tickers": []
+    },
+    {
+      "id": 102451,
+      "url": "https://decrypt.co/382257/binance-hack-why-bitcoin-didnt-crash",
+      "related_tickers": [
+        "BNB-USD",
+        "BTC-USD"
+      ]
+    },
+    {
+      "id": 102449,
+      "url": "https://www.cnbc.com/2026/10/30/reid-hoffman-democrats-epstein-midterms-2026.html",
+      "related_tickers": []
+    },
+    {
+      "id": 102448,
+      "url": "https://decrypt.co/382269/crypto-kidnapping-texas-brothers-15-year-prison",
+      "related_tickers": [
+        "BTC-USD",
+        "ETH-USD"
+      ]
+    },
+    {
+      "id": 102444,
+      "url": "https://www.marketwatch.com/story/microsoft-is-winning-the-cloud-wars-and-becoming-wall-streets-new-golden-child-62eecbbd?mod=mw_rss_topstories",
+      "related_tickers": [
+        "MSFT"
+      ]
+    },
+    {
+      "id": 102445,
+      "url": "https://www.cnbc.com/2026/10/30/binance-hack-stolen-crypto-recovery.html",
+      "related_tickers": [
+        "BNB-USD"
+      ]
+    },
+    {
+      "id": 102446,
+      "url": "https://www.cnbc.com/2026/10/30/binance-hack-bitcoin-price.html",
+      "related_tickers": [
+        "BTC-USD"
+      ]
+    },
+    {
+      "id": 102447,
+      "url": "https://www.bbc.co.uk/news/articles/c98rz4pxm4ymo?at_medium=RSS&at_campaign=rss",
+      "related_tickers": []
+    },
+    {
+      "id": 102443,
+      "url": "https://decrypt.co/382268/secret-service-fbi-binance-hack-probe",
+      "related_tickers": [
+        "BNB-USD",
+        "BTC-USD",
+        "ETH-USD"
+      ]
+    },
+    {
+      "id": 102442,
+      "url": "https://cointelegraph.com/markets/coinbase-leads-crypto-stock-selloff-shares-tumble?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+      "related_tickers": []
+    },
+    {
+      "id": 102440,
+      "url": "https://www.marketwatch.com/story/american-workers-are-finding-their-take-home-pay-isnt-keeping-up-with-inflation-with-their-wallets-stretching-thinner-and-thinner-6a1af690?mod=mw_rss_topstories",
+      "related_tickers": []
+    },
+    {
+      "id": 102450,
+      "url": "https://www.bbc.co.uk/news/articles/cwe8lp7zy07zo?at_medium=RSS&at_campaign=rss",
+      "related_tickers": [
+        "BNB-USD",
+        "BTC-USD"
+      ]
+    },
+    {
+      "id": 102441,
+      "url": "https://www.marketwatch.com/story/you-can-expect-the-stock-market-to-rally-no-matter-who-wins-on-election-day-d4a3c282?mod=mw_rss_topstories",
+      "related_tickers": []
+    },
+    {
+      "id": 102437,
+      "url": "https://www.cnbc.com/2026/10/30/ai-stocks-selloff-ai-spending-returns.html",
+      "related_tickers": []
+    },
+    {
+      "id": 102436,
+      "url": "https://www.cnbc.com/2026/10/30/tanker-attack-strait-hormuz-iran-war-oil.html",
+      "related_tickers": [
+        "CVX",
+        "XOM"
+      ]
+    },
+    {
+      "id": 102435,
+      "url": "https://www.marketwatch.com/story/the-big-winners-of-the-tech-wreck-are-biopharma-stocks-2ac4d175?mod=mw_rss_topstories",
+      "related_tickers": [
+        "GILD",
+        "JNJ",
+        "LLY"
+      ]
+    },
+    {
+      "id": 102438,
+      "url": "https://cointelegraph.com/news/bitcoin-quantum-threat-ripple-bank-usdc-vaneck-crypto-biz?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+      "related_tickers": [
+        "BTC-USD",
+        "USDC-USD"
+      ]
+    },
+    {
+      "id": 102431,
+      "url": "https://www.cnbc.com/2026/10/30/halloween-gets-pricier-as-chocolate-costs-rise-hershey-could-feel-it.html",
+      "related_tickers": []
+    },
+    {
+      "id": 102429,
+      "url": "https://www.cnbc.com/2026/10/30/musalem-fed-monetary-policy-tightening.html",
+      "related_tickers": []
+    },
+    {
+      "id": 102439,
+      "url": "https://cointelegraph.com/news/recap-binances-record-63b-hack-unfolded?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+      "related_tickers": []
+    },
+    {
+      "id": 102432,
+      "url": "https://www.cnbc.com/2026/10/30/alaska-senate-election-doj-lawsuit-sullivan-peltola.html",
+      "related_tickers": []
+    },
+    {
+      "id": 102428,
+      "url": "https://www.marketwatch.com/story/after-intels-historic-stock-drop-analysts-say-theres-no-reason-to-buy-the-dip-068446af?mod=mw_rss_topstories",
+      "related_tickers": []
+    },
+    {
+      "id": 102430,
+      "url": "https://www.cnbc.com/2026/10/30/google-lost-about-half-a-trillion-this-week-how-mike-khouw-trades-it-.html",
+      "related_tickers": [
+        "GOOG",
+        "GOOGL"
+      ]
+    },
+    {
+      "id": 102434,
+      "url": "https://decrypt.co/382237/binance-sets-aside-6-34b-to-cover-hack-losses-ceo-says-your-assets-are-safe",
+      "related_tickers": []
+    },
+    {
+      "id": 102433,
+      "url": "https://www.coindesk.com/tech/2026/10/30/binance-uncovers-wider-breach-in-usd6-3-billion-exploit-targets-sunday-withdrawal-restart",
+      "related_tickers": [
+        "BNB-USD",
+        "BTC-USD",
+        "ETH-USD",
+        "USDC-USD",
+        "USDT-USD"
+      ]
+    },
+    {
+      "id": 102427,
+      "url": "https://decrypt.co/382236/elon-musk-cz-trade-blows-spacex-shares-binance-hack",
+      "related_tickers": []
+    },
+    {
+      "id": 102423,
+      "url": "https://www.marketwatch.com/story/trump-administration-is-illegally-delaying-student-debt-forgiveness-for-tens-of-thousands-of-public-servants-lawsuit-alleges-e4d31e59?mod=mw_rss_topstories",
+      "related_tickers": []
+    },
+    {
+      "id": 102426,
+      "url": "https://cointelegraph.com/markets/bitcoin-risks-worst-october-in-12-years-as-tech-sell-off-spreads-to-gold?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+      "related_tickers": [
+        "BTC-USD"
+      ]
+    },
+    {
+      "id": 102424,
+      "url": "https://www.cnbc.com/2026/10/30/lawsuit-blames-trump-officials-for-student-loan-forgiveness-delays.html",
+      "related_tickers": []
+    },
+    {
+      "id": 102421,
+      "url": "https://www.marketwatch.com/story/private-equity-in-your-401-k-heed-warren-buffetts-warning-6f318cd0?mod=mw_rss_topstories",
+      "related_tickers": []
+    },
+    {
+      "id": 102425,
+      "url": "https://www.cnbc.com/investingclub/2026/10/30/cramer-sees-3-stocks-to-buy-not-selling-the-intel-plunge.html",
+      "related_tickers": [
+        "INTC"
+      ]
+    },
+    {
+      "id": 102422,
+      "url": "https://www.cnbc.com/2026/10/30/cheap-cars-selling-fast.html",
+      "related_tickers": []
+    },
+    {
+      "id": 102419,
+      "url": "https://www.marketwatch.com/story/in-a-wild-october-for-markets-these-stocks-were-the-biggest-winners-and-losers-3736f043?mod=mw_rss_topstories",
+      "related_tickers": []
+    },
+    {
+      "id": 102420,
+      "url": "https://www.marketwatch.com/story/data-centers-are-a-political-third-rail-west-virginia-is-grabbing-it-anyway-80d129b5?mod=mw_rss_topstories",
+      "related_tickers": []
+    },
+    {
+      "id": 102417,
+      "url": "https://www.cnbc.com/2026/10/30/treasury-i-bond-rate-through-april-2027.html",
+      "related_tickers": [
+        "TLT"
+      ]
+    },
+    {
+      "id": 102418,
+      "url": "https://www.bbc.co.uk/news/articles/cvwy72e0n72yo?at_medium=RSS&at_campaign=rss",
+      "related_tickers": []
+    }
+  ],
+  "verified_cases": [
+    {
+      "id": 102428,
+      "finding": "Intel 급락 분석 기사 INTC 누락"
+    },
+    {
+      "id": 102427,
+      "finding": "SpaceX 지분 기사 SPCX 누락"
+    },
+    {
+      "id": 102417,
+      "finding": "Series I savings bond 기사 TLT 과잉 연결"
+    },
+    {
+      "id": 102443,
+      "finding": "Circle 동결액 $823m을 Binance 도난액으로 잘못 요약; USDC/USDT 태그 누락"
+    },
+    {
+      "id": 102448,
+      "finding": "일반 암호화폐 강력범죄 기사에 BTC/ETH 연결, 입력·본문 근거 부족"
+    }
+  ],
+  "source_limitations": "CNBC 원문은 이 도구에서 열리지 않았고, 로컬 RSS 403은 운영 환경의 동일 장애를 증명하지 않음"
+}

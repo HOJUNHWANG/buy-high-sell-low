@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { loginHref } from "@/lib/auth-redirect";
 import { LogoImage } from "@/components/LogoImage";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PaperTradeBanner } from "@/components/PaperTradeBanner";
 import { PriceFreshnessBadge } from "@/components/PriceFreshnessBadge";
+import { getPriceFreshness } from "@/lib/price-freshness";
 import { formatAssetPrice } from "@/lib/price-format";
 
 interface StockInfo {
@@ -16,6 +18,7 @@ interface StockInfo {
   price: number | null;
   change_pct: number | null;
   fetched_at: string | null;
+  provider_session_date?: string | null;
   sector: string | null;
   is_active: boolean;
 }
@@ -74,10 +77,10 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) router.push("/auth/login");
+      if (!user) router.push(loginHref(`/paper/trade/${ticker}`));
       else setAuthed(true);
-    });
-  }, [supabase, router]);
+    }).catch(() => setError("Unable to verify sign-in. Please refresh."));
+  }, [supabase, router, ticker]);
 
   const loadData = () => {
     if (!authed) return;
@@ -85,10 +88,10 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
       // Retired holdings must remain accessible for Sell/Cover even though
       // inactive symbols are deliberately absent from public search.
       supabase.from("stocks").select("ticker,name,logo_url,sector,is_active").eq("ticker", ticker).single(),
-      fetch("/api/paper/portfolio").then((r) => r.json()),
-      supabase.from("stock_prices").select("price, change_pct, fetched_at").eq("ticker", ticker).single(),
+      fetch("/api/paper/portfolio").then((r) => { if (!r.ok) throw new Error("Portfolio unavailable"); return r.json(); }),
+      supabase.from("stock_prices").select("price, change_pct, fetched_at, provider_session_date").eq("ticker", ticker).single(),
     ]).then(([{ data: matched }, portfolio, { data: priceData }]) => {
-      if (!matched) return;
+      if (!matched) { setError("Ticker not found. Return to Markets to choose an available asset."); return; }
 
       const positions = portfolio.positions ?? [];
       const longPos = positions.find((p: { ticker: string; side: string }) => p.ticker === ticker && p.side !== "short");
@@ -102,6 +105,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
         price: currentPrice,
         change_pct: priceData?.change_pct ?? null,
         fetched_at: priceData?.fetched_at ?? null,
+        provider_session_date: priceData?.provider_session_date ?? null,
         sector: matched.sector ?? null,
         is_active: matched.is_active,
       });
@@ -128,7 +132,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
         setSide((current) => current === "buy" || current === "short"
           ? (longPos ? "sell" : shortPos ? "cover" : "sell") : current);
       }
-    });
+    }).catch(() => setError("Unable to load this trade. Please refresh."));
   };
 
   useEffect(loadData, [authed, ticker, supabase]);
@@ -153,10 +157,12 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
     ? (shortPosition.avg_cost - stock.price!) * shares
     : 0;
 
+  const pendingOrder = useRef<{ intent: string; key: string } | null>(null);
   async function executeTrade() {
     setError("");
     setResult(null);
     if (!hasLivePrice) { setError("Price data is not available yet."); return; }
+    if (stock && !["live", "settled"].includes(getPriceFreshness(stock.fetched_at, ticker, new Date(), undefined, stock.provider_session_date).state)) { setError("Price update delayed. Refresh before trading."); return; }
     if (shares <= 0) { setError("Enter a valid amount"); return; }
 
     const endpoint = side === "buy" ? "buy"
@@ -164,11 +170,13 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
       : side === "short" ? "short"
       : "cover";
 
+    const intent = JSON.stringify({ endpoint, ticker, shares, leverage: showLeverage ? leverage : 1 });
+    if (pendingOrder.current?.intent !== intent) pendingOrder.current = { intent, key: crypto.randomUUID() };
     setLoading(true);
     try {
       const res = await fetch(`/api/paper/${endpoint}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": pendingOrder.current.key },
         body: JSON.stringify({
           ticker,
           shares,
@@ -177,6 +185,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
+      pendingOrder.current = null;
       setResult(data);
       setCashBalance(data.cashBalance);
       setInputValue("");
@@ -185,6 +194,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
       const portfolioRes = await fetch("/api/paper/portfolio");
       if (portfolioRes.ok) {
         const portfolio = await portfolioRes.json();
+        setCashBalance(portfolio.cashBalance);
         const positions = portfolio.positions ?? [];
         const longPos = positions.find((p: { ticker: string; side: string }) => p.ticker === ticker && p.side !== "short");
         const shortPos = positions.find((p: { ticker: string; side: string }) => p.ticker === ticker && p.side === "short");
@@ -216,8 +226,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
   if (!authed || !stock) {
     return (
       <div className="max-w-xl mx-auto px-5 py-8 space-y-4">
-        <div className="skeleton h-8 w-32" />
-        <div className="skeleton h-48 rounded-xl" />
+        {error ? <div className="card p-4 space-y-3"><p role="alert">{error}</p><Link href="/stocks" className="btn btn-secondary btn-sm">Back to Markets</Link></div> : <><div className="skeleton h-8 w-32" /><div className="skeleton h-48 rounded-xl" /></>}
       </div>
     );
   }
@@ -227,19 +236,19 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
   const sideConfig: Record<TradeSide, { label: string; color: string; bg: string }> = {
     buy: { label: "BUY", color: "var(--up)", bg: "rgba(74,222,128,0.15)" },
     sell: { label: "SELL", color: "var(--down)", bg: "rgba(248,113,113,0.15)" },
-    short: { label: "SHORT", color: "#f97316", bg: "rgba(249,115,22,0.15)" },
+    short: { label: "SHORT", color: "var(--warn)", bg: "rgba(249,115,22,0.15)" },
     cover: { label: "COVER", color: "#38bdf8", bg: "rgba(56,189,248,0.15)" },
   };
 
   const maxForSide = () => {
-    if (side === "buy" || side === "short") return cashBalance;
+    if (side === "buy" || side === "short") return Math.max(0,cashBalance);
     if (side === "sell" && longPosition) return longPosition.shares * (stock?.price ?? 0);
     if (side === "cover" && shortPosition) return shortPosition.shares * (stock?.price ?? 0);
     return 0;
   };
 
   const maxSharesForSide = () => {
-    if ((side === "buy" || side === "short") && stock?.price) return cashBalance / stock.price;
+    if ((side === "buy" || side === "short") && stock?.price) return Math.max(0,cashBalance) / stock.price;
     if (side === "sell" && longPosition) return longPosition.shares;
     if (side === "cover" && shortPosition) return shortPosition.shares;
     return 0;
@@ -291,7 +300,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
       {/* Current positions */}
       {[
         { pos: longPosition, label: "Long Position", badge: "LONG", badgeColor: "var(--up)" },
-        { pos: shortPosition, label: "Short Position", badge: "SHORT", badgeColor: "#f97316" },
+        { pos: shortPosition, label: "Short Position", badge: "SHORT", badgeColor: "var(--warn)" },
       ].map(({ pos, label, badge, badgeColor }) => pos && (
         <div key={badge} className="card rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
@@ -406,7 +415,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
         <div className="rounded-lg px-3 py-2 text-[10px] space-y-1"
           style={{ 
             background: side === "short" ? "rgba(249,115,22,0.08)" : "var(--surface-3)", 
-            color: side === "short" ? "#f97316" : "var(--text-2)", 
+            color: side === "short" ? "var(--warn)" : "var(--text-2)",
             border: side === "short" ? "1px solid rgba(249,115,22,0.2)" : "1px solid var(--border-md)" 
           }}>
           {side === "buy" ? (
@@ -520,7 +529,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
                 <button
                   onClick={() => {
                     if (side === "buy" || side === "short") {
-                      setInputValue(cashBalance.toFixed(2));
+                      setInputValue(Math.max(0,cashBalance).toFixed(2));
                     } else if (side === "sell" && longPosition && hasLivePrice) {
                       setInputValue((longPosition.shares * stock.price!).toFixed(2));
                     } else if (side === "cover" && shortPosition && hasLivePrice) {
@@ -566,7 +575,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
                 <button
                   onClick={() => {
                     if ((side === "buy" || side === "short") && stock?.price) {
-                      setInputValue((cashBalance / stock.price).toFixed(4));
+                      setInputValue((Math.max(0,cashBalance) / stock.price).toFixed(4));
                     } else if (side === "sell" && longPosition) {
                       setInputValue(longPosition.shares.toFixed(4));
                     } else if (side === "cover" && shortPosition) {

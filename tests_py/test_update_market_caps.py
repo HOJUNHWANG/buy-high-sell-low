@@ -326,6 +326,7 @@ class PrimaryProviderTests(unittest.TestCase):
     @patch("update_market_caps.time.time", return_value=1_000)
     def test_crypto_uses_coingecko_market_cap_and_price(self, _time):
         provider = MarketDataProvider(session=MagicMock())
+        provider._coingecko_markets = {"dogecoin": {"market_cap":10_500_000_000,"current_price":0.07,"circulating_supply":150_000_000_000,"last_updated":"1970-01-01T00:16:35+00:00"}}
         provider._coingecko_rows = {
             "dogecoin": {
                 "usd": 0.07,
@@ -340,12 +341,13 @@ class PrimaryProviderTests(unittest.TestCase):
         self.assertEqual(observation.market_cap, 10_500_000_000)
         self.assertEqual(observation.price, 0.07)
         self.assertEqual(
-            observation.source, "coingecko.simple.usd_market_cap"
+            observation.source, "coingecko.markets.market_cap"
         )
 
     @patch("update_market_caps.time.time", return_value=2_000)
     def test_crypto_rejects_stale_coingecko_response(self, _time):
         provider = MarketDataProvider(session=MagicMock())
+        provider._coingecko_markets = {"dogecoin": {"market_cap":10_500_000_000,"current_price":0.07,"circulating_supply":150_000_000_000,"last_updated":"1970-01-01T00:16:35+00:00"}}
         provider._coingecko_rows = {
             "dogecoin": {
                 "usd": 0.07,

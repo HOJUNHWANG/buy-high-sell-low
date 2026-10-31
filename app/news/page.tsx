@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { NewsArticle } from "@/lib/types";
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { diversifyNews } from "@/lib/news-quality";
 import { NewsFilter } from "@/components/NewsFilter";
 import { TrendingTickersWidget } from "@/components/TrendingTickersWidget";
 import { SentimentWidget } from "@/components/SentimentWidget";
@@ -23,8 +24,8 @@ async function getNews(): Promise<NewsArticle[]> {
       .from("news_articles")
       .select("*")
       .order("published_at", { ascending: false })
-      .limit(60);
-    return data ?? [];
+      .limit(240);
+    return diversifyNews(data ?? [], 60);
   } catch {
     return [];
   }

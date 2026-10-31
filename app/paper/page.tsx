@@ -15,6 +15,7 @@ interface Position {
   shares: number;
   avg_cost: number;
   currentPrice: number;
+  isEstimated?: boolean;
   marketValue: number;
   costBasis: number;
   borrowed: number;
@@ -59,6 +60,7 @@ interface ChallengePick {
 }
 
 interface Challenge {
+  unclaimedRewards?: { id: number; week_start: string; reward_usd: number }[];
   id: number;
   ticker: string;
   target_pct: number;
@@ -142,9 +144,9 @@ export default function PaperTradingPage() {
     setLoading(true);
     setLoadError("");
     try {
-      const [portfolioRes, liqRes, challengeRes] = await Promise.all([
+      const liqRes = await fetch("/api/paper/liquidation");
+      const [portfolioRes, challengeRes] = await Promise.all([
         fetch("/api/paper/portfolio"),
-        fetch("/api/paper/liquidation"),
         fetch("/api/paper/challenge"),
       ]);
 
@@ -173,14 +175,13 @@ export default function PaperTradingPage() {
   }, [authed, loadAll]);
 
   async function handleCheckin() {
-    const res = await fetch("/api/paper/checkin", { method: "POST" });
-    const data = await res.json();
-    if (data.alreadyCheckedIn) { setCheckinDone(true); return; }
-    if (res.ok) {
-      setCheckinResult(data);
-      setCheckinDone(true);
-      loadAll(); // refresh portfolio
-    }
+    try {
+      const res = await fetch("/api/paper/checkin", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Check-in unavailable");
+      if (data.alreadyCheckedIn) { setCheckinDone(true); return; }
+      setCheckinResult(data);setCheckinDone(true);await loadAll();
+    } catch (err) { setLoadError(err instanceof Error ? err.message : "Check-in failed. Please retry."); }
   }
 
   async function retryChallenge() {
@@ -212,24 +213,24 @@ export default function PaperTradingPage() {
       ticker: p.ticker,
       direction: predictions[p.ticker],
     }));
-    const res = await fetch("/api/paper/challenge", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ picks }),
-    });
-    if (res.ok) loadAll();
-    setSubmittingChallenge(false);
+    try {
+      const res = await fetch("/api/paper/challenge", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ picks }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Unable to submit predictions");
+      await loadAll();
+    } catch (err) { setChallengeError(err instanceof Error ? err.message : "Network error. Please retry."); }
+    finally { setSubmittingChallenge(false); }
   }
 
-  async function claimReward() {
+  async function claimReward(challengeId?: number) {
     setClaimingReward(true);
-    const res = await fetch("/api/paper/challenge", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "claim" }),
-    });
-    if (res.ok) loadAll();
-    setClaimingReward(false);
+    try {
+      const res = await fetch("/api/paper/challenge", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim", challenge_id: challengeId ?? challenge?.id }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Unable to claim reward");
+      await loadAll();
+    } catch (err) { setChallengeError(err instanceof Error ? err.message : "Network error. Please retry."); }
+    finally { setClaimingReward(false); }
   }
 
   function handleShare() {
@@ -252,7 +253,7 @@ export default function PaperTradingPage() {
       <p className="page-kicker">START WITH $1,000 IN SIMULATED CASH</p>
       <h2 className="text-2xl font-semibold">Your next idea starts here.</h2>
       <p className="text-sm" style={{ color: "var(--text-2)" }}>Sign in to trade stocks and crypto, track your returns, and join the leaderboard.</p>
-      <Link href="/auth/login" className="btn btn-primary">Sign in to trade</Link>
+      <Link href="/auth/login?next=%2Fpaper" className="btn btn-primary">Sign in to trade</Link>
     </section>
   );
   if (loadError) return (
@@ -440,6 +441,7 @@ export default function PaperTradingPage() {
         </div>
       </div>
 
+      {portfolio.cashBalance < 0 && <p className="card p-3 text-xs" style={{ color: "var(--warn)" }}>Cash includes a leveraged loss that is still owed. Closing other holdings can cover it; new positions require positive available cash.</p>}
       {/* Stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
@@ -463,6 +465,11 @@ export default function PaperTradingPage() {
         {/* Holdings */}
         <div className="real-paper-main lg:col-span-2 space-y-4">
           <div className="paper-challenges space-y-4">
+            {challengeError && challenge && <p role="alert" className="text-xs" style={{ color: "var(--down)" }}>{challengeError}</p>}
+            {(challenge?.unclaimedRewards ?? []).filter(r => r.id !== challenge?.id && r.reward_usd > 0).map(reward => <div key={reward.id} className="card p-3 space-y-2">
+              <p className="text-xs">Unclaimed reward · week of {reward.week_start}</p>
+              <button className="btn btn-primary btn-sm" disabled={claimingReward} onClick={() => claimReward(reward.id)}>Claim {formatMoney(reward.reward_usd)}</button>
+            </div>)}
             {/* Weekly Challenge — Error / Retry */}
             {!challenge && challengeError && (
               <div className="rounded-xl p-4 text-center space-y-2"
@@ -556,7 +563,7 @@ export default function PaperTradingPage() {
                     &#x1F3B0; Predictions Locked
                   </p>
                   <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
-                    Results on {challenge.week_end} (Fri close)
+                    Results after {challenge.week_end} daily closes
                   </span>
                 </div>
                 <div className="space-y-2">
@@ -619,7 +626,7 @@ export default function PaperTradingPage() {
                 {/* Claim reward button — only if not yet claimed */}
                 {challenge.reward_usd > 0 && !challenge.claimed ? (
                   <button
-                    onClick={claimReward}
+                    onClick={() => claimReward(challenge.id)}
                     disabled={claimingReward}
                     className="btn btn-primary btn-sm btn-block"
                     style={{ background: "linear-gradient(135deg, var(--up), #22c55e)" }}
@@ -680,7 +687,7 @@ export default function PaperTradingPage() {
               <div className="space-y-2">
                 {portfolio.positions.map((p) => (
                   <Link
-                    key={p.ticker}
+                    key={`${p.ticker}:${p.side}`}
                     href={`/paper/trade/${p.ticker}`}
                     className="card-clickable rounded-xl p-4 flex flex-col gap-3"
                   >
@@ -718,6 +725,7 @@ export default function PaperTradingPage() {
                         </p>
                         <p className="text-xs font-medium tabular-nums"
                           style={{ color: p.pnl >= 0 ? "var(--up)" : "var(--down)" }}>
+                          {p.isEstimated && <span className="block text-[10px]" style={{ color: "var(--warn)" }}>Estimate · quote delayed</span>}
                           {p.pnl >= 0 ? "+" : ""}{formatMoney(p.pnl)} ({p.pnlPct >= 0 ? "+" : ""}{p.pnlPct.toFixed(2)}%)
                         </p>
                       </div>

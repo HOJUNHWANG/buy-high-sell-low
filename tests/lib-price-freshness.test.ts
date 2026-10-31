@@ -75,4 +75,11 @@ describe("price freshness by market state", () => {
       label: "Invalid quote time",
     });
   });
+  it("requires a close-time observation even with matching session metadata", () => {
+    expect(getPriceFreshness("2026-07-10T13:35:00Z", "AAPL", weekend, undefined, "2026-07-10").state).toBe("delayed");
+    expect(getPriceFreshness("2026-07-11T15:00:00Z", "AAPL", weekend, undefined, "2026-07-10").state).toBe("settled");
+  });
+  it("uses the NYSE early close for completed-session freshness", () => {
+    expect(getPriceFreshness("2026-11-27T18:05:00Z", "AAPL", new Date("2026-11-27T19:00:00Z"), undefined, "2026-11-27").state).toBe("settled");
+  });
 });

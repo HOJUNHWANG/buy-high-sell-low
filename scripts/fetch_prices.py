@@ -39,7 +39,7 @@ from price_adjustments import (
     provider_quote_observed_at,
     record_price_anomaly,
 )
-from market_calendar import is_market_holiday, previous_market_day
+from market_calendar import is_market_holiday, previous_market_day, quote_session_date, session_close_minutes
 from market_storage import persist_price_batch
 
 BATCH_SIZE = 25  # Recommended batch size for stocks
@@ -75,7 +75,7 @@ def is_market_open(now_et: datetime | None = None) -> bool:
     if now_et.weekday() >= 5 or is_market_holiday(now_et.date()):
         return False
     market_open  = now_et.replace(hour=9,  minute=30, second=0, microsecond=0)
-    market_close = now_et.replace(hour=16, minute=0,  second=0, microsecond=0)
+    market_close = now_et.replace(hour=session_close_minutes(now_et.date()) // 60, minute=0, second=0, microsecond=0)
     return market_open <= now_et <= market_close
 
 
@@ -92,10 +92,10 @@ def get_post_market_stock_fetch_mode(now_et: datetime | None = None) -> str | No
     )
     if not is_session_day:
         return "settlement_catchup"
-    close_time = now_et.replace(hour=16, minute=0,  second=0, microsecond=0)
-    final_time = now_et.replace(hour=16, minute=30, second=0, microsecond=0)
-    settlement_start = now_et.replace(hour=16, minute=45, second=0, microsecond=0)
-    settlement_end = now_et.replace(hour=17, minute=15, second=0, microsecond=0)
+    close_time = now_et.replace(hour=session_close_minutes(now_et.date()) // 60, minute=0, second=0, microsecond=0)
+    final_time = close_time + timedelta(minutes=30)
+    settlement_start = close_time + timedelta(minutes=45)
+    settlement_end = close_time + timedelta(minutes=75)
     if close_time < now_et <= final_time:
         return "regular_close"
     if settlement_start <= now_et <= settlement_end:
@@ -116,7 +116,7 @@ def settlement_market_date(now_et: datetime | None = None) -> date:
     is_session_day = (
         now_et.weekday() < 5 and not is_market_holiday(session_date)
     )
-    close_time = now_et.replace(hour=16, minute=0, second=0, microsecond=0)
+    close_time = now_et.replace(hour=session_close_minutes(now_et.date()) // 60, minute=0, second=0, microsecond=0)
     if not is_session_day or now_et < close_time:
         return previous_market_day(session_date)
     return session_date
@@ -130,7 +130,7 @@ def already_completed_settlement_close_today(
     now_et = now_et or datetime.now(et)
     target_date = settlement_market_date(now_et)
     settlement_start_et = et.localize(
-        datetime(target_date.year, target_date.month, target_date.day, 16, 45)
+        datetime(target_date.year, target_date.month, target_date.day) + timedelta(minutes=session_close_minutes(target_date)+45)
     )
     settlement_start_utc = settlement_start_et.astimezone(pytz.utc).isoformat()
     expected_count = len(filter_collectable_tickers(supabase, ALL_EQUITY_TICKERS + ALL_ETF_TICKERS, now_et.date()))
@@ -199,10 +199,17 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
         api_ticker: ticker_map.get(api_ticker, api_ticker) if ticker_map else api_ticker
         for api_ticker in results
     }
-    et_market_date = datetime.now(
-        pytz.timezone("America/New_York")
-    ).date().isoformat()
-    utc_market_date = datetime.now(pytz.utc).date().isoformat()
+    market_dates = {}
+    for api_ticker, db_ticker in resolved_tickers.items():
+        data = results.get(api_ticker)
+        if not isinstance(data,dict): continue
+        is_crypto = db_ticker.endswith("-USD")
+        try:
+            observed = provider_quote_observed_at(data,fallback=ingested_at,is_crypto=is_crypto)
+            session_date = quote_session_date(data,observed_at=observed,ingested_at=ingested_at,is_crypto=is_crypto)
+            market_dates[db_ticker]=session_date.isoformat()
+        except (ValueError,TypeError,OverflowError):
+            failed.append(api_ticker)
     previous_closes: dict[tuple[str, str], float] = {}
 
     # Batches are normally all equities/ETFs or all crypto, but grouping by
@@ -210,7 +217,8 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
     tickers_by_reference: dict[tuple[str, str], list[str]] = {}
     for db_ticker in resolved_tickers.values():
         is_crypto = db_ticker.endswith("-USD")
-        market_date = utc_market_date if is_crypto else et_market_date
+        market_date = market_dates.get(db_ticker)
+        if not market_date: continue
         current_date = datetime.fromisoformat(market_date).date()
         reference_date = (
             current_date - timedelta(days=1)
@@ -270,7 +278,7 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
             low = parsed_ohlc.get("low")
             high = parsed_ohlc.get("high")
             if low is not None and high is not None:
-                if low > high or price < low * 0.999 or price > high * 1.001:
+                if low > high or price < low * 0.999 or price > high * 1.001 or (parsed_ohlc.get("open") is not None and not low * 0.999 <= parsed_ohlc["open"] <= high * 1.001):
                     raise ValueError("close is inconsistent with provider high/low")
         except (TypeError, ValueError, OverflowError) as exc:
             print(f"  Rejected invalid quote for {db_ticker}: {exc}")
@@ -286,7 +294,8 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
             print(f"  Rejected invalid quote time for {db_ticker}: {exc}")
             failed.append(api_ticker)
             continue
-        market_date = utc_market_date if is_crypto else et_market_date
+        market_date = market_dates.get(db_ticker)
+        if not market_date: continue
         previous_close = previous_closes.get((db_ticker.upper(), market_date))
         calculated_change_pct, change_source = calculate_change_pct(
             price,
@@ -346,6 +355,7 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
             volume=volume,
             ingested_at=ingested_at,
         )
+        row_price["provider_session_date"] = market_date
         row_long = {
             "ticker": db_ticker,
             "date":   market_date,
@@ -503,6 +513,10 @@ def fetch_crypto_twelve_data() -> tuple[int, list[str]]:
 
 
 def main() -> int:
+    try:
+        execute_db(supabase.rpc("resolve_paper_challenges", {"p_limit": 100}), operation="prices:challenge_settlement", retry_safe=True)
+    except Exception as exc:
+        print("Challenge settlement delayed:", type(exc).__name__)
     from sync_sp100 import sync_sp100
 
     run_failed: list[str] = []

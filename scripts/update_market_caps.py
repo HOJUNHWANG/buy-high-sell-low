@@ -88,9 +88,11 @@ TRUSTED_PRIMARY_SOURCE_PREFIXES = (
     "nasdaq.equity.summary.",
     "nasdaq.etf.summary.",
     "coingecko.simple.",
+    "coingecko.markets.",
 )
 
 NASDAQ_ETF_SUMMARY_URL = "https://api.nasdaq.com/api/quote/{ticker}/summary"
+COINGECKO_MARKETS_URL = "https://api.coingecko.com/api/v3/coins/markets"
 COINGECKO_SIMPLE_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price"
 NASDAQ_HEADERS = {
     "Accept": "application/json, text/plain, */*",
@@ -449,6 +451,7 @@ class MarketDataProvider:
         self._equity_errors: dict[str, list[str]] = {}
         self._coingecko_rows: dict[str, Mapping[str, Any]] | None = None
         self._coingecko_error: str | None = None
+        self._coingecko_markets: dict[str, Mapping[str, Any]] | None = None
         self._etf_aum: dict[str, float] = {}
         self._etf_errors: dict[str, str] = {}
 
@@ -565,61 +568,41 @@ class MarketDataProvider:
         coin_id = CRYPTO_COINGECKO_IDS.get(ticker)
         if not coin_id:
             raise MarketCapProviderError(f"no CoinGecko id mapped for {ticker}")
-        row = self._load_coingecko_rows().get(coin_id)
-        if row is not None:
-            market_cap = _provider_number(row.get("usd_market_cap"))
-            price = _provider_number(row.get("usd"))
-            if market_cap is not None and price is not None:
-                updated_epoch = _positive_number(row.get("last_updated_at"))
-                if updated_epoch is None:
-                    raise MarketCapProviderError(
-                        "CoinGecko response has no valid last_updated_at"
-                    )
-                reference_age = time.time() - updated_epoch
-                if reference_age < -PROVIDER_FUTURE_SKEW_SECONDS:
-                    raise MarketCapProviderError(
-                        "CoinGecko last_updated_at is in the future"
-                    )
-                if reference_age > CRYPTO_REFERENCE_MAX_AGE_SECONDS:
-                    raise MarketCapProviderError(
-                        f"CoinGecko response is stale ({reference_age:.0f}s old)"
-                    )
-                # Yahoo's crypto market-cap field has returned inconsistent
-                # implied supplies (the original DOGE regression). It is useful
-                # only as a logged cross-check, never as a write fallback.
-                yfinance_observation, yfinance_error = self._try_yfinance(ticker)
-                note = f"CoinGecko last_updated_at={int(updated_epoch)}"
-                if yfinance_error:
-                    note = (
-                        f"{note}; " if note else ""
-                    ) + f"yfinance cross-check unavailable: {yfinance_error}"
-                return MarketCapObservation(
-                    ticker=ticker,
-                    asset_class=ASSET_CRYPTO,
-                    semantic=ASSET_SEMANTICS[ASSET_CRYPTO],
-                    market_cap=int(round(market_cap)),
-                    source="coingecko.simple.usd_market_cap",
-                    price=price,
-                    # Do not mix Yahoo's occasionally stale circulating supply
-                    # into validation of CoinGecko's primary market cap.
-                    cross_check_market_cap=(
-                        yfinance_observation.market_cap
-                        if yfinance_observation
-                        else None
-                    ),
-                    cross_check_source=(
-                        yfinance_observation.source
-                        if yfinance_observation
-                        else None
-                    ),
-                    provider_note=note,
-                )
-
-        reason = self._coingecko_error or "coin/value absent from response"
-        raise MarketCapProviderError(
-            "CoinGecko circulating market cap unavailable; preserving "
-            f"last-known-good value: {reason}"
-        )
+        reference = self._load_coingecko_rows().get(coin_id)
+        if not reference:
+            raise MarketCapProviderError("CoinGecko reference unavailable; preserving last-known-good value")
+        if self._coingecko_markets is None:
+            try:
+                response=self.session.get(COINGECKO_MARKETS_URL,params={"ids": ",".join(sorted(set(CRYPTO_COINGECKO_IDS.values()))),"vs_currency":"usd","per_page":250,"sparkline":"false"},timeout=HTTP_TIMEOUT_SECONDS)
+                response.raise_for_status(); payload=response.json()
+                if not isinstance(payload,list): raise ValueError("CoinGecko markets response is not an array")
+                self._coingecko_markets={row["id"]:row for row in payload if isinstance(row,Mapping) and row.get("id")}
+            except Exception as exc:
+                self._coingecko_markets={}
+                raise MarketCapProviderError("CoinGecko markets unavailable; preserving last-known-good value") from exc
+        row=self._coingecko_markets.get(coin_id)
+        if not row: raise MarketCapProviderError("Coin absent from CoinGecko markets; preserving last-known-good value")
+        cap=_positive_number(row.get("market_cap")); price=_positive_number(row.get("current_price")); supply=_positive_number(row.get("circulating_supply"))
+        if not cap or not price or not supply: raise MarketCapProviderError("Missing circulating cap, price or supply")
+        try: market_epoch=datetime.fromisoformat(str(row.get("last_updated","")).replace("Z","+00:00")).timestamp()
+        except ValueError as exc: raise MarketCapProviderError("Invalid CoinGecko markets timestamp") from exc
+        reference_epoch=_positive_number(reference.get("last_updated_at"))
+        if not reference_epoch: raise MarketCapProviderError("Missing CoinGecko reference timestamp")
+        for epoch in [market_epoch,reference_epoch]:
+            age=time.time()-epoch
+            if age < -PROVIDER_FUTURE_SKEW_SECONDS: raise MarketCapProviderError("CoinGecko timestamp is in the future")
+            if age > CRYPTO_REFERENCE_MAX_AGE_SECONDS: raise MarketCapProviderError("CoinGecko response is stale")
+        reference_cap=_positive_number(reference.get("usd_market_cap"))
+        reference_price=_positive_number(reference.get("usd"))
+        if not reference_cap or not reference_price: raise MarketCapProviderError("Missing CoinGecko cross-check")
+        if abs(cap-price*supply)/cap > 0.03:
+            raise MarketCapProviderError("CoinGecko cap disagrees with price times circulating supply")
+        if abs(cap-reference_cap)/reference_cap > 0.10 or abs(price-reference_price)/reference_price > 0.05:
+            raise MarketCapProviderError("CoinGecko endpoints disagree; preserving last-known-good value")
+        return MarketCapObservation(ticker=ticker,asset_class=ASSET_CRYPTO,semantic=ASSET_SEMANTICS[ASSET_CRYPTO],
+            market_cap=int(round(cap)),source="coingecko.markets.market_cap",price=price,quantity=supply,quantity_name="circulating_supply",
+            cross_check_market_cap=int(round(reference_cap)),cross_check_source="coingecko.simple.usd_market_cap",
+            provider_note=f"CoinGecko markets last_updated={row['last_updated']}; simple last_updated_at={int(reference_epoch)}")
 
     def _fetch_etf(self, ticker: str) -> MarketCapObservation:
         if ticker not in self._etf_aum and ticker not in self._etf_errors:

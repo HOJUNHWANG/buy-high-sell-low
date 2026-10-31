@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useMemo } from "react";
+import { useCallback, useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { LogoImage } from "./LogoImage";
@@ -92,6 +92,9 @@ export function StockTable({
   const [assetType, setAssetType] = useState<"stocks" | "etfs" | "crypto">(initialTab);
   const [sector, setSector] = useState("All");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  useEffect(() => { queueMicrotask(() => { setAssetType(initialTab); setSector("All"); setPage(1); }); }, [initialTab]);
   const [view, setView] = useState<"table" | "grid">("table");
 
   const filterByTab = useCallback((s: StockRow) => {
@@ -135,7 +138,12 @@ export function StockTable({
       });
   }, [stocks, sector, query, sort, filterByTab]);
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+
   function toggleSort(key: SortKey) {
+    setPage(1);
     setSort((prev) =>
       prev.key === key
         ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
@@ -145,6 +153,8 @@ export function StockTable({
 
   const th = (key: SortKey, label: string, align: "left" | "right" = "left") => (
     <th
+      tabIndex={0} role="columnheader" aria-sort={sort.key === key ? sort.dir === "asc" ? "ascending" : "descending" : "none"}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSort(key); } }}
       onClick={() => toggleSort(key)}
       className={`px-4 py-2.5 font-medium select-none cursor-pointer text-${align}`}
       style={{ color: sort.key === key ? "var(--text)" : "var(--text-3)" }}
@@ -158,7 +168,7 @@ export function StockTable({
   );
 
   return (
-    <div className="space-y-4">
+    <div id="asset-table-start" className="stock-universe asset-table-start space-y-4">
       {/* Asset type tabs */}
       <div
         className="flex rounded-lg overflow-hidden w-fit"
@@ -167,23 +177,17 @@ export function StockTable({
         {(["stocks", "etfs", "crypto"] as const).map((t) => (
           <button
             key={t}
-            onClick={() => { setAssetType(t); setSector("All"); }}
+            onClick={() => { setAssetType(t); setSector("All"); setPage(1); }}
             className="px-4 py-2 text-xs font-semibold transition-colors"
             style={{
               background: assetType === t ? "var(--accent)" : "transparent",
-              color: assetType === t ? "#fff" : "var(--text-2)",
+              color: assetType === t ? "var(--on-accent)" : "var(--text-2)",
             }}
           >
             {t === "stocks" ? "Stocks" : t === "etfs" ? "ETFs" : "Crypto"}
           </button>
         ))}
       </div>
-
-      <MarketInsights
-        stocks={stocks}
-        assetType={assetType as InsightAssetType}
-        leaderStreaks={leaderStreaks}
-      />
 
       {/* Controls */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
@@ -202,7 +206,7 @@ export function StockTable({
             type="text"
             placeholder="Search ticker or name…"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); setPage(1); }}
             className="pl-8 pr-3 py-2 rounded-lg text-xs w-full sm:w-60"
             style={{
               background: "var(--surface)",
@@ -227,7 +231,7 @@ export function StockTable({
               return (
                 <button
                   key={preset.label}
-                  onClick={() => setSort({ key: preset.key, dir: preset.dir })}
+                  onClick={() => { setSort({ key: preset.key, dir: preset.dir }); setPage(1); }}
                   className="px-2.5 py-1 text-[10px] font-medium transition-colors"
                   style={{
                     background: active ? "var(--surface-3)" : "transparent",
@@ -252,6 +256,8 @@ export function StockTable({
             {(["table", "grid"] as const).map((v) => (
               <button
                 key={v}
+                aria-label={v === "table" ? "Table view" : "Grid view"}
+                aria-pressed={view === v}
                 onClick={() => setView(v)}
                 className="px-2.5 py-1.5 text-xs"
                 style={{
@@ -278,11 +284,11 @@ export function StockTable({
       </div>
 
       {/* Sector tabs */}
-      <div className="flex gap-1 flex-wrap pb-1 overflow-x-auto">
+      <div className="stock-sector-filters flex gap-1 flex-wrap pb-1 overflow-x-auto">
         {sectors.map((s) => (
           <button
             key={s}
-            onClick={() => setSector(s)}
+            onClick={() => { setSector(s); setPage(1); }}
             className="px-2.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap shrink-0 transition-colors"
             style={{
               background: sector === s ? "var(--surface-3)" : "transparent",
@@ -348,7 +354,7 @@ export function StockTable({
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((stock, idx) => {
+                {visible.map((stock, idx) => {
                   const pct  = stock.price?.change_pct ?? null;
                   const isUp = (pct ?? 0) >= 0;
                   return (
@@ -358,7 +364,7 @@ export function StockTable({
                       style={{ borderBottom: "1px solid var(--border)" }}
                     >
                       <td className="px-4 py-3 tabular-nums" style={{ color: "var(--text-3)" }}>
-                        {idx + 1}
+                        {(safePage - 1) * pageSize + idx + 1}
                       </td>
                       <td className="px-4 py-3">
                         <Link
@@ -385,6 +391,7 @@ export function StockTable({
                             {stock.ticker}
                           </span>
                         </Link>
+                        <span className="block md:hidden text-[10px] mt-1" style={{ color: "var(--text-2)" }}>{assetType === "etfs" ? "AUM" : "Cap"} {fmtMarketCap(stock.market_cap)}</span>
                         <IndexChangeBadge notice={stock.index_notice} />
                       </td>
                       <td className="px-4 py-3 hidden sm:table-cell max-w-[180px]">
@@ -401,7 +408,7 @@ export function StockTable({
                       </td>
                       <td className="px-4 py-3 text-right font-semibold tabular-nums" style={{ color: "var(--text)" }}>
                         <div>{stock.price ? formatAssetPrice(stock.price.price, stock.ticker) : <PendingPriceLabel />}</div>
-                        {stock.price?.fetched_at && <div className="mt-1"><PriceFreshnessBadge fetchedAt={stock.price.fetched_at} ticker={stock.ticker} compact /></div>}
+                        {stock.price?.fetched_at && <div className="mt-1"><PriceFreshnessBadge fetchedAt={stock.price.fetched_at} ticker={stock.ticker} sessionDate={stock.price?.provider_session_date} compact /></div>}
                       </td>
                       <td className="px-4 py-3 text-right">
                         {pct !== null ? (
@@ -461,7 +468,7 @@ export function StockTable({
       {/* Grid view */}
       {view === "grid" && (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {filtered.map((stock) => {
+          {visible.map((stock) => {
             const pct  = stock.price?.change_pct ?? null;
             const isUp = (pct ?? 0) >= 0;
             return (
@@ -502,6 +509,7 @@ export function StockTable({
                 >
                   {stock.name}
                 </p>
+                <p className="text-[10px]" style={{ color: "var(--text-2)" }}>{assetType === "etfs" ? "AUM" : "Cap"} {fmtMarketCap(stock.market_cap)}</p>
                 <IndexChangeBadge notice={stock.index_notice} />
                 <div>
                   <div className="text-sm font-bold tabular-nums" style={{ color: "var(--text)" }}>
@@ -516,11 +524,11 @@ export function StockTable({
                         {isUp ? "+" : ""}{pct.toFixed(2)}%
                       </span>
                     )}
-                    {stock.price?.fetched_at && <PriceFreshnessBadge fetchedAt={stock.price.fetched_at} ticker={stock.ticker} compact />}
+                    {stock.price?.fetched_at && <PriceFreshnessBadge fetchedAt={stock.price.fetched_at} ticker={stock.ticker} sessionDate={stock.price?.provider_session_date} compact />}
                     {stock.change_30d != null && (
                       <span
                         className="text-[10px] tabular-nums"
-                        style={{ color: stock.change_30d >= 0 ? "var(--up)" : "var(--down)", opacity: 0.7 }}
+                        style={{ color: stock.change_30d >= 0 ? "var(--up)" : "var(--down)" }}
                       >
                         30d {stock.change_30d >= 0 ? "+" : ""}{stock.change_30d.toFixed(1)}%
                       </span>
@@ -540,6 +548,18 @@ export function StockTable({
           )}
         </div>
       )}
+      <nav aria-label="Asset pages" className="flex flex-wrap items-center justify-between gap-3 text-xs">
+        <label>Rows <select aria-label="Rows per page" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} style={{ background: "var(--surface)", color: "var(--text)" }}><option>25</option><option>50</option></select></label>
+        <div className="flex items-center gap-3"><button className="btn btn-sm" disabled={safePage <= 1} onClick={() => { setPage(safePage - 1); document.getElementById("asset-table-start")?.scrollIntoView({ behavior: "smooth" }); }}>Previous</button><span aria-live="polite">{safePage} / {totalPages}</span><button className="btn btn-sm" disabled={safePage >= totalPages} onClick={() => { setPage(safePage + 1); document.getElementById("asset-table-start")?.scrollIntoView({ behavior: "smooth" }); }}>Next</button></div>
+      </nav>
+      <div className="market-insights-secondary">
+      <MarketInsights
+        stocks={stocks}
+        assetType={assetType as InsightAssetType}
+        leaderStreaks={leaderStreaks}
+      />
+
+      </div>
     </div>
   );
 }

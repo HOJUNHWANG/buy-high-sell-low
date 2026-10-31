@@ -46,7 +46,7 @@ const getStockData = cache(async function getStockData(ticker: string) {
       supabase
         .from("news_articles")
         .select("*")
-        .contains("related_tickers", [ticker])
+        .contains("related_tickers", [ticker]).gte("quality_version", 2)
         .order("published_at", { ascending: false })
         .limit(10),
     ]);
@@ -193,7 +193,7 @@ export default async function StockDetailPage({ params }: Props) {
                 <span>{price.volume ? `Vol ${(price.volume / 1_000_000).toFixed(1)}M · ` : ""}Quote as of {new Date(price.fetched_at).toLocaleString("en-US", {
                   year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/New_York",
                 })} ET</span>
-                <PriceFreshnessBadge fetchedAt={price.fetched_at} ticker={stock.ticker} />
+                <PriceFreshnessBadge fetchedAt={price.fetched_at} ticker={stock.ticker} sessionDate={price.provider_session_date} />
               </div>
 
               {sinceLastFetch != null && (

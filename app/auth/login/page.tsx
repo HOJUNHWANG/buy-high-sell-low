@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { safeAuthNext } from "@/lib/auth-redirect";
 
 export default function LoginPage() {
   return (
@@ -16,6 +17,8 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const next = safeAuthNext(searchParams.get("next"));
+  const callbackPath = `/auth/callback?next=${encodeURIComponent(next)}`;
   const [email, setEmail]     = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode]       = useState<"login" | "signup" | "reset">("login");
@@ -26,9 +29,9 @@ function LoginForm() {
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) router.replace("/");
+      if (user) router.replace(next);
     });
-  }, [router]);
+  }, [router, next]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,7 +42,7 @@ function LoginForm() {
 
     if (mode === "reset") {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/auth/update-password&type=recovery`,
       });
       if (error) setError(error.message);
       else setMessage("Password reset link sent — check your email.");
@@ -47,17 +50,18 @@ function LoginForm() {
       return;
     }
 
+    if (mode === "signup" && password.length < 12) { setError("Use at least 12 characters for a new password."); setLoading(false); return; }
     if (mode === "signup") {
       const { error } = await supabase.auth.signUp({
         email, password,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        options: { emailRedirectTo: `${window.location.origin}${callbackPath}` },
       });
       if (error) setError(error.message);
       else setMessage("Check your email to confirm your account.");
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setError(error.message);
-      else { window.location.href = "/"; return; }
+      else { window.location.href = next; return; }
     }
     setLoading(false);
   }
@@ -66,7 +70,7 @@ function LoginForm() {
     const supabase = createSupabaseBrowserClient();
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: `${window.location.origin}${callbackPath}` },
     });
   }
 
@@ -77,7 +81,7 @@ function LoginForm() {
         {/* Logo */}
         <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center gap-2 text-xl font-bold tracking-tight">
-            <span className="w-7 h-7 rounded-lg gradient-accent flex items-center justify-center text-xs font-black text-white">
+            <span className="w-7 h-7 rounded-lg gradient-accent flex items-center justify-center text-xs font-black" style={{ color: "var(--on-accent)" }}>
               B
             </span>
             <span>
@@ -133,7 +137,7 @@ function LoginForm() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Password"
                   required
-                  minLength={6}
+                  minLength={mode === "signup" ? 12 : undefined}
                   autoComplete={mode === "signup" ? "new-password" : "current-password"}
                   className="input"
                 />

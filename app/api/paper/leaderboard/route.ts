@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   // Get active paper accounts (excluded: suspended/liquidated → they go to graveyard)
   const { data: accounts } = await admin
     .from("paper_accounts")
-    .select("user_id, cash_balance, status, nickname");
+    .select("user_id, cash_balance, status, nickname").eq("is_demo", false).eq("is_test_account", false);
 
   const eligibleAccounts = (accounts ?? []).filter(
     (acc: { status?: string | null }) => ["active", "margin_call"].includes(acc.status ?? "active")
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
         // Effective leverage: marketValue / equity (dynamic, price-sensitive)
         const effectiveLeverage = borrowed > 0 && equity > 0
           ? Math.round((marketValue / equity) * 10) / 10
-          : 1;
+          : borrowed > 0 ? p.leverage ?? 1 : 1;
 
         return {
           ticker: p.ticker,
@@ -185,6 +185,6 @@ export async function GET(request: NextRequest) {
     page: safePage,
     totalPages,
   }, {
-    headers: { "Cache-Control": "s-maxage=30" },
+    headers: { "Cache-Control": "private, no-store" },
   });
 }

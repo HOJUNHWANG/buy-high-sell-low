@@ -1,301 +1,37 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import {
-  setMockUser,
-  setMockData,
-  setMockMutationError,
-  clearMockData,
-} from "./setup";
-
-const USER = { id: "user-ch", email: "ch@test.com" };
-
-// Keep week-boundary assertions stable regardless of the day tests run.
-beforeEach(() => {
-  vi.useFakeTimers();
-  vi.setSystemTime(new Date("2026-07-08T15:00:00Z")); // Wednesday, market hours
-});
-
-afterEach(() => {
-  vi.useRealTimers();
-});
-
-describe("Challenge: GET", () => {
-  beforeEach(() => { clearMockData(); setMockUser(USER); });
-
-  it("generates new challenge with 5 picks when none exists", async () => {
-    setMockData("paper_challenges", []);
-    // Need at least 5 tickers with prices
-    setMockData("stock_prices", [
-      { ticker: "AAPL", price: 150 }, { ticker: "MSFT", price: 300 },
-      { ticker: "NVDA", price: 500 }, { ticker: "AMZN", price: 180 },
-      { ticker: "GOOGL", price: 140 }, { ticker: "META", price: 400 },
-      { ticker: "TSLA", price: 250 }, { ticker: "JPM", price: 190 },
-    ].map((row) => ({ ...row, "stocks.is_active": true })));
-    const mod = await import("@/app/api/paper/challenge/route");
-    const res = await mod.GET();
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.picks).toHaveLength(5);
-    expect(data.status).toBe("active");
-  });
-
-  it("returns 503 when not enough price data", async () => {
-    setMockData("paper_challenges", []);
-    setMockData("stock_prices", [{ ticker: "AAPL", price: 150, "stocks.is_active": true }]); // only 1
-    const mod = await import("@/app/api/paper/challenge/route");
-    const res = await mod.GET();
-    expect(res.status).toBe(503);
-  });
-
-  it("returns existing active challenge", async () => {
-    const now = new Date();
-    const day = now.getDay();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-    const start = monday.toISOString().split("T")[0];
-    const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 4);
-    const end = friday.toISOString().split("T")[0];
-
-    setMockData("paper_challenges", [{
-      id: 1, user_id: USER.id, week_start: start, week_end: end,
-      status: "active",
-      picks: [
-        { ticker: "AAPL", direction: null, base_price: 150, final_price: null, correct: null },
-        { ticker: "MSFT", direction: null, base_price: 300, final_price: null, correct: null },
-        { ticker: "NVDA", direction: null, base_price: 500, final_price: null, correct: null },
-        { ticker: "AMZN", direction: null, base_price: 180, final_price: null, correct: null },
-        { ticker: "GOOGL", direction: null, base_price: 140, final_price: null, correct: null },
-      ],
-    }]);
-    setMockData("stock_prices", [
-      { ticker: "AAPL", price: 155 }, { ticker: "MSFT", price: 310 },
-      { ticker: "NVDA", price: 520 }, { ticker: "AMZN", price: 175 },
-      { ticker: "GOOGL", price: 145 },
-    ]);
-    const mod = await import("@/app/api/paper/challenge/route");
-    const res = await mod.GET();
-    const data = await res.json();
-    expect(data.status).toBe("active");
-    expect(data.picks).toHaveLength(5);
-  });
-
-  it("returns pending challenge with current prices", async () => {
-    const now = new Date();
-    const day = now.getDay();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-    const start = monday.toISOString().split("T")[0];
-    const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 4);
-    const end = friday.toISOString().split("T")[0];
-
-    setMockData("paper_challenges", [{
-      id: 1, user_id: USER.id, week_start: start, week_end: end,
-      status: "pending",
-      picks: [
-        { ticker: "AAPL", direction: "up", base_price: 150, final_price: null, correct: null },
-        { ticker: "MSFT", direction: "down", base_price: 300, final_price: null, correct: null },
-        { ticker: "NVDA", direction: "up", base_price: 500, final_price: null, correct: null },
-        { ticker: "AMZN", direction: "up", base_price: 180, final_price: null, correct: null },
-        { ticker: "GOOGL", direction: "down", base_price: 140, final_price: null, correct: null },
-      ],
-    }]);
-    setMockData("stock_prices", [
-      { ticker: "AAPL", price: 155 }, { ticker: "MSFT", price: 290 },
-      { ticker: "NVDA", price: 520 }, { ticker: "AMZN", price: 190 },
-      { ticker: "GOOGL", price: 130 },
-    ]);
-    const mod = await import("@/app/api/paper/challenge/route");
-    const res = await mod.GET();
-    const data = await res.json();
-    expect(data.status).toBe("pending");
-    expect(data.picks[0].currentPct).toBeDefined();
-  });
-
-  it("returns expired status for existing challenge from past week", async () => {
-    // Route queries by current week_start, so old challenges won't match.
-    // Instead we test: existing challenge with status="expired" is returned correctly.
-    const now = new Date();
-    const day = now.getDay();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-    const start = monday.toISOString().split("T")[0];
-    const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 4);
-    const end = friday.toISOString().split("T")[0];
-
-    setMockData("paper_challenges", [{
-      id: 1, user_id: USER.id, week_start: start, week_end: end,
-      status: "expired",
-      picks: [
-        { ticker: "AAPL", direction: null, base_price: 150, final_price: null, correct: null },
-        { ticker: "MSFT", direction: null, base_price: 300, final_price: null, correct: null },
-        { ticker: "NVDA", direction: null, base_price: 500, final_price: null, correct: null },
-        { ticker: "AMZN", direction: null, base_price: 180, final_price: null, correct: null },
-        { ticker: "GOOGL", direction: null, base_price: 140, final_price: null, correct: null },
-      ],
-    }]);
-    const mod = await import("@/app/api/paper/challenge/route");
-    const res = await mod.GET();
-    const data = await res.json();
-    expect(data.status).toBe("expired");
-  });
-
-  it("does not regenerate a legacy challenge when cleanup fails", async () => {
-    const now = new Date();
-    const day = now.getDay();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-    const start = monday.toISOString().split("T")[0];
-    const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 4);
-    const end = friday.toISOString().split("T")[0];
-    setMockData("paper_challenges", [{
-      id: 1,
-      user_id: USER.id,
-      week_start: start,
-      week_end: end,
-      status: "active",
-      picks: [],
-    }]);
-    setMockMutationError("paper_challenges", "delete", {
-      message: "row-level security denied the delete",
-      code: "42501",
-    });
-
-    const mod = await import("@/app/api/paper/challenge/route");
-    const res = await mod.GET();
-
-    expect(res.status).toBe(500);
-    await expect(res.json()).resolves.toEqual({
-      error: "Failed to reset legacy challenge",
-    });
-  });
-});
-
-describe("Challenge: POST (submit predictions)", () => {
-  beforeEach(() => { clearMockData(); setMockUser(USER); });
-
-  function getWeekBounds() {
-    const now = new Date();
-    const day = now.getDay();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-    monday.setHours(0, 0, 0, 0);
-    const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 4);
-    return { start: monday.toISOString().split("T")[0], end: friday.toISOString().split("T")[0] };
-  }
-
-  it("rejects with invalid JSON", async () => {
-    const mod = await import("@/app/api/paper/challenge/route");
-    const req = new Request("http://localhost:3000/api/paper/challenge", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: "not json",
-    });
-    const res = await mod.POST(req);
-    expect(res.status).toBe(400);
-  });
-
-  it("rejects when not exactly 5 predictions", async () => {
-    const mod = await import("@/app/api/paper/challenge/route");
-    const req = new Request("http://localhost:3000/api/paper/challenge", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ picks: [{ ticker: "AAPL", direction: "up" }] }),
-    });
-    const res = await mod.POST(req);
-    expect(res.status).toBe(400);
-  });
-
-  it("rejects invalid direction", async () => {
-    const mod = await import("@/app/api/paper/challenge/route");
-    const req = new Request("http://localhost:3000/api/paper/challenge", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ picks: [
-        { ticker: "AAPL", direction: "sideways" },
-        { ticker: "MSFT", direction: "up" },
-        { ticker: "NVDA", direction: "up" },
-        { ticker: "AMZN", direction: "down" },
-        { ticker: "GOOGL", direction: "down" },
-      ]}),
-    });
-    const res = await mod.POST(req);
-    expect(res.status).toBe(400);
-  });
-
-  it("rejects when no challenge exists", async () => {
-    const mod = await import("@/app/api/paper/challenge/route");
-    setMockData("paper_challenges", []);
-    const req = new Request("http://localhost:3000/api/paper/challenge", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ picks: [
-        { ticker: "AAPL", direction: "up" },
-        { ticker: "MSFT", direction: "down" },
-        { ticker: "NVDA", direction: "up" },
-        { ticker: "AMZN", direction: "up" },
-        { ticker: "GOOGL", direction: "down" },
-      ]}),
-    });
-    const res = await mod.POST(req);
-    expect(res.status).toBe(404);
-  });
-
-  it("rejects submission on already-submitted challenge", async () => {
-    const { start, end } = getWeekBounds();
-    setMockData("paper_challenges", [{
-      id: 1, user_id: USER.id, week_start: start, week_end: end, status: "pending",
-      picks: [],
-    }]);
-    const mod = await import("@/app/api/paper/challenge/route");
-    const req = new Request("http://localhost:3000/api/paper/challenge", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ picks: [
-        { ticker: "AAPL", direction: "up" },
-        { ticker: "MSFT", direction: "down" },
-        { ticker: "NVDA", direction: "up" },
-        { ticker: "AMZN", direction: "up" },
-        { ticker: "GOOGL", direction: "down" },
-      ]}),
-    });
-    const res = await mod.POST(req);
-    expect(res.status).toBe(400);
-  });
-
-  it("successfully submits predictions", async () => {
-    const { start, end } = getWeekBounds();
-    setMockData("paper_challenges", [{
-      id: 1, user_id: USER.id, week_start: start, week_end: end, status: "active",
-      picks: [
-        { ticker: "AAPL", direction: null, base_price: 150 },
-        { ticker: "MSFT", direction: null, base_price: 300 },
-        { ticker: "NVDA", direction: null, base_price: 500 },
-        { ticker: "AMZN", direction: null, base_price: 180 },
-        { ticker: "GOOGL", direction: null, base_price: 140 },
-      ],
-    }]);
-    const mod = await import("@/app/api/paper/challenge/route");
-    const req = new Request("http://localhost:3000/api/paper/challenge", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ picks: [
-        { ticker: "AAPL", direction: "up" },
-        { ticker: "MSFT", direction: "down" },
-        { ticker: "NVDA", direction: "up" },
-        { ticker: "AMZN", direction: "up" },
-        { ticker: "GOOGL", direction: "down" },
-      ]}),
-    });
-    const res = await mod.POST(req);
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.ok).toBe(true);
-    expect(data.status).toBe("pending");
-    expect(data.picks).toHaveLength(5);
-    expect(data.picks[0].direction).toBe("up");
-  });
+import { describe,it,expect,beforeEach } from "vitest";
+import { clearMockData,setMockUser,setMockRpcResult,setMockData,getRpcCalls,getInsertCalls,getUpdateCalls } from "./setup";
+beforeEach(()=>{clearMockData();setMockUser({id:"challenge-owner"});});
+describe("Challenge RPC integration",()=>{
+ it("settles historical weeks before getting the current challenge and exposes old unclaimed rewards",async()=>{
+   setMockRpcResult("resolve_paper_challenges",{data:{settled:2}});
+   setMockRpcResult("execute_paper_action",{data:{id:2,status:"active",picks:[]}});
+   setMockData("paper_challenges",[{id:1,user_id:"challenge-owner",status:"completed",reward_claimed:false,reward_usd:600}]);
+   const {GET}=await import("@/app/api/paper/challenge/route");const res=await GET();
+   expect(res.status).toBe(200);expect((await res.json()).unclaimedRewards).toHaveLength(1);
+   expect(getRpcCalls().map(c=>c.name)).toEqual(["resolve_paper_challenges","execute_paper_action"]);
+   expect(getInsertCalls()).toHaveLength(0);expect(getUpdateCalls()).toHaveLength(0);
+ });
+ it("does not generate new picks if settlement fails",async()=>{
+   setMockRpcResult("resolve_paper_challenges",{data:null,error:{message:"unavailable"}});
+   const {GET}=await import("@/app/api/paper/challenge/route");expect((await GET()).status).toBe(503);
+   expect(getRpcCalls()).toHaveLength(1);
+ });
+ it("claims a specific past challenge through the session owner",async()=>{
+   setMockRpcResult("execute_paper_action",{data:{ok:true,reward:600}});
+   const {POST}=await import("@/app/api/paper/challenge/route");const res=await POST(new Request("http://localhost",{method:"POST",body:JSON.stringify({action:"claim",challenge_id:1})}));
+   expect(res.status).toBe(200);expect(getRpcCalls()[0].args).toMatchObject({p_user_id:"challenge-owner",p_action:"claim_reward",p_payload:{challenge_id:1}});
+ });
+ for(const [code,status] of [["P0400",400],["P0403",403],["P0404",404],["P0409",409],["P0429",429],["P0503",503]] as const){
+   it(`preserves ${code} business rejection`,async()=>{
+     setMockRpcResult("execute_paper_action",{data:null,error:{code,message:"Business rejection"}});
+     const {POST}=await import("@/app/api/paper/challenge/route");
+     expect((await POST(new Request("http://localhost",{method:"POST",body:JSON.stringify({picks:[]})}))).status).toBe(status);
+   });
+ }
+ it("rejects arrays, null bodies and invalid idempotency keys",async()=>{
+   const {POST}=await import("@/app/api/paper/challenge/route");
+   for(const body of ["null","[]","{"])expect((await POST(new Request("http://localhost",{method:"POST",body}))).status).toBe(400);
+   expect((await POST(new Request("http://localhost",{method:"POST",headers:{"Idempotency-Key":"bad"},body:"{}"}))).status).toBe(400);
+   expect(getRpcCalls()).toHaveLength(0);
+ });
 });

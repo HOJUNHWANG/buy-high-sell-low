@@ -20,13 +20,16 @@ export function gateSummaries(
   tier: UserTier,
   unlockedIds: Set<number> = new Set(),
 ): NewsArticle[] {
-  // Logged-in users (free or premium) see all AI summaries — no paywall
-  if (tier === "free" || tier === "premium") return articles;
+  // Legacy fields are unverified regardless of membership or previous unlocks.
+  const checked = articles.map(a => ["verified_ai", "source_excerpt"].includes(a.summary_method ?? "") && (a.quality_version ?? 0) >= 2
+    ? a : { ...a, ai_summary: null, ai_insight: null, ai_sentiment: null, ai_caution: null, summaryLocked: false });
+  // Logged-in users see all source-checked summaries.
+  if (tier === "free" || tier === "premium") return checked;
 
   // Guest: only GUEST_FREE_SUMMARIES articles shown unlocked
   let freeUsed = 0;
-  return articles.map((a) => {
-    if (!a.ai_summary) return a;
+  return checked.map((a) => {
+    if (!a.ai_summary || a.summary_method === "source_excerpt" || a.summary_method === "headline_only") return a;
     if (unlockedIds.has(a.id)) return a;
     if (freeUsed < GUEST_FREE_SUMMARIES) { freeUsed++; return a; }
     return { ...a, ai_summary: null, ai_insight: null, ai_caution: null, summaryLocked: true };

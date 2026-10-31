@@ -20,7 +20,7 @@ export function MarketClosedBanner() {
     >
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="closed-reason flex items-center gap-2 mb-2">
             <span className="w-2 h-2 rounded-full" style={{ background: "var(--text-3)" }} />
             <span className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--text-2)" }}>
               {reason}
@@ -29,9 +29,10 @@ export function MarketClosedBanner() {
           <h2 className="text-lg font-bold tracking-tight" style={{ color: "var(--text)" }}>
             US stocks are closed
           </h2>
-          <p className="text-xs mt-1.5 leading-relaxed max-w-xl" style={{ color: "var(--text-2)" }}>
+          <p className="closed-description text-xs mt-1.5 leading-relaxed max-w-xl" style={{ color: "var(--text-2)" }}>
             Current stock and ETF quotes reflect the last completed session; delayed symbols are flagged. {status.nextLabel}.
           </p>
+          <p className="sm:hidden text-[11px] mt-1" style={{ color: "var(--text-2)" }}>Last session quotes · {status.nextLabel}.</p>
         </div>
         <div className="flex flex-wrap gap-2 shrink-0">
           <Link href="/stocks?tab=crypto" className="btn btn-primary btn-sm">

@@ -120,11 +120,7 @@ export default function LeaderboardPage() {
     finally { if (!bg) setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    setPage(1);
-    setExpandedRow(null);
-    setEmojiPicker(null);
-  }, [tab]);
+
 
   useEffect(() => {
     const fetcher = tab === "leaderboard" ? fetchLeaderboard : fetchGraveyard;
@@ -311,7 +307,7 @@ export default function LeaderboardPage() {
       {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-lg" style={{ background: "var(--surface-2)" }}>
         {([["leaderboard", "🏆 Leaderboard"], ["graveyard", "💀 Graveyard"]] as const).map(([key, label]) => (
-          <button key={key} onClick={() => setTab(key)}
+          <button key={key} onClick={() => { setTab(key); setPage(1); setExpandedRow(null); setEmojiPicker(null); }}
             className="flex-1 px-4 py-2 rounded-md text-xs font-semibold transition-all"
             style={{
               background: tab === key ? "var(--surface)" : "transparent",

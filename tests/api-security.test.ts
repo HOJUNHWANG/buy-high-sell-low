@@ -5,9 +5,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   setMockUser,
-  setMockData,
+  setMockData, setMockRpcResult,
   setMockMutationError,
-  clearMockData,
+  clearMockData, getInsertCalls,
 } from "./setup";
 
 const USER = { id: "user-sec", email: "sec@test.com" };
@@ -128,8 +128,17 @@ describe("Security: Why-moving atomic rate limit", () => {
   beforeEach(() => {
     clearMockData();
     setMockUser(USER);
+    setMockData("news_articles", [{ title: "Apple earnings rise", ai_summary: "Apple reported higher quarterly earnings.", summary_method: "source_excerpt", published_at: new Date().toISOString(), source: "Example source", url: "https://example.test/apple" }]);
     setMockData("stock_prices", [{ ticker: "AAPL", price: 200, change_pct: 1.2 }]);
-    setMockData("news_articles", []);
+  });
+
+  it("does not consume a daily slot for headlines without source evidence", async () => {
+    setMockData("news_articles", [{ title: "Apple earnings rise", summary_method: "headline_only", published_at: new Date().toISOString() }]);
+    const mod = await import("@/app/api/ai/why-moving/route");
+    const res = await mod.POST(new Request("http://localhost:3000/api/ai/why-moving", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticker: "AAPL" }) }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).status).toBe("insufficient_evidence");
+    expect(getInsertCalls().filter(c => c.table === "ai_why_usage")).toHaveLength(0);
   });
 
   it("rejects malformed tickers before querying market data", async () => {
@@ -275,7 +284,7 @@ describe("Security: Rate Limiting (AI Roast)", () => {
   });
 
   it("allows first roast of the day", async () => {
-    setMockData("paper_ai_usage", []); // no usage yet
+    setMockRpcResult("execute_paper_action", { data: { claimed: true } });
     setMockData("paper_accounts", [{ user_id: USER.id, cash_balance: 1000 }]);
     setMockData("paper_positions", []);
     setMockData("stock_prices", []);
@@ -290,8 +299,7 @@ describe("Security: Rate Limiting (AI Roast)", () => {
   });
 
   it("rejects second roast of the day (429)", async () => {
-    const today = new Date().toISOString().split("T")[0];
-    setMockData("paper_ai_usage", [{ user_id: USER.id, date: today, count: 1 }]);
+    setMockRpcResult("execute_paper_action", { data: null, error: { code: "P0429", message: "already been roasted" } });
 
     const mod = await import("@/app/api/paper/roast/route");
     const res = await mod.POST();
@@ -307,7 +315,7 @@ describe("Security: AI Summary Rate Limiting", () => {
     setMockUser(USER);
   });
 
-  it("rejects when daily limit reached (429)", async () => {
+  it("does not generate unsupported summaries from a headline", async () => {
     const today = new Date().toISOString().split("T")[0];
     setMockData("ai_usage", [{ user_id: USER.id, date: today, count: 30 }]);
     setMockData("news_articles", [{ id: 1, title: "Test", ai_summary: null }]);
@@ -319,7 +327,8 @@ describe("Security: AI Summary Rate Limiting", () => {
       body: JSON.stringify({ articleId: 1 }),
     });
     const res = await mod.POST(req);
-    expect(res.status).toBe(429);
+    expect(res.status).toBe(409);
+    expect(getInsertCalls().filter(c => c.table === "ai_usage")).toHaveLength(0);
   });
 
   it("returns cached summary without counting usage", async () => {
@@ -327,6 +336,7 @@ describe("Security: AI Summary Rate Limiting", () => {
       {
         id: 1,
         title: "Cached",
+        summary_method: "verified_ai",
         ai_summary: "Already generated summary",
         ai_insight: "Some insight",
         ai_sentiment: "positive",
@@ -353,6 +363,7 @@ describe("Security: Cross-user data isolation", () => {
   });
 
   it("portfolio only returns own positions", async () => {
+    setMockRpcResult("execute_paper_action", { data: { cash_balance: 1000, status: "active", streak: 0 } });
     setMockUser({ id: "user-a" });
     setMockData("paper_accounts", [
       { user_id: "user-a", cash_balance: 500, streak: 0, last_checkin: null, status: "active" },

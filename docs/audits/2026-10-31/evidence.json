@@ -1,0 +1,873 @@
+{
+  "checked_commit": "7c48184b8c188c105ad9b1aa7097acac17386a60",
+  "client_date": "2026-10-31 America/New_York",
+  "public_pages": [
+    {
+      "viewport": "desktop",
+      "route": "/",
+      "status": 200,
+      "ms": 5926,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=axeAPI",
+          "count": 83,
+          "nodes": [
+            {
+              "target": [
+                "a[href$=\"AAVE-USD\"] > .min-w-0.gap-2.items-center > .min-w-0 > .truncate.text-\\[10px\\]"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #52525e, background color: #0c0c10, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                "a[href$=\"AAVE-USD\"] > .text-right.shrink-0 > .tabular-nums.text-\\[10px\\]"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #52525e, background color: #0c0c10, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                "a[href$=\"AAVE-USD\"] > .text-right.shrink-0 > .justify-end.mt-0\\.5.flex > .inline-flex.px-1\\.5.py-0\\.5"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.41 (foreground color: #52525e, background color: #12121a, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        },
+        {
+          "id": "link-in-text-block",
+          "impact": "serious",
+          "description": "Ensure links are distinguished from surrounding text in a way that does not rely on color",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/link-in-text-block?application=axeAPI",
+          "count": 1,
+          "nodes": [
+            {
+              "target": [
+                ".link-accent[href$=\"privacy\"]"
+              ],
+              "summary": "Fix any of the following:\n  The link has insufficient color contrast of 1.36:1 with the surrounding text. (Minimum contrast is 3:1, link text: #7c6cfc, surrounding text: #9898a8)\n  The link has no styling (such as underline) to distinguish it from the surrounding text"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "viewport": "desktop",
+      "route": "/stocks",
+      "status": 200,
+      "ms": 3805,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": [
+        {
+          "id": "button-name",
+          "impact": "critical",
+          "description": "Ensure buttons have discernible text",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/button-name?application=axeAPI",
+          "count": 2,
+          "nodes": [
+            {
+              "target": [
+                ".py-1\\.5.px-2\\.5:nth-child(1)"
+              ],
+              "summary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+            },
+            {
+              "target": [
+                ".py-1\\.5.px-2\\.5:nth-child(2)"
+              ],
+              "summary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+            }
+          ]
+        },
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=axeAPI",
+          "count": 22,
+          "nodes": [
+            {
+              "target": [
+                ".tracking-widest"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #52525e, background color: #0c0c10, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".card > p:nth-child(3)"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #52525e, background color: #0c0c10, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".card > .leading-relaxed"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #52525e, background color: #0c0c10, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        },
+        {
+          "id": "link-in-text-block",
+          "impact": "serious",
+          "description": "Ensure links are distinguished from surrounding text in a way that does not rely on color",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/link-in-text-block?application=axeAPI",
+          "count": 1,
+          "nodes": [
+            {
+              "target": [
+                ".link-accent"
+              ],
+              "summary": "Fix any of the following:\n  The link has insufficient color contrast of 1.36:1 with the surrounding text. (Minimum contrast is 3:1, link text: #7c6cfc, surrounding text: #9898a8)\n  The link has no styling (such as underline) to distinguish it from the surrounding text"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "viewport": "desktop",
+      "route": "/stock/AAPL",
+      "status": 200,
+      "ms": 1787,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=axeAPI",
+          "count": 44,
+          "nodes": [
+            {
+              "target": [
+                ".mt-2 > span:nth-child(1)"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #52525e, background color: #0c0c10, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".px-2\\.5.py-1.rounded-md:nth-child(3)"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.88 (foreground color: #ffffff, background color: #7c6cfc, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".gap-3.text-\\[11px\\].items-center > span:nth-child(1)"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #52525e, background color: #0c0c10, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        },
+        {
+          "id": "link-in-text-block",
+          "impact": "serious",
+          "description": "Ensure links are distinguished from surrounding text in a way that does not rely on color",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/link-in-text-block?application=axeAPI",
+          "count": 2,
+          "nodes": [
+            {
+              "target": [
+                ".text-xs > a[href$=\"login\"]"
+              ],
+              "summary": "Fix any of the following:\n  The link has insufficient color contrast of 1.36:1 with the surrounding text. (Minimum contrast is 3:1, link text: #7c6cfc, surrounding text: #9898a8)\n  The link has no styling (such as underline) to distinguish it from the surrounding text"
+            },
+            {
+              "target": [
+                ".link-accent"
+              ],
+              "summary": "Fix any of the following:\n  The link has insufficient color contrast of 1.36:1 with the surrounding text. (Minimum contrast is 3:1, link text: #7c6cfc, surrounding text: #9898a8)\n  The link has no styling (such as underline) to distinguish it from the surrounding text"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "viewport": "desktop",
+      "route": "/stock/SOXQ",
+      "status": 200,
+      "ms": 1955,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": null
+    },
+    {
+      "viewport": "desktop",
+      "route": "/stock/BTC-USD",
+      "status": 200,
+      "ms": 1789,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": null
+    },
+    {
+      "viewport": "desktop",
+      "route": "/news",
+      "status": 200,
+      "ms": 2325,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": null
+    },
+    {
+      "viewport": "desktop",
+      "route": "/market-brief",
+      "status": 200,
+      "ms": 1519,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": null
+    },
+    {
+      "viewport": "desktop",
+      "route": "/market-calendar",
+      "status": 200,
+      "ms": 1659,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": null
+    },
+    {
+      "viewport": "desktop",
+      "route": "/paper",
+      "status": 200,
+      "ms": 1567,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=axeAPI",
+          "count": 1,
+          "nodes": [
+            {
+              "target": [
+                ".transition-colors.rounded-md"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.88 (foreground color: #ffffff, background color: #7c6cfc, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        },
+        {
+          "id": "link-in-text-block",
+          "impact": "serious",
+          "description": "Ensure links are distinguished from surrounding text in a way that does not rely on color",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/link-in-text-block?application=axeAPI",
+          "count": 1,
+          "nodes": [
+            {
+              "target": [
+                ".link-accent"
+              ],
+              "summary": "Fix any of the following:\n  The link has insufficient color contrast of 1.36:1 with the surrounding text. (Minimum contrast is 3:1, link text: #7c6cfc, surrounding text: #9898a8)\n  The link has no styling (such as underline) to distinguish it from the surrounding text"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "viewport": "desktop",
+      "route": "/paper/leaderboard",
+      "status": 200,
+      "ms": 6408,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": null
+    },
+    {
+      "viewport": "desktop",
+      "route": "/paper/history",
+      "status": 200,
+      "ms": 1482,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": null
+    },
+    {
+      "viewport": "desktop",
+      "route": "/auth/login",
+      "status": 200,
+      "ms": 1492,
+      "width": 1440,
+      "scrollWidth": 1440,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=axeAPI",
+          "count": 1,
+          "nodes": [
+            {
+              "target": [
+                ".transition-colors.rounded-md.px-3"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.88 (foreground color: #ffffff, background color: #7c6cfc, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        },
+        {
+          "id": "link-in-text-block",
+          "impact": "serious",
+          "description": "Ensure links are distinguished from surrounding text in a way that does not rely on color",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/link-in-text-block?application=axeAPI",
+          "count": 1,
+          "nodes": [
+            {
+              "target": [
+                ".link-accent[href$=\"privacy\"]"
+              ],
+              "summary": "Fix any of the following:\n  The link has insufficient color contrast of 1.36:1 with the surrounding text. (Minimum contrast is 3:1, link text: #7c6cfc, surrounding text: #9898a8)\n  The link has no styling (such as underline) to distinguish it from the surrounding text"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "viewport": "mobile",
+      "route": "/",
+      "status": 200,
+      "ms": 2562,
+      "width": 390,
+      "scrollWidth": 390,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=axeAPI",
+          "count": 67,
+          "nodes": [
+            {
+              "target": [
+                "a[href$=\"AAVE-USD\"] > .min-w-0.gap-2.items-center > .min-w-0 > .truncate.text-\\[10px\\]"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #52525e, background color: #0c0c10, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                "a[href$=\"AAVE-USD\"] > .text-right.shrink-0 > .tabular-nums.text-\\[10px\\]"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #52525e, background color: #0c0c10, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                "a[href$=\"AAVE-USD\"] > .text-right.shrink-0 > .justify-end.mt-0\\.5.flex > .inline-flex.px-1\\.5.py-0\\.5"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.41 (foreground color: #52525e, background color: #12121a, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "viewport": "mobile",
+      "route": "/stocks",
+      "status": 200,
+      "ms": 3875,
+      "width": 390,
+      "scrollWidth": 390,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": [
+        {
+          "id": "button-name",
+          "impact": "critical",
+          "description": "Ensure buttons have discernible text",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/button-name?application=axeAPI",
+          "count": 2,
+          "nodes": [
+            {
+              "target": [
+                ".py-1\\.5.px-2\\.5:nth-child(1)"
+              ],
+              "summary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+            },
+            {
+              "target": [
+                ".py-1\\.5.px-2\\.5:nth-child(2)"
+              ],
+              "summary": "Fix any of the following:\n  Element does not have inner text that is visible to screen readers\n  aria-label attribute does not exist or is empty\n  aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty\n  Element has no title attribute\n  Element does not have an implicit (wrapped) <label>\n  Element does not have an explicit <label>\n  Element's default semantics were not overridden with role=\"none\" or role=\"presentation\""
+            }
+          ]
+        },
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=axeAPI",
+          "count": 16,
+          "nodes": [
+            {
+              "target": [
+                ".py-2.transition-colors:nth-child(1)"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.88 (foreground color: #ffffff, background color: #7c6cfc, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".justify-between.gap-2.flex > .tracking-wider.uppercase"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #52525e, background color: #0c0c10, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".justify-between.gap-2.flex > .text-\\[10px\\]:nth-child(2)"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #52525e, background color: #0c0c10, font size: 7.5pt (10px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "viewport": "mobile",
+      "route": "/stock/AAPL",
+      "status": 200,
+      "ms": 1294,
+      "width": 390,
+      "scrollWidth": 390,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=axeAPI",
+          "count": 44,
+          "nodes": [
+            {
+              "target": [
+                ".mt-2 > span:nth-child(1)"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #52525e, background color: #0c0c10, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".px-2\\.5.py-1.rounded-md:nth-child(3)"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.88 (foreground color: #ffffff, background color: #7c6cfc, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": [
+                ".gap-3.text-\\[11px\\].items-center > span:nth-child(1)"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 2.53 (foreground color: #52525e, background color: #0c0c10, font size: 8.3pt (11px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        },
+        {
+          "id": "link-in-text-block",
+          "impact": "serious",
+          "description": "Ensure links are distinguished from surrounding text in a way that does not rely on color",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/link-in-text-block?application=axeAPI",
+          "count": 1,
+          "nodes": [
+            {
+              "target": [
+                ".text-xs > a[href$=\"login\"]"
+              ],
+              "summary": "Fix any of the following:\n  The link has insufficient color contrast of 1.36:1 with the surrounding text. (Minimum contrast is 3:1, link text: #7c6cfc, surrounding text: #9898a8)\n  The link has no styling (such as underline) to distinguish it from the surrounding text"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "viewport": "mobile",
+      "route": "/news",
+      "status": 200,
+      "ms": 1786,
+      "width": 390,
+      "scrollWidth": 390,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": null
+    },
+    {
+      "viewport": "mobile",
+      "route": "/paper",
+      "status": 200,
+      "ms": 1434,
+      "width": 390,
+      "scrollWidth": 390,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=axeAPI",
+          "count": 1,
+          "nodes": [
+            {
+              "target": [
+                ".transition-colors.rounded-md"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.88 (foreground color: #ffffff, background color: #7c6cfc, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "viewport": "mobile",
+      "route": "/paper/leaderboard",
+      "status": 200,
+      "ms": 1416,
+      "width": 390,
+      "scrollWidth": 390,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": null
+    },
+    {
+      "viewport": "mobile",
+      "route": "/auth/login",
+      "status": 200,
+      "ms": 1252,
+      "width": 390,
+      "scrollWidth": 390,
+      "errors": [],
+      "badResponses": [],
+      "accessibility": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=axeAPI",
+          "count": 1,
+          "nodes": [
+            {
+              "target": [
+                ".transition-colors.rounded-md.px-3"
+              ],
+              "summary": "Fix any of the following:\n  Element has insufficient color contrast of 3.88 (foreground color: #ffffff, background color: #7c6cfc, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        },
+        {
+          "id": "link-in-text-block",
+          "impact": "serious",
+          "description": "Ensure links are distinguished from surrounding text in a way that does not rely on color",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/link-in-text-block?application=axeAPI",
+          "count": 1,
+          "nodes": [
+            {
+              "target": [
+                ".link-accent[href$=\"privacy\"]"
+              ],
+              "summary": "Fix any of the following:\n  The link has insufficient color contrast of 1.36:1 with the surrounding text. (Minimum contrast is 3:1, link text: #7c6cfc, surrounding text: #9898a8)\n  The link has no styling (such as underline) to distinguish it from the surrounding text"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "flows": {
+    "checks": [
+      {
+        "name": "ETF tab shows new symbols",
+        "ok": true,
+        "result": "SOXQ/VXUS present, SPY/OEF absent"
+      },
+      {
+        "name": "Crypto tab shows new symbols",
+        "ok": true,
+        "result": "NEAR/UNI present, DOT/XMR absent"
+      },
+      {
+        "name": "Ticker filter",
+        "ok": true,
+        "result": "UNI found"
+      },
+      {
+        "name": "Chart 1Y and 1D",
+        "ok": true,
+        "result": {
+          "canvases": 7,
+          "errors": []
+        }
+      },
+      {
+        "name": "Anonymous watchlist gate",
+        "ok": true,
+        "result": {
+          "url": "https://bhsl.app/auth/login",
+          "body": ""
+        }
+      },
+      {
+        "name": "Paper to sign in",
+        "ok": true,
+        "result": "https://bhsl.app/auth/login"
+      },
+      {
+        "name": "Login signup mode",
+        "ok": true,
+        "result": {
+          "inputs": [
+            {
+              "type": "search",
+              "placeholder": "Search assets...",
+              "required": false
+            },
+            {
+              "type": "email",
+              "placeholder": "Email",
+              "required": true
+            },
+            {
+              "type": "password",
+              "placeholder": "Password",
+              "required": true
+            }
+          ],
+          "text": "B\nBuy High Sell Low\n\nStart trading for free\n\nEmail address\nPassword\n\nBy signing up you agree to our Terms and Privacy Policy. Beta service — free during stabilization.\n\nCreate account\nor\nContinue with Google\n\nAlready have an account? Sign in"
+        }
+      },
+      {
+        "name": "desktop original layout",
+        "ok": true,
+        "result": {
+          "design": "original",
+          "width": 1440,
+          "scrollWidth": 1440,
+          "nav": "OverviewMarketsNewsPortfolio"
+        }
+      },
+      {
+        "name": "mobile original layout",
+        "ok": true,
+        "result": {
+          "design": "original",
+          "width": 390,
+          "scrollWidth": 390,
+          "nav": "OverviewMarketsNewsPortfolio"
+        }
+      },
+      {
+        "name": "Mobile menu original",
+        "ok": true,
+        "result": "OverviewMarketsNewsPortfolio HomeStocksNewsMarket BriefPaper Trade HomeStocksNewsMarket BriefCalendarPaper Trade"
+      },
+      {
+        "name": "desktop v2 home accessibility",
+        "result": [
+          {
+            "id": "color-contrast",
+            "count": 1,
+            "examples": [
+              "Fix any of the following:\n  Element has insufficient color contrast of 4.31 (foreground color: #8b94a8, background color: #2b3040, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "desktop 2.0 layout",
+        "ok": true,
+        "result": {
+          "design": "2.0",
+          "width": 1440,
+          "scrollWidth": 1440,
+          "nav": "OverviewMarketsNewsPortfolio"
+        }
+      },
+      {
+        "name": "mobile v2 home accessibility",
+        "result": [
+          {
+            "id": "color-contrast",
+            "count": 1,
+            "examples": [
+              "Fix any of the following:\n  Element has insufficient color contrast of 4.31 (foreground color: #8b94a8, background color: #2b3040, font size: 6.8pt (9px), font weight: normal). Expected contrast ratio of 4.5:1"
+            ]
+          }
+        ]
+      },
+      {
+        "name": "mobile 2.0 layout",
+        "ok": true,
+        "result": {
+          "design": "2.0",
+          "width": 390,
+          "scrollWidth": 390,
+          "nav": "Overview\nMarkets\nNews\nPortfolio"
+        }
+      },
+      {
+        "name": "Mobile menu 2.0",
+        "ok": true,
+        "result": "OverviewMarketsNewsPortfolio HomeStocksNewsMarket BriefPaper Trade OverviewMarketsNews feedMarket briefMarket calendarPaper trading"
+      },
+      {
+        "name": "Light theme switch",
+        "ok": true,
+        "result": {
+          "theme": "light",
+          "design": "2.0"
+        }
+      },
+      {
+        "name": "Header search keyboard ArrowDown/Enter",
+        "navigated": false,
+        "url": "https://bhsl.app/stocks"
+      },
+      {
+        "name": "Header search pointer selection",
+        "ok": true,
+        "url": "https://bhsl.app/stock/SOXQ"
+      },
+      {
+        "name": "BKNG displayed history",
+        "text": "Booking Holdings\n\nBKNG · NMS · Consumer Cyclical\n\nWatchlist\n$148.13\n-1.52%\nVol 8.4M · Quote as of Oct 30, 2026, 11:33 PM ET\nLast market close\nSince last chart point: +0.00% · Check related news and AI context below for possible drivers.\n1D\n1W\n1M\n3M\n6M\n1Y\nH: $5,479.61\nL: $146.41\n-97.04%\n\t\n\t\n\n\t\n\t\nIntraday data (5m) for the last 30 days, daily close for earlier dates.\n\nWHY IS BKNG MOVING?\n\nAI · 1/day\n\nSign into get AI analysis of what's driving today's price action.\n\nRELATED NEWS\n\nBBC News\n59d ago\nFake 10 Downing Street listing exposes 'unfit' Booking.com, says consumer group\nAI\nNEGATIVE\n\nA consumer group has listed Booking.com as 'unfit' after exposing a fraudulent Downing Street listing, and Booking.com responded that the test does not reflect the broader experience of its listings and reviews.\n\nImpact: The news could weigh on Booking Holdings' share price as it raises concerns over listing integrity and regulatory oversight.\n\nNot invest"
+      },
+      {
+        "name": "Table sort today",
+        "ok": true,
+        "firstRow": "1\t\nTMUS\n\t\nT-Mobile\n\t$165.7B\t\n$156.44\nLast market close\n\t+6.13%\t-3.3%\t11.5M"
+      },
+      {
+        "name": "Grid view switch",
+        "ok": true,
+        "tableCount": 0
+      }
+    ],
+    "errors": []
+  },
+  "external_market_audit": {
+    "generated_at": "2026-10-31T11:04:48.525302+00:00",
+    "status": "CRITICAL",
+    "summary": {
+      "assets": 132,
+      "critical": 1,
+      "market_cap_reference_coverage": 132,
+      "price_reference_coverage": 132,
+      "provider_errors": 0,
+      "warnings": 3
+    },
+    "provider_errors": [],
+    "findings": [
+      {
+        "code": "market_cap_deviation",
+        "deviation_pct": 35.932712142937646,
+        "field": "market_cap",
+        "message": "Stored market cap/AUM is +35.93% versus CoinGecko (observation-time check) (threshold 5.00% critical)",
+        "reference_value": 7294173447.796642,
+        "severity": "critical",
+        "stored_value": 9915167796.0,
+        "ticker": "ADA-USD"
+      },
+      {
+        "code": "reference_time_aligned",
+        "deviation_pct": null,
+        "field": "all",
+        "message": "market_cap: live reference 7.2379633e+09 at 2026-10-31T11:04:30+00:00; comparing with 7.2941734e+09 at 2026-10-31T02:30:00+00:00 near stored observation 2026-10-31T02:31:35.639354+00:00",
+        "reference_value": null,
+        "severity": "warning",
+        "stored_value": null,
+        "ticker": "ADA-USD"
+      },
+      {
+        "code": "market_cap_deviation",
+        "deviation_pct": 2.491933974047502,
+        "field": "market_cap",
+        "message": "Stored market cap/AUM is +2.49% versus CoinGecko (threshold 5.00% critical)",
+        "reference_value": 3732043410.3317423,
+        "severity": "warning",
+        "stored_value": 3825043468.0,
+        "ticker": "AVAX-USD"
+      },
+      {
+        "code": "market_cap_deviation",
+        "deviation_pct": 2.6131336254600637,
+        "field": "market_cap",
+        "message": "Stored market cap/AUM is +2.61% versus CoinGecko (threshold 5.00% critical)",
+        "reference_value": 30140009493.21592,
+        "severity": "warning",
+        "stored_value": 30927608216.0,
+        "ticker": "TRX-USD"
+      }
+    ]
+  },
+  "isolated_ledger_reproductions": {
+    "direct_own_cash_update": true,
+    "direct_forged_position": true,
+    "other_user_isolation": true,
+    "buy_overwrites_short_side": [
+      {
+        "side": "long",
+        "shares": "13",
+        "borrowed": "0"
+      },
+      {
+        "side": "short",
+        "shares": "13",
+        "borrowed": "0"
+      }
+    ],
+    "concurrent_buy_interleaving": {
+      "initial_cash": 1000,
+      "each_order": 300,
+      "cash": 700,
+      "assets": 600,
+      "total": 1300,
+      "expected_total": 1000
+    }
+  },
+  "regression_tests": {
+    "app": 167,
+    "python": 154,
+    "total": 321,
+    "sql_regression": "passed"
+  },
+  "database_counts": {
+    "public_tables": 23,
+    "stocks": 149,
+    "active_assets": 132,
+    "current_prices": 139,
+    "intraday": 221170,
+    "daily_history": 37860,
+    "cap_snapshots": 15026,
+    "news": 10427,
+    "briefs": 151,
+    "paper_accounts": 32,
+    "positions": 305,
+    "transactions": 53,
+    "challenges": 27
+  },
+  "production_writes_during_review": false
+}

@@ -13,7 +13,7 @@
   --border-lg:    rgba(255,255,255,0.16);
   --text:         #f2f2f7;
   --text-2:       #9898a8;
-  --text-3:       #52525e;
+  --text-3:       #a0a0b0;
   --accent:       #7c6cfc;
   --accent-2:     #9b8aff;
   --accent-dim:   rgba(124,108,252,0.1);
@@ -24,7 +24,7 @@
   --accent-shadow-sm: 0 2px 8px rgba(124,108,252,0.3);
   --accent-shadow-md: 0 4px 16px rgba(124,108,252,0.4);
   --accent-shadow-active: 0 1px 4px rgba(124,108,252,0.2);
-  --on-accent: #ffffff;
+  --on-accent: #111126;
   --up:           #34d399;
   --up-dim:       rgba(52,211,153,0.1);
   --on-up:        #060608;
@@ -55,7 +55,7 @@
   --border-lg: rgba(15,23,42,0.22);
   --text: #101828;
   --text-2: #475467;
-  --text-3: #7a8495;
+  --text-3: #596578;
   --accent: #4f46e5;
   --accent-2: #7c3aed;
   --accent-dim: rgba(79,70,229,0.09);
@@ -67,10 +67,10 @@
   --accent-shadow-md: 0 4px 16px rgba(79,70,229,0.28);
   --accent-shadow-active: 0 1px 4px rgba(79,70,229,0.16);
   --on-accent: #ffffff;
-  --up: #07875a;
+  --up: #066b47;
   --up-dim: rgba(7,135,90,0.1);
   --on-up: #ffffff;
-  --down: #d92d20;
+  --down: #b42318;
   --down-dim: rgba(217,45,32,0.09);
   --warn: #b54708;
   --warn-dim: rgba(181,71,8,0.1);
@@ -525,3 +525,16 @@ body {
   box-shadow: var(--shadow-md);
   z-index: 50;
 }
+
+/* Inline links remain identifiable independently of color. */
+.link-accent, p > a:not(.btn), .text-xs > a:not(.btn) { text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 767px) {
+  .market-closed-banner { padding: 12px !important; margin-bottom: 18px !important; }
+  .market-closed-banner > div { gap: 10px !important; }
+  .market-closed-banner h2 { font-size: 14px; }
+  .market-closed-banner .closed-reason, .market-closed-banner .closed-description { display: none; }
+  .market-closed-banner .btn { padding: 6px 10px; min-height: 30px; }
+  .stock-sector-filters { flex-wrap: nowrap !important; overflow-x: auto; padding-bottom: 6px; }
+  .stock-sector-filters > button { white-space: nowrap; flex-shrink: 0; }
+}
+.asset-table-start { scroll-margin-top: 90px; }

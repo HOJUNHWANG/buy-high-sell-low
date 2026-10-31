@@ -1,26 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import {
-  getGroqCompletionSettings,
-  getGroqJsonResponseFormat,
-} from "@/lib/groq";
 import { NextResponse } from "next/server";
-import Groq from "groq-sdk";
-
-const DAILY_LIMIT = 30;
-const SUMMARY_SCHEMA = {
-  type: "object",
-  properties: {
-    summary: { type: "string" },
-    impact: { type: "string" },
-    sentiment: {
-      type: "string",
-      enum: ["positive", "neutral", "negative"],
-    },
-    caution: { type: ["string", "null"] },
-  },
-  required: ["summary", "impact", "sentiment", "caution"],
-  additionalProperties: false,
-};
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
@@ -44,11 +23,11 @@ export async function POST(request: Request) {
   }
 
   // Fetch article
-  let article: { title: string; ai_summary: string | null; ai_insight: string | null; ai_sentiment: string | null; ai_caution: string | null } | null = null;
+  let article: { title: string; ai_summary: string | null; ai_insight: string | null; ai_sentiment: string | null; ai_caution: string | null; summary_method: string; source_coverage: string } | null = null;
   try {
     const { data } = await supabase
       .from("news_articles")
-      .select("title, ai_summary, ai_insight, ai_sentiment, ai_caution")
+      .select("title, ai_summary, ai_insight, ai_sentiment, ai_caution, summary_method, source_coverage")
       .eq("id", articleId)
       .single();
     article = data;
@@ -61,88 +40,15 @@ export async function POST(request: Request) {
   }
 
   // Return cached summary if available
-  if (article.ai_summary) {
+  if (article.ai_summary && ["verified_ai", "source_excerpt"].includes(article.summary_method)) {
     return NextResponse.json({
       summary:         article.ai_summary,
       insight:         article.ai_insight,
       sentiment:       article.ai_sentiment,
       caution:         article.ai_caution,
+      summaryMethod: article.summary_method, sourceCoverage: article.source_coverage,
     });
   }
 
-  // Atomically claim a usage slot BEFORE generating to prevent race conditions.
-  // Read current count and increment immediately; refund on generation failure.
-  const today = new Date().toISOString().split("T")[0];
-  const { data: usage } = await supabase
-    .from("ai_usage")
-    .select("count")
-    .eq("user_id", user.id)
-    .eq("date", today)
-    .single();
-
-  const currentCount = usage?.count ?? 0;
-  if (currentCount >= DAILY_LIMIT) {
-    return NextResponse.json(
-      { error: `Daily limit reached (${DAILY_LIMIT}/${DAILY_LIMIT}). Resets tomorrow.` },
-      { status: 429 }
-    );
-  }
-
-  // Increment BEFORE generation so concurrent requests can't both slip through
-  await supabase.from("ai_usage").upsert(
-    { user_id: user.id, date: today, count: currentCount + 1 },
-    { onConflict: "user_id,date" }
-  );
-
-  // Generate new summary
-  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-  const prompt = `Summarize this financial news in JSON. No investment advice.
-{
-  "summary": "2-3 sentence summary",
-  "impact": "1 sentence market effect",
-  "sentiment": "positive|neutral|negative",
-  "caution": "1 overlooked risk or null"
-}
-
-${article.title}`;
-
-  let result;
-  try {
-    const msg = await groq.chat.completions.create({
-      ...getGroqCompletionSettings(),
-      max_completion_tokens: 2048,
-      messages: [{ role: "user", content: prompt }],
-      response_format: getGroqJsonResponseFormat(
-        "financial_news_summary",
-        SUMMARY_SCHEMA
-      ),
-    });
-    result = JSON.parse(msg.choices[0].message.content ?? "{}");
-  } catch {
-    // Refund the usage slot on generation failure
-    await supabase.from("ai_usage").upsert(
-      { user_id: user.id, date: today, count: currentCount },
-      { onConflict: "user_id,date" }
-    );
-    return NextResponse.json({ error: "AI generation failed" }, { status: 500 });
-  }
-
-  // Cache result
-  await supabase
-    .from("news_articles")
-    .update({
-      ai_summary:      result.summary   ?? null,
-      ai_insight:      result.impact    ?? null,
-      ai_sentiment:    result.sentiment ?? null,
-      ai_caution:      result.caution   ?? null,
-      ai_generated_at: new Date().toISOString(),
-    })
-    .eq("id", articleId);
-
-  return NextResponse.json({
-    summary:         result.summary   ?? null,
-    insight:         result.impact    ?? null,
-    sentiment:       result.sentiment ?? null,
-    caution:         result.caution   ?? null,
-  });
+  return NextResponse.json({ error: "Source-checked summary is not available for this article yet.", status: "insufficient_source", summaryMethod: article.summary_method }, { status: 409 });
 }

@@ -1,3 +1,4 @@
+import { runPaperAction } from "@/lib/paper-actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatAssetPrice } from "@/lib/price-format";
 import {
@@ -8,7 +9,7 @@ import { isDustPosition } from "@/lib/paper-trading";
 import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
 
-const DAILY_LIMIT = 1;
+
 const PORTFOLIO_ANALYSIS_SCHEMA = {
   type: "object",
   properties: {
@@ -41,28 +42,8 @@ export async function POST() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Rate limit check (1/day)
-  const today = new Date().toISOString().split("T")[0];
-  const { data: usage } = await supabase
-    .from("paper_ai_usage")
-    .select("count")
-    .eq("user_id", user.id)
-    .eq("date", today)
-    .single();
-
-  const currentCount = usage?.count ?? 0;
-  if (currentCount >= DAILY_LIMIT) {
-    return NextResponse.json(
-      { error: "You've already been roasted today. Come back tomorrow for more humiliation." },
-      { status: 429 }
-    );
-  }
-
-  // Atomically claim slot
-  await supabase.from("paper_ai_usage").upsert(
-    { user_id: user.id, date: today, count: currentCount + 1 },
-    { onConflict: "user_id,date" }
-  );
+  const claim = await runPaperAction(user.id, "claim_roast");
+  if (claim.response) return claim.response;
 
   // Fetch portfolio data
   const { data: account } = await supabase
@@ -73,7 +54,7 @@ export async function POST() {
 
   const { data: positions } = await supabase
     .from("paper_positions")
-    .select("ticker, shares, avg_cost")
+    .select("ticker, shares, avg_cost, side, borrowed")
     .eq("user_id", user.id);
 
   const tickers = (positions ?? []).map((p: { ticker: string }) => p.ticker);
@@ -91,16 +72,17 @@ export async function POST() {
     (p: { ticker: string; shares: number; avg_cost: number }) =>
       !isDustPosition(p.shares, prices[p.ticker] ?? p.avg_cost)
   );
-  const holdingsStr = activePositions.map((p: { ticker: string; shares: number; avg_cost: number }) => {
+  const equity = (p: { ticker: string; shares: number; avg_cost: number; side?: string; borrowed?: number }) => {
+    const price = prices[p.ticker] ?? p.avg_cost;
+    return p.side === "short" ? p.shares * p.avg_cost - (p.borrowed ?? 0) + (p.avg_cost - price) * p.shares : p.shares * price - (p.borrowed ?? 0);
+  };
+  const holdingsStr = activePositions.map((p: { ticker: string; shares: number; avg_cost: number; side?: string; borrowed?: number }) => {
     const current = prices[p.ticker] ?? p.avg_cost;
-    const pnl = ((current - p.avg_cost) / p.avg_cost * 100).toFixed(1);
-    return `${p.ticker}: ${p.shares.toFixed(2)} shares @ ${formatAssetPrice(p.avg_cost, p.ticker)} avg, now ${formatAssetPrice(current, p.ticker)} (${Number(pnl) >= 0 ? "+" : ""}${pnl}%)`;
+    const pnl = ((current - p.avg_cost) / p.avg_cost * 100 * (p.side === "short" ? -1 : 1)).toFixed(1);
+    return `${p.ticker} ${p.side ?? "long"}, debt $${p.borrowed ?? 0}, equity $${equity(p).toFixed(2)}: ${p.shares.toFixed(2)} shares @ ${formatAssetPrice(p.avg_cost, p.ticker)} avg, now ${formatAssetPrice(current, p.ticker)} (${Number(pnl) >= 0 ? "+" : ""}${pnl}%)`;
   }).join("\n");
 
-  const totalValue = cashBalance + activePositions.reduce(
-    (sum: number, p: { ticker: string; shares: number }) => sum + p.shares * (prices[p.ticker] ?? 0),
-    0
-  );
+  const totalValue = cashBalance + activePositions.reduce((sum: number, p: { ticker: string; shares: number; avg_cost: number; side?: string; borrowed?: number }) => sum + equity(p), 0);
   const returnPct = ((totalValue - 1000) / 1000 * 100).toFixed(2);
 
   const prompt = `You are an experienced portfolio analyst reviewing a paper trading portfolio. Give an honest, insightful analysis. Be direct and specific.
@@ -109,11 +91,11 @@ Portfolio (started with $1,000):
 - Cash: $${cashBalance.toFixed(2)}
 ${holdingsStr ? `- Holdings:\n${holdingsStr}` : "- No holdings (all cash)"}
 - Total Value: $${totalValue.toFixed(2)}
-- Overall Return: ${Number(returnPct) >= 0 ? "+" : ""}${returnPct}%
+- Game balance growth (includes check-in rewards and adjustments; not an investment return): ${Number(returnPct) >= 0 ? "+" : ""}${returnPct}%
 
 Output JSON only:
 {
-  "grade": "letter grade A+ to F based on risk-adjusted performance",
+  "grade": "letter grade A+ to F describing portfolio risk structure; performance attribution is unavailable",
   "nickname": "a short trader archetype label (e.g. 'The Contrarian', 'Diamond Hands')",
   "summary": "2-3 sentence honest assessment of the overall portfolio strategy and performance",
   "strengths": ["specific strength 1", "specific strength 2"],
@@ -135,11 +117,7 @@ Output JSON only:
     });
     result = JSON.parse(msg.choices[0].message.content ?? "{}");
   } catch {
-    // Refund usage slot on failure
-    await supabase.from("paper_ai_usage").upsert(
-      { user_id: user.id, date: today, count: currentCount },
-      { onConflict: "user_id,date" }
-    );
+    await runPaperAction(user.id, "refund_roast");
     return NextResponse.json({ error: "AI roast generation failed" }, { status: 500 });
   }
 

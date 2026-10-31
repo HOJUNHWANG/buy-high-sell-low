@@ -30,7 +30,7 @@ describe("Leaderboard", () => {
 
   it("calculates return % from $1000 starting balance", async () => {
     setMockUser({ id: "u1" });
-    setMockData("paper_accounts", [{ user_id: "u1", cash_balance: 1500 }]);
+    setMockData("paper_accounts", [{ user_id: "u1", is_demo: false, is_test_account: false, cash_balance: 1500 }]);
     setMockData("paper_positions", []);
     const mod = await import("@/app/api/paper/leaderboard/route");
     const res = await mod.GET(mockRequest());
@@ -42,7 +42,7 @@ describe("Leaderboard", () => {
   });
 
   it("includes equity (debt subtracted) in total", async () => {
-    setMockData("paper_accounts", [{ user_id: "u1", cash_balance: 200 }]);
+    setMockData("paper_accounts", [{ user_id: "u1", is_demo: false, is_test_account: false, cash_balance: 200 }]);
     setMockData("paper_positions", [
       { user_id: "u1", ticker: "AAPL", shares: 5, avg_cost: 200, side: "long", leverage: 1, borrowed: 0 },
     ]);
@@ -55,7 +55,7 @@ describe("Leaderboard", () => {
   });
 
   it("subtracts borrowed amount for leveraged positions", async () => {
-    setMockData("paper_accounts", [{ user_id: "u1", cash_balance: 0 }]);
+    setMockData("paper_accounts", [{ user_id: "u1", is_demo: false, is_test_account: false, cash_balance: 0 }]);
     setMockData("paper_positions", [
       { user_id: "u1", ticker: "AAPL", shares: 10, avg_cost: 200, side: "long", leverage: 2, borrowed: 1000 },
     ]);
@@ -71,9 +71,9 @@ describe("Leaderboard", () => {
 
   it("sorts by return % descending", async () => {
     setMockData("paper_accounts", [
-      { user_id: "loser", cash_balance: 500 },
-      { user_id: "winner", cash_balance: 3000 },
-      { user_id: "mid", cash_balance: 1001 },
+      { user_id: "loser", is_demo: false, is_test_account: false, cash_balance: 500 },
+      { user_id: "winner", is_demo: false, is_test_account: false, cash_balance: 3000 },
+      { user_id: "mid", is_demo: false, is_test_account: false, cash_balance: 1001 },
     ]);
     setMockData("paper_positions", []);
     const mod = await import("@/app/api/paper/leaderboard/route");
@@ -86,8 +86,8 @@ describe("Leaderboard", () => {
 
   it("assigns correct ranks", async () => {
     setMockData("paper_accounts", [
-      { user_id: "u1", cash_balance: 2000 },
-      { user_id: "u2", cash_balance: 1500 },
+      { user_id: "u1", is_demo: false, is_test_account: false, cash_balance: 2000 },
+      { user_id: "u2", is_demo: false, is_test_account: false, cash_balance: 1500 },
     ]);
     setMockData("paper_positions", []);
     const mod = await import("@/app/api/paper/leaderboard/route");
@@ -99,7 +99,7 @@ describe("Leaderboard", () => {
 
   it("paginates at 20 per page", async () => {
     const accounts = Array.from({ length: 45 }, (_, i) => ({
-      user_id: `u${i}`, cash_balance: 1001 + i * 10,
+      user_id: `u${i}`, is_demo: false, is_test_account: false, cash_balance: 1001 + i * 10,
     }));
     setMockData("paper_accounts", accounts);
     setMockData("paper_positions", []);
@@ -121,9 +121,9 @@ describe("Leaderboard", () => {
   it("returns myRank for current user", async () => {
     setMockUser({ id: "target" });
     setMockData("paper_accounts", [
-      { user_id: "winner", cash_balance: 5000 },
-      { user_id: "target", cash_balance: 2000 },
-      { user_id: "loser", cash_balance: 500 },
+      { user_id: "winner", is_demo: false, is_test_account: false, cash_balance: 5000 },
+      { user_id: "target", is_demo: false, is_test_account: false, cash_balance: 2000 },
+      { user_id: "loser", is_demo: false, is_test_account: false, cash_balance: 500 },
     ]);
     setMockData("paper_positions", []);
     const mod = await import("@/app/api/paper/leaderboard/route");
@@ -135,7 +135,7 @@ describe("Leaderboard", () => {
   });
 
   it("handles negative return (loss)", async () => {
-    setMockData("paper_accounts", [{ user_id: "u1", cash_balance: 300 }]);
+    setMockData("paper_accounts", [{ user_id: "u1", is_demo: false, is_test_account: false, cash_balance: 300 }]);
     setMockData("paper_positions", []);
     const mod = await import("@/app/api/paper/leaderboard/route");
     const res = await mod.GET(mockRequest());
@@ -144,7 +144,7 @@ describe("Leaderboard", () => {
   });
 
   it("returns position details with side and effective leverage", async () => {
-    setMockData("paper_accounts", [{ user_id: "u1", cash_balance: 500 }]);
+    setMockData("paper_accounts", [{ user_id: "u1", is_demo: false, is_test_account: false, cash_balance: 500 }]);
     setMockData("paper_positions", [
       { user_id: "u1", ticker: "AAPL", shares: 5, avg_cost: 100, side: "long", leverage: 1, borrowed: 0 },
       { user_id: "u1", ticker: "MSFT", shares: 6, avg_cost: 200, side: "short", leverage: 2, borrowed: 600 },

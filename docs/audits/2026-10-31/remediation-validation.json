@@ -1,0 +1,692 @@
+{
+  "codeValidation": {
+    "typescript": 178,
+    "python": 168,
+    "lint": "passed",
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "runtimeAuditVulnerabilities": 0,
+    "isolatedPostgres": "passed"
+  },
+  "productionRollout": "pending",
+  "browserPages": [
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/stocks",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": [],
+      "firstRowY": 679.875
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/stock/AAPL",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/news",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/auth/login",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/paper",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/stocks",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": [],
+      "firstRowY": 620.09375
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/stock/AAPL",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/news",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/auth/login",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/paper",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "light",
+      "mobile": false,
+      "route": "/",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "light",
+      "mobile": false,
+      "route": "/stocks",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "light",
+      "overflow": false,
+      "violations": [],
+      "firstRowY": 679.875
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "light",
+      "mobile": false,
+      "route": "/stock/AAPL",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "light",
+      "mobile": false,
+      "route": "/news",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "light",
+      "mobile": false,
+      "route": "/auth/login",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "light",
+      "mobile": false,
+      "route": "/paper",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "light",
+      "mobile": true,
+      "route": "/",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "light",
+      "mobile": true,
+      "route": "/stocks",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "light",
+      "overflow": false,
+      "violations": [],
+      "firstRowY": 620.09375
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "light",
+      "mobile": true,
+      "route": "/stock/AAPL",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "light",
+      "mobile": true,
+      "route": "/news",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "light",
+      "mobile": true,
+      "route": "/auth/login",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "2.0",
+      "requestedTheme": "light",
+      "mobile": true,
+      "route": "/paper",
+      "status": 200,
+      "errors": [],
+      "design": "2.0",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/stocks",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": [],
+      "firstRowY": 672.875
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/stock/AAPL",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/news",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/auth/login",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "midnight",
+      "mobile": false,
+      "route": "/paper",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/stocks",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": [],
+      "firstRowY": 621.09375
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/stock/AAPL",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/news",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/auth/login",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "midnight",
+      "mobile": true,
+      "route": "/paper",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "midnight",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "light",
+      "mobile": false,
+      "route": "/",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "light",
+      "mobile": false,
+      "route": "/stocks",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "light",
+      "overflow": false,
+      "violations": [],
+      "firstRowY": 672.875
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "light",
+      "mobile": false,
+      "route": "/stock/AAPL",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "light",
+      "mobile": false,
+      "route": "/news",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "light",
+      "mobile": false,
+      "route": "/auth/login",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "light",
+      "mobile": false,
+      "route": "/paper",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "light",
+      "mobile": true,
+      "route": "/",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "light",
+      "mobile": true,
+      "route": "/stocks",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "light",
+      "overflow": false,
+      "violations": [],
+      "firstRowY": 621.09375
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "light",
+      "mobile": true,
+      "route": "/stock/AAPL",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "light",
+      "mobile": true,
+      "route": "/news",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "light",
+      "mobile": true,
+      "route": "/auth/login",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "requestedDesign": "original",
+      "requestedTheme": "light",
+      "mobile": true,
+      "route": "/paper",
+      "status": 200,
+      "errors": [],
+      "design": "original",
+      "theme": "light",
+      "overflow": false,
+      "violations": []
+    }
+  ],
+  "browserFlows": {
+    "checks": [
+      {
+        "name": "Default workspace and pagination",
+        "ok": true
+      },
+      {
+        "name": "ETF and crypto universe, filter and views",
+        "ok": true
+      },
+      {
+        "name": "Keyboard search Escape, ArrowUp, Enter",
+        "ok": true
+      },
+      {
+        "name": "Chart interval controls",
+        "ok": true
+      },
+      {
+        "name": "Watchlist login return and signup",
+        "ok": true
+      },
+      {
+        "name": "Paper login return",
+        "ok": true
+      },
+      {
+        "name": "Appearance selection persists",
+        "ok": true
+      },
+      {
+        "name": "Mobile menu Escape and navigation",
+        "ok": true
+      }
+    ],
+    "errors": []
+  },
+  "newsSample": [
+    {
+      "id": 102417,
+      "tags": [],
+      "method": "source_excerpt",
+      "coverage": "full_text",
+      "source_chars": 3254,
+      "summary_words": 24,
+      "analysis_error": null
+    },
+    {
+      "id": 102427,
+      "tags": [
+        "ETH-USD",
+        "SPCX",
+        "USDC-USD",
+        "USDT-USD"
+      ],
+      "method": "source_excerpt",
+      "coverage": "full_text",
+      "source_chars": 4487,
+      "summary_words": 24,
+      "analysis_error": null
+    },
+    {
+      "id": 102428,
+      "tags": [
+        "INTC"
+      ],
+      "method": "headline_only",
+      "coverage": "headline",
+      "source_chars": 81,
+      "summary_words": 0,
+      "analysis_error": null
+    },
+    {
+      "id": 102443,
+      "tags": [
+        "USDC-USD",
+        "USDT-USD"
+      ],
+      "method": "verified_ai",
+      "coverage": "full_text",
+      "source_chars": 3900,
+      "summary_words": 24,
+      "analysis_error": null
+    },
+    {
+      "id": 102448,
+      "tags": [],
+      "method": "source_excerpt",
+      "coverage": "full_text",
+      "source_chars": 2213,
+      "summary_words": 24,
+      "analysis_error": null
+    }
+  ]
+}

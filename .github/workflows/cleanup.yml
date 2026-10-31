@@ -28,7 +28,14 @@ jobs:
           cache-dependency-path: scripts/requirements.txt
       - name: Install Python dependencies
         run: python -m pip install --disable-pip-version-check -r scripts/requirements.txt
+      - name: Reconcile split-adjusted daily history
+        run: python scripts/refresh_daily_history.py --scan
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
       - name: Remove expired operational data
+        if: ${{ !cancelled() }}
         run: python scripts/cleanup.py
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
