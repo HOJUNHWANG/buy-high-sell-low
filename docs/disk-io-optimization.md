@@ -116,7 +116,9 @@ https://supabase.com/docs/guides/platform/compute-and-disk 에서 확인한다.
   가격 차이를 영구 해결했다는 뜻은 아니므로 자동 audit/재수집은 중지 상태를 유지한다.
 - Python 회귀 151개(기존 전체 실행 + 사전 조회 회귀 추가), 앱 회귀 203개 통과.
   TypeScript 검사, 변경 페이지 ESLint, diff 공백 검사 통과.
-- 변경은 로컬 `codex/fix-market-caps-retire-audit` 브랜치에 커밋했다.
-  main 직접 게시 요청은 자동 승인 검토가 명시적 게시 승인 부족을 이유로 거부했다.
-  따라서 향후 예약 Market Cap 실행과 Data Health 화면에 새 코드를 적용하려면
-  사용자의 main 게시 승인이 필요하다. 운영 데이터 복구와 GitHub audit 실행 중지는 완료했다.
+- 변경은 `codex/fix-market-caps-retire-audit` 브랜치에서 준비했다.
+  최초 main 직접 게시 요청은 자동 승인 검토가 명시적 게시 승인 부족을 이유로 거부했다.
+  이후 사용자가 main 반영을 명시적으로 승인해 수정 코드 `7e3ae98`을 main에 게시했다.
+  해당 커밋의 수집 회귀 CI와 Vercel 배포가 성공했다. 운영 데이터 복구와 GitHub
+  audit 실행 중지도 완료했다. 게시 후 Market Cap 액션 검증 기록:
+  https://github.com/HOJUNHWANG/buy-high-sell-low/actions/runs/41160082865
