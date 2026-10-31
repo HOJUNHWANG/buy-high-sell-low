@@ -65,3 +65,9 @@ python scripts/cleanup.py
 ## 원천
 
 [NYSE 거래 달력](https://www.nyse.com/trade/hours-calendars), [Twelve Data 조정 가격](https://support.twelvedata.com/en/articles/5179064-are-the-prices-adjusted), [CoinGecko markets](https://docs.coingecko.com/reference/coins-markets), [Next 보안 업데이트](https://nextjs.org/blog/nextjs-security-update-october-14-2026).
+
+## 원격 검증 및 적용 차단 기록
+
+코드 커밋 `826e43d`를 [PR #10](https://github.com/HOJUNHWANG/buy-high-sell-low/pull/10)으로 게시했다. GitHub의 Check Market Ingestion 및 Check Index Rebalance Configuration이 성공했고 Vercel 브랜치 빌드도 성공했다. main은 변경하지 않았다.
+
+최신 Supabase `add_atomic_paper_actions` 적용은 자동 승인 검토가 거부했다. 이유는 운영 스키마/권한/금융 함수 추가 및 기존 계정의 더미 표시 변경에 대해 명시적인 운영 DB 적용 승인이 확인되지 않았다는 것이다. 우회 실행하지 않았고, DB 6개 마이그레이션·main 배포·원본 보관 후 데이터 복구에 대한 승인을 요청했다. 이전 두 도구 확인 만료와는 별개의 차단이다.
