@@ -180,30 +180,13 @@ across tabs. Dark/Light preferences continue to sync with the signed-in account.
 Retired palettes automatically map to the matching dark or light mode; existing
 Supabase theme constraints remain compatible, so no database migration is needed.
 
-## Fictional Paper Trading
+## Market scope
 
-`/paper?market=fictional` provides a $1,000 simulated account for the
-100 Fictional companies. It supports dollar or fractional-share buys and sells,
-full-position closes, holdings and returns, paginated transaction history, and a
-dedicated top-50 leaderboard. The shared `/paper` workspace switches between
-stocks & crypto and Fictional, with portfolio, history, and leaderboard navigation.
-Legacy `/fictional-market/paper?ticker=...` links redirect with the selected ticker.
-
-The three `fictional_paper_*` tables do not share balances, positions, or rankings
-with real-market paper trading. Authenticated users can read only their own
-ledger through RLS. Writes use a service-only, atomic RPC with an account row
-lock and a per-user idempotency key. Execution uses the stored Fictional quote;
-quotes older than 90 minutes pause new orders. Retrying a confirmed request ID
-returns the original fill. Rankings expose random display aliases, not emails
-or authentication IDs.
-
-Database setup is in `supabase/migrations/20260904002321_fictional_paper_trading.sql`.
-Run `npm test -- tests/fictional-paper.test.ts tests/api-fictional-paper.test.ts`
-for API and calculation checks. After applying the migration, run
-`tests/sql/fictional-paper-trading.sql` for PostgreSQL ledger and access-control
-checks; its synthetic users, quotes, and trades all roll back.
-
----
+The app supports real-market stocks, ETFs, crypto, and their simulated paper-trading
+accounts. The separate Fictional market and ledger have been retired. Its former
+update endpoint returns HTTP 410 without database access so obsolete external jobs
+cannot regenerate market data. Deploy this retirement before applying the
+`retire_fictional_market` database migration. Historical migrations remain intact.
 
 ## Project Structure
 
@@ -213,7 +196,6 @@ app/
 ├── market-calendar/           # Market hours, holidays, settlement window
 ├── stock/[ticker]/             # Stock detail (chart, news, trade CTA)
 ├── stocks/                     # Screener (stocks / ETFs / crypto tabs)
-├── fictional-market/paper/     # Redirect to the unified paper workspace
 ├── news/                       # News feed with sentiment filter
 ├── paper/                      # Paper trading dashboard
 │   ├── trade/[ticker]/         #   Buy / Sell / Short / Cover

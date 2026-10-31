@@ -1,6 +1,6 @@
 // Run against disposable in-memory PostgreSQL; never reads credentials or connects remotely.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -58,6 +58,60 @@ try {
   assert.equal(state.rows[0].count, 1);
   const rolledBack = await db.query("SELECT count(*)::integer AS count FROM public.stocks WHERE ticker = '__BHSL_IO_TEST__'");
   assert.equal(rolledBack.rows[0].count, 0);
+  // Upgrade an installed legacy market with both real and fictional ledgers.
+  await db.exec(`
+    CREATE SCHEMA auth;
+    CREATE TABLE auth.users (id uuid PRIMARY KEY);
+    CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS 'SELECT NULL::uuid';
+    ${table("paper_accounts")}
+    ${table("paper_positions")}
+    ${table("paper_transactions")}
+    ${read("supabase/migrations/20260904002321_fictional_paper_trading.sql")}
+    INSERT INTO auth.users VALUES ('00000000-0000-0000-0000-000000000101');
+    INSERT INTO public.stocks(ticker,name) VALUES ('REAL_KEEP','Preserved real asset');
+    INSERT INTO public.paper_accounts(user_id,cash_balance)
+      VALUES ('00000000-0000-0000-0000-000000000101',1234);
+    INSERT INTO public.paper_positions(user_id,ticker,shares,avg_cost)
+      VALUES ('00000000-0000-0000-0000-000000000101','REAL_KEEP',2,100);
+    INSERT INTO public.paper_transactions(user_id,ticker,side,shares,price,total)
+      VALUES ('00000000-0000-0000-0000-000000000101','REAL_KEEP','buy',2,100,200);
+    INSERT INTO public.fictional_paper_accounts(user_id)
+      VALUES ('00000000-0000-0000-0000-000000000101');
+    INSERT INTO public.fictional_paper_positions(user_id,ticker,shares,avg_cost)
+      VALUES ('00000000-0000-0000-0000-000000000101','IO_BASE',1,100);
+    INSERT INTO public.fictional_paper_transactions
+      (user_id,ticker,side,shares,price,total,cash_balance_after,price_fetched_at,
+       request_id,request_unit,request_amount)
+      VALUES ('00000000-0000-0000-0000-000000000101','IO_BASE','buy',1,100,100,900,now(),
+       '00000000-0000-0000-0000-000000000102','shares',1);
+  `);
+  const realLedgerQuery = `SELECT jsonb_build_object(
+    'users',(SELECT jsonb_agg(t) FROM auth.users t),
+    'accounts',(SELECT jsonb_agg(t) FROM public.paper_accounts t),
+    'positions',(SELECT jsonb_agg(t) FROM public.paper_positions t),
+    'transactions',(SELECT jsonb_agg(t) FROM public.paper_transactions t)
+  ) AS ledger`;
+  const beforeRemoval = await db.query(realLedgerQuery);
+  const retirementFiles = readdirSync(resolve("supabase/migrations"))
+    .filter((file) => file.endsWith("_retire_fictional_market.sql"));
+  assert.equal(retirementFiles.length, 1);
+  const retirement = read(`supabase/migrations/${retirementFiles[0]}`);
+
+  // An unforeseen external dependency must stop and roll back the whole migration.
+  await db.exec("CREATE VIEW public.external_dependency AS SELECT ticker FROM public.fictional_companies");
+  await assert.rejects(db.transaction((tx) => tx.exec(retirement)), /depend/i);
+  assert.equal((await db.query("SELECT count(*)::integer AS count FROM public.fictional_paper_transactions")).rows[0].count, 1);
+  await db.exec("DROP VIEW public.external_dependency");
+  await db.transaction((tx) => tx.exec(retirement));
+  assert.deepEqual((await db.query(realLedgerQuery)).rows, beforeRemoval.rows);
+  assert.equal((await db.query(`SELECT count(*)::integer AS count FROM pg_tables
+    WHERE schemaname='public' AND tablename LIKE 'fictional%'`)).rows[0].count, 0);
+  assert.equal((await db.query(`SELECT count(*)::integer AS count FROM pg_proc p
+    JOIN pg_namespace n ON n.oid=p.pronamespace
+    WHERE n.nspname='public' AND p.proname LIKE '%fictional%'`)).rows[0].count, 0);
+  assert.equal((await db.query("SELECT count(*)::integer AS count FROM private.market_maintenance_state")).rows[0].count, 0);
+  assert.equal((await db.query("SELECT to_regprocedure('public.skip_unchanged_market_daily_update()') IS NOT NULL AS kept")).rows[0].kept, true);
+
   console.log(JSON.stringify({ status: "passed", postgres: (await db.query("SELECT version() AS version")).rows[0].version }));
 } finally {
   await db.close();

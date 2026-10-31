@@ -8,47 +8,36 @@ const route = vi.hoisted(() => ({ pathname: "/paper", search: "" }));
 vi.mock("next/navigation", () => ({
   usePathname: () => route.pathname,
   useSearchParams: () => new URLSearchParams(route.search),
-  redirect: (href: string) => { throw new Error(`REDIRECT:${href}`); },
-}));
-vi.mock("@/components/FictionalPaperDesk", () => ({
-  FictionalPaperDesk: ({ initialTicker, view }: { initialTicker?: string; view: string }) => createElement("div", { "data-fictional-ticker": initialTicker, "data-fictional-view": view }, "Fictional account"),
 }));
 import { PaperWorkspace } from "@/components/PaperWorkspace";
-import FictionalPaperPage from "@/app/fictional-market/paper/page";
 
 afterEach(() => { vi.unstubAllGlobals(); route.pathname = "/paper"; route.search = ""; });
 
-describe("unified paper trading navigation", () => {
-  it("keeps history and rankings in the selected market", () => {
-    expect(paperWorkspaceHref("real", "history")).toBe("/paper/history");
-    expect(paperWorkspaceHref("real", "rankings")).toBe("/paper/leaderboard");
-    expect(paperWorkspaceHref("fictional", "history")).toBe("/paper?market=fictional&view=history");
-    expect(paperWorkspaceHref("fictional", "rankings")).toBe("/paper?market=fictional&view=rankings");
-    expect(resolvePaperView("/paper/history", null)).toBe("history");
-    expect(resolvePaperView("/paper", "rankings")).toBe("rankings");
-    expect(resolvePaperView("/paper", "untrusted")).toBe("overview");
+describe("paper trading navigation", () => {
+  it("keeps the real portfolio, history and leaderboard routes", () => {
+    expect(paperWorkspaceHref()).toBe("/paper");
+    expect(paperWorkspaceHref("history")).toBe("/paper/history");
+    expect(paperWorkspaceHref("rankings")).toBe("/paper/leaderboard");
+    expect(resolvePaperView("/paper/history")).toBe("history");
+    expect(resolvePaperView("/paper/leaderboard")).toBe("rankings");
+    expect(resolvePaperView("/paper")).toBe("overview");
   });
 
-  it("renders only the selected account and preserves the ticker in section links", () => {
-    route.search = "market=fictional&view=history&ticker=wynn";
-    const html = renderToStaticMarkup(createElement(PaperWorkspace, null, createElement("div", null, "Real account")));
-    expect(html).toContain("Fictional account");
-    expect(html).not.toContain("Real account");
-    expect(html).toContain('data-fictional-ticker="WYNN"');
-    expect(html).toContain('data-fictional-view="history"');
-    expect(html).toContain("/paper?market=fictional&amp;view=rankings&amp;ticker=WYNN");
-  });
-
-  it("renders the real account for missing or invalid market parameters", () => {
-    route.search = "market=invalid";
+  it("renders the real account even when an old retired-market URL is opened", () => {
+    route.search = "market=fictional&view=history&ticker=ARSK";
     const html = renderToStaticMarkup(createElement(PaperWorkspace, null, createElement("div", null, "Real account")));
     expect(html).toContain("Real account");
-    expect(html).not.toContain('data-fictional-view');
+    expect(html).toContain('href="/paper/history"');
+    expect(html).toContain('href="/paper/leaderboard"');
+    expect(html).not.toContain("Fictional");
+    expect(html).not.toContain("market=fictional");
   });
 
-  it("redirects existing Fictional trade links without dropping the selected ticker", async () => {
-    await expect(FictionalPaperPage({ searchParams: Promise.resolve({ ticker: "wynn" }) })).rejects.toThrow("REDIRECT:/paper?market=fictional&ticker=WYNN");
-    await expect(FictionalPaperPage({ searchParams: Promise.resolve({}) })).rejects.toThrow("REDIRECT:/paper?market=fictional");
+  it("preserves the active real history section", () => {
+    route.pathname = "/paper/history";
+    const html = renderToStaticMarkup(createElement(PaperWorkspace, null, "Trade history"));
+    const historyLink = html.match(/<a\b[^>]*href="\/paper\/history"[^>]*>/)?.[0];
+    expect(historyLink).toContain('aria-current="page"');
   });
 });
 

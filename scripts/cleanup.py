@@ -92,18 +92,6 @@ def cleanup_inactive_asset_data() -> int:
     return total_deleted
 
 
-def cleanup_fictional_market(total_deleted: int) -> None:
-    """Run fictional-market retention and fail the job if the RPC fails."""
-    try:
-        supabase.rpc("cleanup_fictional_market_data").execute()
-        print("  Fictional market cleanup done")
-    except Exception as e:
-        error = f"Fictional market cleanup failed: {e}"
-        print(f"  {error}")
-        log_result("cleanup", "failed", total_deleted, 1, error)
-        raise
-
-
 def main():
     print("Running cleanup...")
     total_deleted = 0
@@ -121,10 +109,6 @@ def main():
     deleted = deleted_count(result)
     total_deleted += deleted
     print(f"  Daily chart history cleanup done ({deleted} rows deleted)")
-
-    # Fictional market cleanup follows the same retention model:
-    # 30 days intraday/events, 45 days fictional news, 366 days daily OHLCV.
-    cleanup_fictional_market(total_deleted)
 
     # Delete fetch logs older than 30 days
     cutoff_30d = (datetime.utcnow() - timedelta(days=30)).isoformat()

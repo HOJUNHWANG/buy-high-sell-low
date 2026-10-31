@@ -1,7 +1,6 @@
 export const navigation = [
   { href: "/", label: "Overview", originalLabel: "Home", icon: "overview", group: "market" },
   { href: "/stocks", label: "Markets", originalLabel: "Stocks", icon: "markets", group: "market" },
-  { href: "/fictional-market", label: "Fictional market", originalLabel: "Fictional", icon: "fictional", group: "market" },
   { href: "/news", label: "News feed", originalLabel: "News", icon: "news", group: "research" },
   { href: "/market-brief", label: "Market brief", originalLabel: "Market Brief", icon: "brief", group: "research" },
   { href: "/market-calendar", label: "Market calendar", originalLabel: "Calendar", icon: "calendar", group: "research" },

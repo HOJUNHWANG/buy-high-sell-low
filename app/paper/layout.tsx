@@ -4,7 +4,7 @@ import { PaperWorkspace } from "@/components/PaperWorkspace";
 
 export const metadata: Metadata = {
   title: "Paper Trading",
-  description: "Practice stocks, crypto, and Fictional trading in one workspace. Track your portfolio, trade history, and market leaderboard with simulated money.",
+  description: "Practice stock and crypto trading in one workspace. Track your portfolio, trade history, and market leaderboard with simulated money.",
 };
 
 export default function PaperLayout({ children }: { children: React.ReactNode }) {

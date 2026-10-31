@@ -14,8 +14,8 @@ export async function MarketOverview() {
   ];
   return <section className="market-overview design-v2-only" aria-label="Market overview">
     <div className="overview-intro">
-      <div><p className="page-kicker">THE BIG PICTURE</p><h1>Your market.<br /><span>In focus.</span></h1><p>Follow the moves. Understand the story. Make your next move.</p><div className="overview-session"><span className={status.isOpen ? "is-open" : ""} />{status.isOpen ? "US market open" : "US market closed"}<span className="overview-session-divider">/</span>Crypto & Fictional · 24/7</div></div>
-      <Link href="/paper" className="overview-practice-card"><div className="overview-practice-top"><span>PAPER TRADING</span><span aria-hidden="true">↗</span></div><strong>Ideas deserve<br />a practice run.</strong><p>Stocks, crypto and Fictional.<br />One place to build your portfolio.</p><span className="overview-practice-cta">Open your trading desk <span aria-hidden="true">→</span></span></Link>
+      <div><p className="page-kicker">THE BIG PICTURE</p><h1>Your market.<br /><span>In focus.</span></h1><p>Follow the moves. Understand the story. Make your next move.</p><div className="overview-session"><span className={status.isOpen ? "is-open" : ""} />{status.isOpen ? "US market open" : "US market closed"}<span className="overview-session-divider">/</span>Crypto · 24/7</div></div>
+      <Link href="/paper" className="overview-practice-card"><div className="overview-practice-top"><span>PAPER TRADING</span><span aria-hidden="true">↗</span></div><strong>Ideas deserve<br />a practice run.</strong><p>Stocks and crypto.<br />One place to build your portfolio.</p><span className="overview-practice-cta">Open your trading desk <span aria-hidden="true">→</span></span></Link>
     </div>
     <div className="overview-quotes">
       {instruments.map((instrument) => {

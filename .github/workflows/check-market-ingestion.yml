@@ -10,6 +10,7 @@ on:
       - "tests/sql/**"
       - "supabase/migrations/*_reduce_market_ingestion_io.sql"
       - "supabase/migrations/*_remove_duplicate_daily_price_constraint.sql"
+      - "supabase/migrations/*_retire_fictional_market.sql"
       - ".github/workflows/check-market-ingestion.yml"
   push:
     branches: [main]
@@ -20,6 +21,7 @@ on:
       - "tests/sql/**"
       - "supabase/migrations/*_reduce_market_ingestion_io.sql"
       - "supabase/migrations/*_remove_duplicate_daily_price_constraint.sql"
+      - "supabase/migrations/*_retire_fictional_market.sql"
       - ".github/workflows/check-market-ingestion.yml"
 
 permissions:
