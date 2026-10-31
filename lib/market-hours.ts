@@ -1,8 +1,12 @@
+import earlyCloses from "@/data/us-market-early-closes.json";
 import marketHolidays from "@/data/us-market-holidays.json";
 
 /** US equity market hours. Crypto (tickers ending in -USD) remains available 24/7. */
 
 const HOLIDAYS = new Map(marketHolidays.map((holiday) => [holiday.date, holiday.label]));
+
+const EARLY_CLOSES = new Map(earlyCloses.map(day => [day.date, day.closeMinute]));
+export function getSessionCloseMinutes(date: string): number { return EARLY_CLOSES.get(date) ?? 960; }
 
 export type EasternTime = {
   date: string;
@@ -88,7 +92,7 @@ export function getLatestCompletedTradingDate(now = new Date()): string {
   const et = getEasternTime(now);
   const isWeekday = et.weekday !== "Sat" && et.weekday !== "Sun";
   const isTradingDay = isWeekday && !HOLIDAYS.has(et.date);
-  return isTradingDay && et.mins >= 960 ? et.date : previousTradingDate(et.date);
+  return isTradingDay && et.mins >= getSessionCloseMinutes(et.date) ? et.date : previousTradingDate(et.date);
 }
 
 export function isCrypto(ticker: string): boolean {
@@ -98,7 +102,7 @@ export function isCrypto(ticker: string): boolean {
 export function isMarketOpen(now = new Date()): boolean {
   const et = getEasternTime(now);
   const isWeekday = et.weekday !== "Sat" && et.weekday !== "Sun";
-  return isWeekday && !HOLIDAYS.has(et.date) && et.mins >= 570 && et.mins < 960;
+  return isWeekday && !HOLIDAYS.has(et.date) && et.mins >= 570 && et.mins < getSessionCloseMinutes(et.date);
 }
 
 export function getMarketStatusMessage(now = new Date()): string {
@@ -111,7 +115,7 @@ export function getMarketStatusMessage(now = new Date()): string {
     const left = 570 - et.mins;
     return `Market is closed. Opens in ${Math.floor(left / 60)}h ${left % 60}m.`;
   }
-  if (et.mins >= 960) return "Market is closed. Opens next trading day 9:30 AM ET.";
+  if (et.mins >= getSessionCloseMinutes(et.date)) return "Market is closed. Opens next trading day 9:30 AM ET.";
   return "Market is open.";
 }
 
@@ -119,12 +123,12 @@ export function getMarketStatus(now = new Date()): MarketStatus {
   const et = getEasternTime(now);
   const isWeekday = et.weekday !== "Sat" && et.weekday !== "Sun";
   const isHoliday = HOLIDAYS.has(et.date);
-  const isOpen = isWeekday && !isHoliday && et.mins >= 570 && et.mins < 960;
+  const isOpen = isWeekday && !isHoliday && et.mins >= 570 && et.mins < getSessionCloseMinutes(et.date);
 
   let nextLabel: string;
   let reason: MarketStatus["reason"] = null;
   if (isOpen) {
-    const left = 960 - et.mins;
+    const left = getSessionCloseMinutes(et.date) - et.mins;
     nextLabel = `Closes in ${Math.floor(left / 60)}h ${left % 60}m`;
   } else if (isWeekday && !isHoliday && et.mins < 570) {
     const left = 570 - et.mins;
@@ -141,7 +145,7 @@ export function getMarketStatus(now = new Date()): MarketStatus {
     ? "Regular Hours"
     : isWeekday && !isHoliday && et.mins >= 480 && et.mins < 570
       ? "Pre-Market"
-      : isWeekday && !isHoliday && et.mins >= 960 && et.mins < 1200
+      : isWeekday && !isHoliday && et.mins >= getSessionCloseMinutes(et.date) && et.mins < 1200
         ? "After Hours"
         : "Closed";
 

@@ -1,3 +1,4 @@
+-- Reference schema: deploy the versioned migrations as well; they install the server-only paper and news RPCs.
 -- Buy High Sell Low Database Schema
 -- Run this in Supabase SQL Editor
 
@@ -525,8 +526,6 @@ DROP POLICY IF EXISTS "users can insert own paper_accounts"  ON paper_accounts;
 DROP POLICY IF EXISTS "users can update own paper_accounts"  ON paper_accounts;
 ALTER TABLE paper_accounts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "users can read own paper_accounts"   ON paper_accounts FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "users can insert own paper_accounts"  ON paper_accounts FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "users can update own paper_accounts"  ON paper_accounts FOR UPDATE USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "users can read own paper_positions"    ON paper_positions;
 DROP POLICY IF EXISTS "users can insert own paper_positions"  ON paper_positions;
@@ -534,15 +533,11 @@ DROP POLICY IF EXISTS "users can update own paper_positions"  ON paper_positions
 DROP POLICY IF EXISTS "users can delete own paper_positions"  ON paper_positions;
 ALTER TABLE paper_positions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "users can read own paper_positions"    ON paper_positions FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "users can insert own paper_positions"  ON paper_positions FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "users can update own paper_positions"  ON paper_positions FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "users can delete own paper_positions"  ON paper_positions FOR DELETE USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "users can read own paper_transactions"   ON paper_transactions;
 DROP POLICY IF EXISTS "users can insert own paper_transactions" ON paper_transactions;
 ALTER TABLE paper_transactions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "users can read own paper_transactions"   ON paper_transactions FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "users can insert own paper_transactions" ON paper_transactions FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "users can read own paper_achievements"   ON paper_achievements;
 DROP POLICY IF EXISTS "users can insert own paper_achievements" ON paper_achievements;
@@ -555,8 +550,6 @@ DROP POLICY IF EXISTS "users can insert own paper_ai_usage" ON paper_ai_usage;
 DROP POLICY IF EXISTS "users can update own paper_ai_usage" ON paper_ai_usage;
 ALTER TABLE paper_ai_usage ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "users can read own paper_ai_usage"   ON paper_ai_usage FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "users can insert own paper_ai_usage" ON paper_ai_usage FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "users can update own paper_ai_usage" ON paper_ai_usage FOR UPDATE USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "users can read own paper_challenges"   ON paper_challenges;
 DROP POLICY IF EXISTS "users can insert own paper_challenges" ON paper_challenges;
@@ -581,7 +574,7 @@ CREATE OR REPLACE FUNCTION public.upsert_market_cap_observation(
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY INVOKER
-SET search_path = public
+SET search_path = ''
 AS $$
 BEGIN
   IF p_market_cap <= 0 THEN
@@ -638,3 +631,7 @@ REVOKE ALL ON FUNCTION public.upsert_market_cap_observation(
 GRANT EXECUTE ON FUNCTION public.upsert_market_cap_observation(
   TEXT, BIGINT, TIMESTAMPTZ, TEXT, TEXT
 ) TO service_role;
+
+-- Financial and AI-quota mutations run through authenticated server APIs.
+REVOKE ALL ON public.paper_accounts,public.paper_positions,public.paper_transactions,public.paper_ai_usage FROM anon,authenticated;
+GRANT SELECT ON public.paper_accounts,public.paper_positions,public.paper_transactions,public.paper_ai_usage TO authenticated;

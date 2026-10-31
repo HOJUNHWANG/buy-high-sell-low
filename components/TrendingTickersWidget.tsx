@@ -2,30 +2,38 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
 
 export async function TrendingTickersWidget() {
-  let data: { ticker: string | null; ai_sentiment: string | null }[] | null = null;
+  let data: { related_tickers: string[] | null; ai_sentiment: string | null; event_key: string | null; id: number }[] | null = null;
   try {
     const supabase = await createSupabaseServerClient();
     // eslint-disable-next-line react-hooks/purity -- evaluated once for this server request
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const res = await supabase
       .from("news_articles")
-      .select("ticker, ai_sentiment")
+      .select("id, related_tickers, ai_sentiment, event_key")
       .gte("published_at", yesterday)
-      .not("ticker", "is", null);
+      .gte("quality_version", 2).order("published_at", { ascending: false }).limit(500);
     data = res.data;
   } catch {
     return null;
   }
 
-  // Count mentions + sentiment score per ticker
+  const supabase = await createSupabaseServerClient();
+  const { data: active } = await supabase.from("stocks").select("ticker").eq("is_active", true);
+  const activeSet = new Set((active ?? []).map((s: {ticker: string}) => s.ticker));
+  const counted = new Set<string>();
+  // Count distinct stories per active issuer, folding Alphabet share classes.
   const map = new Map<string, { count: number; pos: number; neg: number }>();
   for (const row of data ?? []) {
-    if (!row.ticker) continue;
-    const entry = map.get(row.ticker) ?? { count: 0, pos: 0, neg: 0 };
-    entry.count++;
-    if (row.ai_sentiment === "positive") entry.pos++;
-    if (row.ai_sentiment === "negative") entry.neg++;
-    map.set(row.ticker, entry);
+    for (const ticker of new Set((row.related_tickers ?? []).filter(t => activeSet.has(t)).map(t => t === "GOOGL" ? "GOOG" : t))) {
+      const key = `${ticker}:${row.event_key ?? row.id}`;
+      if (counted.has(key)) continue;
+      counted.add(key);
+      const entry = map.get(ticker) ?? { count: 0, pos: 0, neg: 0 };
+      entry.count++;
+      if (row.ai_sentiment === "positive") entry.pos++;
+      if (row.ai_sentiment === "negative") entry.neg++;
+      map.set(ticker, entry);
+    }
   }
 
   const trending = Array.from(map.entries())
@@ -70,7 +78,7 @@ export async function TrendingTickersWidget() {
                 </span>
               </div>
               <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
-                {count} article{count !== 1 ? "s" : ""}
+                {count} stor{count !== 1 ? "ies" : "y"}
               </span>
             </Link>
           );

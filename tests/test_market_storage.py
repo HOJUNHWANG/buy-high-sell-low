@@ -40,7 +40,7 @@ class MarketStorageTests(unittest.TestCase):
             base_url="https://example.invalid",
             transport=httpx.MockTransport(self.handle),
         )
-        self.client = SimpleNamespace(table=self.rest.from_)
+        self.client = SimpleNamespace(table=self.rest.from_, rpc=self.rest.rpc)
         self.addCleanup(self.rest.session.close)
         self.current = [
             {"ticker": f"TEST{i}", "price": 100, "volume": None,
@@ -154,13 +154,15 @@ class MarketStorageTests(unittest.TestCase):
 
     def test_news_race_duplicate_does_not_generate_ai_or_count_as_new(self):
         worker = self.load_worker("fetch_news")
-        articles = [{"url": "https://example.com/race", "title": "Existing story"}] * 10
+        from datetime import datetime, timezone
+        articles = [{"url": "https://example.com/race", "title": "Existing story", "publishedAt": datetime.now(timezone.utc).isoformat()}] * 10
         with patch.object(worker, "fetch_from_rss", return_value=articles), \
-             patch.object(worker, "generate_ai_summary") as ai, \
+             patch.object(worker, "fetch_from_newsapi", return_value=[]), \
+             patch.object(worker, "analyze_article") as ai, \
              patch("sys.stdout", new_callable=io.StringIO) as output:
             self.assertEqual(worker.main(), 0)
         ai.assert_not_called()
-        self.assertIn("Skipped duplicates: 1", output.getvalue())
+        self.assertIn('"new": 0', output.getvalue())
         request = self.writes("news_articles")[0]
         self.assertIn("resolution=ignore-duplicates", request.headers["prefer"])
         self.assertEqual(request.url.params["on_conflict"], "url")

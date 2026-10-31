@@ -12,6 +12,12 @@ on:
       - "supabase/migrations/*_remove_duplicate_daily_price_constraint.sql"
       - "supabase/migrations/*_retire_fictional_market.sql"
       - "supabase/migrations/*_refresh_etf_crypto_universe.sql"
+      - "supabase/migrations/*_add_atomic_paper_actions.sql"
+      - "supabase/migrations/*_add_news_quality_and_data_archive.sql"
+      - "supabase/migrations/*_restrict_paper_writes_and_optimize_policies.sql"
+      - "supabase/migrations/*_enforce_market_history_quality.sql"
+      - "supabase/migrations/*_quarantine_seeded_demo_ledger.sql"
+      - "supabase/migrations/*_repair_verified_legacy_market_data.sql"
       - ".github/workflows/check-market-ingestion.yml"
   push:
     branches: [main]
@@ -24,6 +30,12 @@ on:
       - "supabase/migrations/*_remove_duplicate_daily_price_constraint.sql"
       - "supabase/migrations/*_retire_fictional_market.sql"
       - "supabase/migrations/*_refresh_etf_crypto_universe.sql"
+      - "supabase/migrations/*_add_atomic_paper_actions.sql"
+      - "supabase/migrations/*_add_news_quality_and_data_archive.sql"
+      - "supabase/migrations/*_restrict_paper_writes_and_optimize_policies.sql"
+      - "supabase/migrations/*_enforce_market_history_quality.sql"
+      - "supabase/migrations/*_quarantine_seeded_demo_ledger.sql"
+      - "supabase/migrations/*_repair_verified_legacy_market_data.sql"
       - ".github/workflows/check-market-ingestion.yml"
 
 permissions:
@@ -48,3 +60,4 @@ jobs:
       # Hosted Ubuntu includes Node.js. This temporary package does not alter app dependencies.
       - run: npm install --prefix "$RUNNER_TEMP/bhsl-io-sql" --no-save --package-lock=false @electric-sql/pglite@0.3.9
       - run: node tests/sql/check-market-ingestion.mjs "$RUNNER_TEMP/bhsl-io-sql/node_modules/@electric-sql/pglite/dist/index.js"
+      - run: node tests/sql/paper-actions.mjs "$RUNNER_TEMP/bhsl-io-sql/node_modules/@electric-sql/pglite/dist/index.js"

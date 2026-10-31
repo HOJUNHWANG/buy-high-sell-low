@@ -42,7 +42,7 @@ html[data-design="2.0"] {
   --surface-3: #2b3040;
   --text: #f1f3f9;
   --text-2: #b9bfce;
-  --text-3: #8b94a8;
+  --text-3: #a3acc0;
   --border: rgba(192,201,224,.09);
   --border-md: rgba(192,201,224,.15);
   --border-lg: rgba(192,201,224,.24);
@@ -77,23 +77,23 @@ html[data-design="2.0"][data-theme="light"] {
   --surface-3: #e2e7ea;
   --text: #182b33;
   --text-2: #51636c;
-  --text-3: #637680;
+  --text-3: #50636d;
   --border: rgba(24,43,51,.09);
   --border-md: rgba(24,43,51,.15);
   --border-lg: rgba(24,43,51,.25);
-  --accent: #147d64;
-  --accent-2: #1b8b73;
+  --accent: #0f6650;
+  --accent-2: #0f6650;
   --accent-dim: rgba(20,125,100,.07);
   --accent-hover: rgba(20,125,100,.12);
   --accent-glow: rgba(20,125,100,.1);
   --accent-border: rgba(20,125,100,.2);
   --accent-border-strong: rgba(20,125,100,.4);
   --on-accent: #ffffff;
-  --up: #127b55;
-  --down: #c44754;
+  --up: #096543;
+  --down: #a92e40;
   --up-dim: rgba(18,123,85,.08);
   --down-dim: rgba(196,71,84,.08);
-  --warn: #91601c;
+  --warn: #855618;
   --header-bg: #f5f6f8;
   --glass: rgba(255,255,255,.9);
   --shadow-sm: 0 2px 3px rgba(24,43,51,.03);
@@ -251,3 +251,11 @@ html[data-design="2.0"][data-theme="light"] {
 }
 
 .paper-workspace-content > .real-order-desk { max-width: 640px; margin: 0 auto; }
+
+@media (max-width: 767px) {
+  .stock-universe { display: flex; flex-direction: column; }
+  .stock-universe > * { flex-shrink: 0; }
+  .stock-universe > .market-insights-secondary { order: 10; }
+  .market-overview { display: none !important; }
+  .appearance-preferences summary { font-size: 11px; }
+}

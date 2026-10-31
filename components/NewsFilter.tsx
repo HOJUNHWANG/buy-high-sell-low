@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import type { NewsArticle } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
+import { NewsEvidenceBadge } from "@/components/NewsEvidenceBadge";
 import { SentimentBadge } from "@/components/SentimentBadge";
 import { LockedSummary } from "@/components/LockedSummary";
 type Tab = "all" | "positive" | "neutral" | "negative";
@@ -94,7 +96,7 @@ export function NewsFilter({
         <div className="space-y-2">
           {filtered.map((article) => {
             const unlocked = unlockedMap[article.id];
-            const displaySummary = unlocked?.summary ?? article.ai_summary;
+            const displaySummary = article.summary_method === "legacy_unverified" ? null : unlocked?.summary ?? article.ai_summary;
             const displayInsight = unlocked?.insight ?? article.ai_insight;
             const displaySentiment = unlocked?.sentiment ?? article.ai_sentiment;
             const isLocked = article.summaryLocked && !unlocked;
@@ -122,6 +124,7 @@ export function NewsFilter({
                       <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
                         {timeAgo(article.published_at)}
                       </span>
+                      <NewsEvidenceBadge article={article} />
                     </div>
 
                     {/* Title */}
@@ -135,6 +138,8 @@ export function NewsFilter({
                       {article.title}
                     </a>
 
+                    {(article.quality_version ?? 0) >= 2 && (article.related_tickers?.length ?? 0) > 0 && <div className="flex flex-wrap gap-2" aria-label="Matched symbols">{article.related_tickers?.map(t => <Link key={t} href={`/stock/${t}`} className="text-[11px] underline underline-offset-2" style={{ color: "var(--accent)" }}>{t}</Link>)}</div>}
+                    {article.news_category === "macro" && <p className="text-[10px]" style={{ color: "var(--text-2)" }}>Market-wide news</p>}
                     {/* AI Summary — locked / unlocked / none */}
                     {isLocked ? (
                       <LockedSummary
@@ -154,9 +159,9 @@ export function NewsFilter({
                         <div className="flex items-center gap-1.5">
                           <span
                             className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
-                            style={{ background: "var(--accent-dim)", color: "var(--accent)" }}
+                            style={{ background: "var(--accent-dim)", color: "var(--text-2)" }}
                           >
-                            AI
+                            {article.summary_method === "verified_ai" ? "Source checked" : "Source excerpt"}
                           </span>
                           <SentimentBadge sentiment={sc} />
                         </div>

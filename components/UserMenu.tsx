@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { loginHref } from "@/lib/auth-redirect";
+import { usePathname, useRouter } from "next/navigation";
 
 export function UserMenu({ isAdmin = false }: { isAdmin?: boolean }) {
   const [email, setEmail] = useState<string | null>(null);
@@ -11,6 +12,7 @@ export function UserMenu({ isAdmin = false }: { isAdmin?: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -52,7 +54,7 @@ export function UserMenu({ isAdmin = false }: { isAdmin?: boolean }) {
   if (!email) {
     return (
       <Link
-        href="/auth/login"
+        href={loginHref(pathname)}
         className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-md transition-all"
         style={{
           background: "var(--accent-dim)",

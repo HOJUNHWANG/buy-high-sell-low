@@ -83,7 +83,7 @@ TRACKED_EQUITY_METADATA = {
     "SPCX": {
         "name": "SpaceX",
         "exchange": "NASDAQ",
-        "sector": "Aerospace & Defense",
+        "sector": "Industrials",
     },
 }
 

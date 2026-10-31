@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { NewsArticle } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
+import { NewsEvidenceBadge } from "@/components/NewsEvidenceBadge";
+import { isRecentNews } from "@/lib/news-quality";
 import { SentimentBadge } from "@/components/SentimentBadge";
 import { LockedSummary } from "@/components/LockedSummary";
 interface StockNewsSectionProps {
@@ -38,7 +40,7 @@ export function StockNewsSection({
         <div className="space-y-2">
           {news.map((article) => {
             const unlocked = unlockedMap[article.id];
-            const displaySummary = unlocked?.summary ?? article.ai_summary;
+            const displaySummary = article.summary_method === "legacy_unverified" ? null : unlocked?.summary ?? article.ai_summary;
             const displayInsight = unlocked?.insight ?? article.ai_insight;
             const displaySentiment = unlocked?.sentiment ?? article.ai_sentiment;
             const isLocked = article.summaryLocked && !unlocked;
@@ -57,7 +59,9 @@ export function StockNewsSection({
                   <div className="flex-1 min-w-0 space-y-2">
                     <div className="flex items-center gap-1.5 flex-wrap text-[10px]" style={{ color: "var(--text-3)" }}>
                       {article.source && <span>{article.source}</span>}
+                      <NewsEvidenceBadge article={article} />
                       <span>{timeAgo(article.published_at)}</span>
+                      {!isRecentNews(article.published_at) && <span>Older coverage · not a current price driver</span>}
                     </div>
                     <a
                       href={article.url}
@@ -87,9 +91,9 @@ export function StockNewsSection({
                         <div className="flex gap-1.5">
                           <span
                             className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
-                            style={{ background: "var(--accent-dim)", color: "var(--accent)" }}
+                            style={{ background: "var(--accent-dim)", color: "var(--text-2)" }}
                           >
-                            AI
+                            {article.summary_method === "verified_ai" ? "Source checked" : "Source excerpt"}
                           </span>
                           <SentimentBadge sentiment={sc} />
                         </div>

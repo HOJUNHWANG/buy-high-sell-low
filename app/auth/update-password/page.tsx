@@ -14,6 +14,7 @@ export default function UpdatePasswordPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (password.length < 12) { setError("Use at least 12 characters for a new password."); return; }
     if (password !== confirm) {
       setError("Passwords do not match.");
       return;
@@ -69,7 +70,7 @@ export default function UpdatePasswordPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="New password"
                 required
-                minLength={6}
+                minLength={12}
                 autoComplete="new-password"
                 className="w-full px-3 py-2.5 text-sm rounded-lg outline-none transition-all"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}
@@ -86,7 +87,7 @@ export default function UpdatePasswordPage() {
                 onChange={(e) => setConfirm(e.target.value)}
                 placeholder="Confirm password"
                 required
-                minLength={6}
+                minLength={12}
                 autoComplete="new-password"
                 className="w-full px-3 py-2.5 text-sm rounded-lg outline-none transition-all"
                 style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)" }}

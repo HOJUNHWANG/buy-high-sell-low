@@ -1,4 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { runPaperAction } from "@/lib/paper-actions";
+import { getPriceFreshness } from "@/lib/price-freshness";
 import { isDustPosition } from "@/lib/paper-trading";
 import { NextResponse } from "next/server";
 
@@ -8,6 +10,7 @@ type PaperPositionRow = {
   avg_cost: number;
   borrowed?: number | null;
   side?: string | null;
+  leverage?: number | null;
   stocks?: {
     name?: string | null;
     logo_url?: string | null;
@@ -19,36 +22,32 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Auto-create account if missing
-  const { data: account } = await supabase
-    .from("paper_accounts")
-    .select("cash_balance, streak, nickname, last_checkin, status")
-    .eq("user_id", user.id)
-    .single();
-
-  let cashBalance = 1000;
-  if (!account) {
-    await supabase.from("paper_accounts").insert({ user_id: user.id, cash_balance: 1000 });
-  } else {
-    cashBalance = account.cash_balance;
-  }
+  const initialized = await runPaperAction(user.id, "init");
+  if (initialized.response) return initialized.response;
+  const account = initialized.data;
+  const cashBalance = Number(account.cash_balance);
 
   // Fetch positions with stock info (direct FK)
-  const { data: positions } = await supabase
+  const { data: positions, error: positionsError } = await supabase
     .from("paper_positions")
     .select("*, stocks(name, logo_url)")
     .eq("user_id", user.id)
     .gt("shares", 0);
 
+  if (positionsError) return NextResponse.json({ error: "Unable to load positions" }, { status: 503 });
+
   // Fetch current prices separately to avoid ambiguous join issues
   const typedPositions = (positions ?? []) as PaperPositionRow[];
   const tickers = typedPositions.map((p) => p.ticker);
   let priceMap: Record<string, number> = {};
+  const quoteMap = new Map<string, { fetched_at: string | null; provider_session_date?: string | null }>();
   if (tickers.length > 0) {
-    const { data: prices } = await supabase
+    const { data: prices, error: pricesError } = await supabase
       .from("stock_prices")
-      .select("ticker, price")
+      .select("ticker, price, fetched_at, provider_session_date")
       .in("ticker", tickers);
+    if (pricesError) return NextResponse.json({ error: "Unable to load portfolio prices" }, { status: 503 });
+    for (const q of prices ?? []) quoteMap.set(q.ticker, q);
     priceMap = ((prices ?? []) as { ticker: string; price: number }[]).reduce((acc: Record<string, number>, row) => {
       acc[row.ticker] = row.price;
       return acc;
@@ -82,6 +81,7 @@ export async function GET() {
       name: p.stocks?.name ?? p.ticker,
       logo_url: p.stocks?.logo_url ?? null,
       currentPrice,
+      isEstimated: !["live", "settled"].includes(getPriceFreshness(quoteMap.get(p.ticker)?.fetched_at, p.ticker, new Date(), undefined, quoteMap.get(p.ticker)?.provider_session_date).state),
       marketValue,
       costBasis,
       borrowed,
@@ -90,7 +90,7 @@ export async function GET() {
       pnlPct,
       leverage: borrowed > 0 && equity > 0
         ? Math.round((marketValue / equity) * 10) / 10
-        : 1,
+        : borrowed > 0 ? p.leverage ?? 1 : 1,
     };
   }).filter((p: { shares: number; currentPrice: number }) => !isDustPosition(p.shares, p.currentPrice));
 
@@ -111,6 +111,7 @@ export async function GET() {
     totalEquity,
     totalCostBasis,
     totalValue,
+    valuationEstimated: enrichedPositions.some(p => p.isEstimated),
     totalPnl,
     totalPnlPct,
     positions: enrichedPositions.sort((a, b) => b.marketValue - a.marketValue),

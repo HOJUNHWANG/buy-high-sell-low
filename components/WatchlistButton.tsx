@@ -1,4 +1,5 @@
 "use client";
+import { loginHref } from "@/lib/auth-redirect";
 
 import { useState, useEffect } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -31,7 +32,7 @@ export function WatchlistButton({ ticker }: { ticker: string }) {
   async function toggle() {
     if (loading) return;
     if (!userId) {
-      router.push("/auth/login");
+      router.push(loginHref(`/stock/${ticker}`));
       return;
     }
     const supabase = createSupabaseBrowserClient();

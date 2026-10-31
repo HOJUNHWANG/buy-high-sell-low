@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
+import { safeAuthNext } from "@/lib/auth-redirect";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -21,5 +22,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(origin);
+  return NextResponse.redirect(new URL(safeAuthNext(searchParams.get("next")), origin));
 }

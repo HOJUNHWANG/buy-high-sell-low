@@ -1,6 +1,7 @@
 import { timeAgo } from "./utils";
 import {
   getEasternTime,
+  getSessionCloseMinutes,
   getLatestCompletedTradingDate,
   getMarketStatus,
   isCrypto,
@@ -52,7 +53,7 @@ export function isLatestCompletedSessionQuote(
   const fetchedEt = getEasternTime(fetchedDate);
   return (
     fetchedEt.date === getLatestCompletedTradingDate(now)
-    && fetchedEt.mins >= 960 - closeToleranceMinutes
+    && fetchedEt.mins >= getSessionCloseMinutes(fetchedEt.date) - closeToleranceMinutes
   );
 }
 
@@ -70,6 +71,7 @@ export function getPriceFreshness(
   ticker?: string,
   now = new Date(),
   staleMinutes = PRICE_STALE_MINUTES,
+  sessionDate?: string | null,
 ): PriceFreshness {
   if (!fetchedAt) return { state: "unavailable", label: "Price unavailable" };
   if (!Number.isFinite(new Date(fetchedAt).getTime())) {
@@ -84,11 +86,15 @@ export function getPriceFreshness(
 
   const equityMarketOpen = getMarketStatus(now).isOpen;
   if (ticker && !isCrypto(ticker) && !equityMarketOpen) {
-    if (isLatestCompletedSessionQuote(fetchedAt, now)) {
+    const receivedEt = getEasternTime(new Date(fetchedAt));
+    const fetchedAfterClose = !!sessionDate && (receivedEt.date > sessionDate || (receivedEt.date === sessionDate && receivedEt.mins >= getSessionCloseMinutes(sessionDate) - staleMinutes));
+    if (sessionDate ? sessionDate === getLatestCompletedTradingDate(now) && fetchedAfterClose && !isPriceStale(fetchedAt, 4 * 24 * 60, now) : isLatestCompletedSessionQuote(fetchedAt, now)) {
       return { state: "settled", label: "Last market close" };
     }
     return { state: "delayed", label: "Update delayed" };
   }
+
+  if (ticker && !isCrypto(ticker) && sessionDate && sessionDate !== getEasternTime(now).date) return { state: "delayed", label: "Update delayed" };
 
   if (isPriceStale(fetchedAt, staleMinutes, now)) {
     return { state: "delayed", label: "Update delayed" };

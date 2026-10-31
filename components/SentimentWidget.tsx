@@ -2,15 +2,15 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
 
 export async function SentimentWidget() {
-  let data: { ai_sentiment: string | null }[] | null = null;
+  let data: { ai_sentiment: string | null; event_key: string | null; id: number }[] | null = null;
   try {
     const supabase = await createSupabaseServerClient();
     const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    todayStart.setTime(todayStart.getTime() - 24 * 3_600_000);
     const res = await supabase
       .from("news_articles")
-      .select("ai_sentiment")
-      .gte("fetched_at", todayStart.toISOString())
+      .select("id, ai_sentiment, event_key")
+      .gte("published_at", todayStart.toISOString()).gte("quality_version", 2).eq("summary_method", "verified_ai")
       .not("ai_sentiment", "is", null);
     data = res.data;
   } catch {
@@ -18,7 +18,11 @@ export async function SentimentWidget() {
   }
 
   let pos = 0, neu = 0, neg = 0;
+  const seen = new Set<string | number>();
   for (const row of data ?? []) {
+    const event = row.event_key ?? row.id;
+    if (seen.has(event)) continue;
+    seen.add(event);
     if (row.ai_sentiment === "positive") pos++;
     else if (row.ai_sentiment === "negative") neg++;
     else neu++;
@@ -66,7 +70,7 @@ export async function SentimentWidget() {
           {mood}
         </span>
         <p className="text-[10px] mt-0.5" style={{ color: "var(--text-3)" }}>
-          {total} articles today
+          {total} analysed stories · 24h
         </p>
       </div>
 

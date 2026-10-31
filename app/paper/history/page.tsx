@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { loginHref } from "@/lib/auth-redirect";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { PaperTradeBanner } from "@/components/PaperTradeBanner";
 import type { PaperTransaction } from "@/lib/types";
@@ -20,7 +21,7 @@ export default function PaperHistoryPage() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) router.push("/auth/login");
+      if (!user) router.push(loginHref("/paper/history"));
       else setAuthed(true);
     });
   }, [supabase, router]);

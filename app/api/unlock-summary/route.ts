@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   // Fetch article AI data
   const { data: article } = await supabase
     .from("news_articles")
-    .select("ai_summary, ai_insight, ai_sentiment, ai_caution")
+    .select("ai_summary, ai_insight, ai_sentiment, ai_caution, summary_method")
     .eq("id", articleId)
     .single();
 
@@ -47,11 +47,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Article not found" }, { status: 404 });
   }
 
-  if (!article.ai_summary) {
+  if (!article.ai_summary || article.summary_method === "legacy_unverified" || article.summary_method === "headline_only") {
     return NextResponse.json({ error: "No AI summary available for this article" }, { status: 404 });
   }
 
-  if (existing) {
+  if (existing || article.summary_method === "source_excerpt") {
     // Already unlocked — return data without consuming quota
     return NextResponse.json({
       summary: article.ai_summary,

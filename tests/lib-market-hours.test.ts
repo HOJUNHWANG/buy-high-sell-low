@@ -27,3 +27,9 @@ describe("US market holidays", () => {
     expect(status.nextLabel).toBe("Opens Mon, Jul 13 at 9:30 AM ET");
   });
 });
+
+it("observes the published 2026 Thanksgiving early close",()=>{
+ expect(isMarketOpen(new Date("2026-11-27T17:59:00Z"))).toBe(true);
+ expect(isMarketOpen(new Date("2026-11-27T18:00:00Z"))).toBe(false);
+ expect(getMarketStatus(new Date("2026-11-27T18:01:00Z")).nextLabel).toContain("Mon, Nov 30");
+});

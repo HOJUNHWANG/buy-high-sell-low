@@ -32,10 +32,11 @@ def paged_rows(make_query):
         offset += 500
 
 
-def referenced_tickers(client, candidates: list[str]) -> set[str]:
+def referenced_tickers(client, candidates: list[str], as_of: date | None = None) -> set[str]:
     """Include every pick in active/pending challenges, not just their lead ticker."""
     if not candidates:
         return set()
+    today = (as_of or datetime.now(ZoneInfo("America/New_York")).date()).isoformat()
     referenced = set()
     for table, extra in (("paper_positions", True), ("watchlist", False)):
         def query(table=table, extra=extra):
@@ -43,8 +44,9 @@ def referenced_tickers(client, candidates: list[str]) -> set[str]:
             return q.gt("shares", 0) if extra else q
         referenced.update(row["ticker"] for row in paged_rows(query))
     def challenges():
-        return client.table("paper_challenges").select("ticker,picks").in_("status", ["active", "pending"]).order("id")
+        return client.table("paper_challenges").select("ticker,picks,week_end").in_("status", ["active", "pending"]).order("id")
     for row in paged_rows(challenges):
+        if row.get("week_end", "9999-12-31") < today: continue
         referenced.add(row["ticker"])
         referenced.update(pick["ticker"] for pick in (row.get("picks") or []) if isinstance(pick, dict) and pick.get("ticker"))
     return referenced & set(candidates)
@@ -53,7 +55,7 @@ def referenced_tickers(client, candidates: list[str]) -> set[str]:
 def protected_inactive_tickers(client, candidates: list[str], as_of: date | None = None) -> set[str]:
     # Announced additions and unexpired retired members are always protected.
     protected = set(candidates) & (set(ALL_TICKERS) - expired_retirements(as_of))
-    return protected | referenced_tickers(client, candidates)
+    return protected | referenced_tickers(client, candidates, as_of)
 
 
 def filter_collectable_tickers(client, tickers: list[str], as_of: date | None = None) -> list[str]:
@@ -64,5 +66,5 @@ def filter_collectable_tickers(client, tickers: list[str], as_of: date | None = 
     # A delayed/failed membership transition must never stop an active asset.
     inactive = execute_db(client.table("stocks").select("ticker").in_("ticker", sorted(expired)).eq("is_active", False), operation='asset_retention:stocks', retry_safe=True).data or []
     retired = {row["ticker"] for row in inactive}
-    removable = retired - referenced_tickers(client, sorted(retired))
+    removable = retired - referenced_tickers(client, sorted(retired), as_of)
     return [ticker for ticker in tickers if ticker not in removable]

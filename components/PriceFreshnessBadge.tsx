@@ -6,11 +6,13 @@ import { getPriceFreshness, PRICE_STALE_MINUTES } from "@/lib/price-freshness";
 export function PriceFreshnessBadge({
   fetchedAt,
   ticker,
+  sessionDate,
   compact = false,
   staleMinutes = PRICE_STALE_MINUTES,
 }: {
   fetchedAt?: string | null;
   ticker?: string;
+  sessionDate?: string | null;
   compact?: boolean;
   staleMinutes?: number;
 }) {
@@ -21,10 +23,10 @@ export function PriceFreshnessBadge({
     return () => window.clearInterval(timer);
   }, []);
 
-  const freshness = getPriceFreshness(fetchedAt, ticker, now, staleMinutes);
+  const freshness = getPriceFreshness(fetchedAt, ticker, now, staleMinutes, sessionDate);
   const fetchedDate = fetchedAt ? new Date(fetchedAt) : null;
   const title = fetchedDate && Number.isFinite(fetchedDate.getTime())
-    ? `Quote observed ${fetchedDate.toLocaleString("en-US", { timeZone: "America/New_York" })} ET`
+    ? `Quote received ${fetchedDate.toLocaleString("en-US", { timeZone: "America/New_York" })} ET`
     : "No valid price timestamp";
   const styles = {
     live: { color: "var(--text-3)", background: "var(--surface-2)", dot: "var(--up)", border: "1px solid var(--border)" },
@@ -34,7 +36,7 @@ export function PriceFreshnessBadge({
   }[freshness.state];
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full font-medium ${compact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]"}`}
+      className={`inline-flex items-center gap-1 rounded-full font-medium ${compact ? "px-1.5 py-0.5 text-[10px]" : "px-2 py-1 text-[10px]"}`}
       title={title}
       aria-label={`${freshness.label}. ${title}`}
       suppressHydrationWarning
@@ -45,7 +47,7 @@ export function PriceFreshnessBadge({
       }}
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: styles.dot }} />
-      {compact && freshness.state === "live" ? freshness.label.replace("Updated ", "") : freshness.label}
+      {compact && freshness.state === "live" ? freshness.label.replace("Updated ", "") : compact && freshness.state === "settled" ? "Last close" : freshness.label}
     </span>
   );
 }

@@ -13,6 +13,7 @@ export interface Stock {
 }
 
 export interface StockPrice {
+  provider_session_date?: string | null;
   ticker: string;
   price: number;
   change_pct: number | null;
@@ -40,6 +41,13 @@ export interface NewsArticle {
   ai_caution: string | null;
   ai_generated_at: string | null;
   fetched_at: string;
+  related_tickers?: string[];
+  summary_method?: "legacy_unverified" | "verified_ai" | "source_excerpt" | "headline_only";
+  source_coverage?: "headline" | "lead" | "full_text";
+  news_category?: string;
+  relevance_score?: number;
+  event_key?: string | null;
+  quality_version?: number;
   /** Client-side flag: true when AI summary is gated for this user's tier */
   summaryLocked?: boolean;
 }

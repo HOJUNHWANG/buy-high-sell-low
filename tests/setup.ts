@@ -2,6 +2,7 @@
  * Vitest global setup — mock Supabase server client and Next.js internals.
  */
 import { vi } from "vitest";
+vi.mock("server-only", () => ({}));
 
 // ── Mock next/headers (cookies) ──
 vi.mock("next/headers", () => ({
@@ -27,6 +28,8 @@ let _updateCalls: { table: string; data: unknown; filters: Record<string, unknow
 let _deleteCalls: { table: string; filters: Record<string, unknown> }[] = [];
 let _upsertCalls: { table: string; data: unknown }[] = [];
 let _mockMutationErrors: Record<string, { message: string; code?: string }> = {};
+let _rpcCalls: { name: string; args?: Record<string, unknown> }[] = [];
+export function getRpcCalls() { return _rpcCalls; }
 let _mockRpcResults: Record<string, { data: unknown; error: { message: string; code?: string } | null }> = {};
 
 export function setMockUser(user: MockUser | null) {
@@ -66,6 +69,7 @@ export function clearMockData() {
   _upsertCalls = [];
   _mockMutationErrors = {};
   _mockRpcResults = {};
+  _rpcCalls = [];
 }
 
 export function getInsertCalls() { return _insertCalls; }
@@ -116,6 +120,7 @@ function createQueryBuilder(table: string, initialData?: unknown[]) {
       _filters[`${col}_in`] = vals;
       return builder;
     }),
+    contains: vi.fn(() => builder),
     not: vi.fn(() => builder),
     or: vi.fn(() => builder),
     ilike: vi.fn((column: string, pattern: string) => {
@@ -226,6 +231,7 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdmin: vi.fn(() => {
     const rpc = vi.fn((name: string, args?: Record<string, unknown>) => {
+      _rpcCalls.push({ name, args });
       const explicit = _mockRpcResults[name];
       if (explicit) return Promise.resolve(explicit);
 
