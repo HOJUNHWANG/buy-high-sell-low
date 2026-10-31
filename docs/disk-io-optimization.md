@@ -103,3 +103,20 @@ SQL 호출/통계는 5월 21일 이후 누적이므로 하루치 부하로 해�
 1개일 때 약 월 $30(기본 $25 + compute $15 - credit $10)이며 세금·추가 사용량은
 별도다. 자세한 금액은 https://supabase.com/pricing 과
 https://supabase.com/docs/guides/platform/compute-and-disk 에서 확인한다.
+
+
+### 후속 점검 검증 결과
+
+- 수정 수집기로 운영 135개 시가총액/ETF AUM/코인 시가총액 갱신: 성공 135,
+  실패 0. `fetch_logs`에도 success/135/0을 확인했다.
+- 이후 read-only 전체 수동 감사: 132개 자산, 가격/시가총액 참조 모두 132개,
+  critical 0, provider error 0, warning 5, exit 0.
+- XMR의 마지막 비교 차이는 -1.94%로 내려갔으나, 직전 표본은 -2.7%였다.
+  canonical HitBTC 가격은 여전히 $580.45422로 같았다. 최종 통과가 거래소별
+  가격 차이를 영구 해결했다는 뜻은 아니므로 자동 audit/재수집은 중지 상태를 유지한다.
+- Python 회귀 151개(기존 전체 실행 + 사전 조회 회귀 추가), 앱 회귀 203개 통과.
+  TypeScript 검사, 변경 페이지 ESLint, diff 공백 검사 통과.
+- 변경은 로컬 `codex/fix-market-caps-retire-audit` 브랜치에 커밋했다.
+  main 직접 게시 요청은 자동 승인 검토가 명시적 게시 승인 부족을 이유로 거부했다.
+  따라서 향후 예약 Market Cap 실행과 Data Health 화면에 새 코드를 적용하려면
+  사용자의 main 게시 승인이 필요하다. 운영 데이터 복구와 GitHub audit 실행 중지는 완료했다.
