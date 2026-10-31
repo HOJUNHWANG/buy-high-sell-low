@@ -63,3 +63,42 @@ node tests/sql/check-market-ingestion.mjs .venv/io-sql/node_modules/@electric-sq
 ## 되돌리기
 
 수집 코드 변경은 DB 마이그레이션과 독립적으로 되돌릴 수 있다. DB를 되돌릴 때는 두 `skip_unchanged_*` 트리거를 제거하고, 정리 함수를 `20260731024134_harden_fictional_market_cleanup.sql`의 원래 정의로 복원한다. 필요하면 제거한 UNIQUE 제약조건을 다시 추가할 수 있으나 동일 기본키가 계속 고유성을 보장하므로 기능 복구에 필수는 아니다. 새로 추가한 `private` 스키마 전체를 CASCADE로 삭제하지 않는다. 운영에서 되돌리기는 실행하지 않았다.
+
+
+## 후속 점검 — 2026-10-30 (ET)
+
+Market Cap 액션 최근 10회 중 4회가 실패했고, audit 최근 12회는 모두 실패했다.
+10월 30일 20:00 ET Market Cap 실행은 135개 중 132개 성공, INTC/SNDK/SPG
+3개 검증 거부였다. Nasdaq screener의 INTC 가격은 전일 $92.07인데, 종목별
+날짜가 있는 info와 Twelve Data/Yahoo는 10월 30일 $65.76이었다. screener
+시가총액을 최신 Yahoo 가격/주식수와 결합한 검증 및 audit의 전일 가격 비교가
+원인이었다. 주식 수집·수동 감사 모두 날짜가 맞는 종목별 info/summary를 사용한다.
+검증 한도는 올리지 않았다.
+
+자동 audit과 자동 재수집, Data Health의 audit 전용 조회·표시는 제거했다.
+날짜 수정 후에도 XMR은 Twelve Data의 유일한 XMR/USD 거래소인 HitBTC
+($580.45422)와 CoinGecko 종합 가격(약 $597)이 달랐다. 같은 canonical updater를
+다시 호출해도 그 거래소 차이가 없어지지 않아 상시 실패 감시로는 부적합했다.
+수동 read-only CLI는 남겼고, 실제 가격 수집·freshness·이상치 검토는 유지했다.
+GitHub audit 워크플로 ID 324991342는 disabled_manually 상태로 중지했다.
+외부 Cronjob.org의 audit 예약은 이 환경의 브라우저 실행기 D: I/O 오류 때문에
+직접 해제하지 못했다. GitHub 측 실행은 중지되어 해당 예약이 audit을 실행하지 못한다.
+
+운영 조직은 Free이며 Nano 메트릭의 실제 RAM은 약 408.5 MiB였다.
+약 4.8분 관측에서 시스템 디스크(`/`, nvme0n1)는 읽기 819.7 MiB/쓰기 57.3 MiB,
+데이터 디스크(`/data`, nvme1n1)는 읽기 39.9 MiB/쓰기 33.0 MiB 증가했다.
+전체 디스크 전송량의 약 92.3%가 시스템 디스크였다. 같은 구간에 pswpin은
+18,113페이지, pswpout은 14,024페이지 증가해 실제 스왑 입출력도 확인했다.
+스왑 사용량은 약 599.7 MiB였고 DB 크기는 약 181.3 MiB였다.
+SQL 호출/통계는 5월 21일 이후 누적이므로 하루치 부하로 해석하지 않았다.
+
+메모리 부족이 잔여 시스템 I/O에 기여한다는 근거가 있다. 이 짧은 표본에는
+진단 작업도 포함되며, 시스템 읽기 전체를 스왑으로 설명하거나 일일 Disk IO
+예산의 정확한 잔량을 확인한 것은 아니다. SQL/retention 변경이나 경고 숨김으로
+해결됐다고 볼 수 없다. Free에서 RAM을 증설할 수 없어 Pro/compute 변경은
+비용 동의가 필요하다. 유료 변경은 하지 않았다.
+
+공식 가격 기준 Pro+Micro(1 GB)는 기본 월 $25, Pro+Small(2 GB)은 프로젝트
+1개일 때 약 월 $30(기본 $25 + compute $15 - credit $10)이며 세금·추가 사용량은
+별도다. 자세한 금액은 https://supabase.com/pricing 과
+https://supabase.com/docs/guides/platform/compute-and-disk 에서 확인한다.

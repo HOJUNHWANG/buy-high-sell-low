@@ -46,6 +46,7 @@ from tickers import (  # noqa: E402
     ETF_TICKERS,
     to_yf,
 )
+from audit_market_data import NasdaqReferenceProvider  # noqa: E402
 
 
 load_dotenv(dotenv_path=os.path.join(SCRIPT_DIR, "..", ".env.local"))
@@ -84,11 +85,11 @@ CRYPTO_REFERENCE_MAX_AGE_SECONDS = 15 * 60
 PROVIDER_FUTURE_SKEW_SECONDS = 5 * 60
 TRUSTED_PRIMARY_SOURCE_PREFIXES = (
     "nasdaq.screener.",
+    "nasdaq.equity.summary.",
     "nasdaq.etf.summary.",
     "coingecko.simple.",
 )
 
-NASDAQ_SCREENER_URL = "https://api.nasdaq.com/api/screener/stocks"
 NASDAQ_ETF_SUMMARY_URL = "https://api.nasdaq.com/api/quote/{ticker}/summary"
 COINGECKO_SIMPLE_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price"
 NASDAQ_HEADERS = {
@@ -434,58 +435,18 @@ def _build_http_session() -> requests.Session:
     return session
 
 
-def _nasdaq_symbol_to_ticker(symbol: str) -> str:
-    normalized = symbol.strip().upper()
-    aliases = {
-        "BRK/B": "BRK.B",
-        "BRK-B": "BRK.B",
-        "BF/B": "BF.B",
-        "BF-B": "BF.B",
-    }
-    return aliases.get(normalized, normalized)
-
-
 class MarketDataProvider:
-    """Asset-aware provider router with one bulk request per primary source."""
+    """Asset-aware router using dated equity quotes and asset-specific values."""
 
     def __init__(self, session: requests.Session | None = None):
         self.session = session or _build_http_session()
-        self._nasdaq_rows: dict[str, Mapping[str, Any]] | None = None
-        self._nasdaq_error: str | None = None
+        self._nasdaq = NasdaqReferenceProvider(
+            timeout=HTTP_TIMEOUT_SECONDS, session=self.session
+        )
         self._coingecko_rows: dict[str, Mapping[str, Any]] | None = None
         self._coingecko_error: str | None = None
         self._etf_aum: dict[str, float] = {}
         self._etf_errors: dict[str, str] = {}
-
-    def _load_nasdaq_rows(self) -> dict[str, Mapping[str, Any]]:
-        if self._nasdaq_rows is not None:
-            return self._nasdaq_rows
-        try:
-            response = self.session.get(
-                NASDAQ_SCREENER_URL,
-                params={
-                    "tableonly": "true",
-                    "limit": "10000",
-                    "offset": "0",
-                    "download": "true",
-                },
-                headers=NASDAQ_HEADERS,
-                timeout=HTTP_TIMEOUT_SECONDS,
-            )
-            response.raise_for_status()
-            payload = response.json()
-            rows = ((payload.get("data") or {}).get("rows") or [])
-            if not isinstance(rows, list):
-                raise ValueError("Nasdaq response data.rows is not a list")
-            self._nasdaq_rows = {
-                _nasdaq_symbol_to_ticker(str(row.get("symbol", ""))): row
-                for row in rows
-                if isinstance(row, Mapping) and row.get("symbol")
-            }
-        except Exception as exc:
-            self._nasdaq_error = str(exc)
-            self._nasdaq_rows = {}
-        return self._nasdaq_rows
 
     def _load_coingecko_rows(self) -> dict[str, Mapping[str, Any]]:
         if self._coingecko_rows is not None:
@@ -525,25 +486,19 @@ class MarketDataProvider:
             return None, str(exc)
 
     def _fetch_equity(self, ticker: str) -> MarketCapObservation:
-        row = self._load_nasdaq_rows().get(ticker)
+        quotes, errors = self._nasdaq.fetch_equities([ticker])
+        quote = quotes.get(ticker)
         yfinance_observation, yfinance_error = self._try_yfinance(ticker)
-        if row is not None:
-            market_cap = _provider_number(row.get("marketCap"))
-            if market_cap is not None:
-                nasdaq_price = _provider_number(
-                    row.get("lastsale") or row.get("lastSale")
-                )
+        if quote is not None and quote.as_of is not None and quote.price is not None:
+            market_cap = quote.market_cap
+            if market_cap is not None and market_cap > 0:
                 return MarketCapObservation(
                     ticker=ticker,
                     asset_class=ASSET_EQUITY,
                     semantic=ASSET_SEMANTICS[ASSET_EQUITY],
                     market_cap=int(round(market_cap)),
-                    source="nasdaq.screener.marketCap",
-                    price=(
-                        yfinance_observation.price
-                        if yfinance_observation and yfinance_observation.price
-                        else nasdaq_price
-                    ),
+                    source="nasdaq.equity.summary.MarketCap",
+                    price=quote.price,
                     quantity=(
                         yfinance_observation.quantity
                         if yfinance_observation
@@ -565,14 +520,14 @@ class MarketDataProvider:
                         else None
                     ),
                     provider_note=(
-                        f"yfinance cross-check unavailable: {yfinance_error}"
-                        if yfinance_error
-                        else None
+                        f"Nasdaq quote as_of={quote.as_of.isoformat()}"
+                        + (f"; yfinance cross-check unavailable: {yfinance_error}"
+                           if yfinance_error else "")
                     ),
                 )
 
         if yfinance_observation is not None:
-            reason = self._nasdaq_error or "ticker/value absent from Nasdaq screener"
+            reason = "; ".join(errors) or "dated quote/value absent from Nasdaq summary"
             return replace(
                 yfinance_observation,
                 source=f"{yfinance_observation.source}.secondary",
@@ -580,7 +535,7 @@ class MarketDataProvider:
             )
         raise MarketCapProviderError(
             "Nasdaq primary and yfinance secondary unavailable: "
-            f"nasdaq={self._nasdaq_error or 'ticker/value absent'}; "
+            f"nasdaq={'; '.join(errors) or 'dated quote/value absent'}; "
             f"yfinance={yfinance_error or 'no value'}"
         )
 

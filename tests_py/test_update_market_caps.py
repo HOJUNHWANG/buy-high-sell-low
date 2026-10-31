@@ -2,6 +2,7 @@ import sys
 import unittest
 from pathlib import Path
 from unittest.mock import ANY, MagicMock, patch
+from datetime import datetime, timezone
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -24,6 +25,7 @@ from update_market_caps import (  # noqa: E402
     validate_market_cap,
     _nasdaq_etf_aum,
 )
+from audit_market_data import ReferenceQuote
 
 
 class ProviderNormalizationTests(unittest.TestCase):
@@ -253,13 +255,12 @@ class PrimaryProviderTests(unittest.TestCase):
 
     def test_equity_uses_nasdaq_primary_with_yfinance_cross_check(self):
         provider = MarketDataProvider(session=MagicMock())
-        provider._nasdaq_rows = {
-            "MU": {
-                "symbol": "MU",
-                "lastsale": "$823.00",
-                "marketCap": "930000000000.00",
-            }
-        }
+        provider._nasdaq.fetch_equities = MagicMock(return_value=({
+            "MU": ReferenceQuote(
+                "MU", "Nasdaq", 823.0, 930_000_000_000,
+                datetime(2026, 10, 30, 20, tzinfo=timezone.utc),
+            ),
+        }, []))
         provider._try_yfinance = MagicMock(
             return_value=(
                 MarketCapObservation(
@@ -279,8 +280,36 @@ class PrimaryProviderTests(unittest.TestCase):
         observation = provider.fetch_observation("MU")
 
         self.assertEqual(observation.market_cap, 930_000_000_000)
-        self.assertEqual(observation.source, "nasdaq.screener.marketCap")
+        self.assertEqual(observation.source, "nasdaq.equity.summary.MarketCap")
         self.assertEqual(observation.cross_check_market_cap, 929_500_000_000)
+
+    def test_equity_formula_uses_primary_price_without_mixing_sessions(self):
+        provider = MarketDataProvider(session=MagicMock())
+        provider._nasdaq.fetch_equities = MagicMock(return_value=({
+            "INTC": ReferenceQuote(
+                "INTC", "Nasdaq", 65.76, 347_546_171_043,
+                datetime(2026, 10, 30, 20, tzinfo=timezone.utc),
+            ),
+        }, []))
+        provider._try_yfinance = MagicMock(return_value=(MarketCapObservation(
+            ticker="INTC", asset_class=ASSET_EQUITY, semantic="equity_market_cap",
+            market_cap=486_596_349_878, source="yfinance.info.marketCap",
+            price=92.07, quantity=5_310_000_000, quantity_name="shares_outstanding",
+        ), None))
+        observation = provider.fetch_observation("INTC")
+        self.assertEqual(observation.price, 65.76)
+        self.assertTrue(validate_market_cap(
+            observation, PreviousMarketData(market_cap=504_882_690_386, price=65.76),
+        ).accepted)
+
+    def test_undated_primary_cap_is_not_written_as_fresh(self):
+        provider = MarketDataProvider(session=MagicMock())
+        provider._nasdaq.fetch_equities = MagicMock(return_value=({
+            "MU": ReferenceQuote("MU", "Nasdaq", None, 930_000_000_000, None),
+        }, ["quote unavailable"]))
+        provider._try_yfinance = MagicMock(return_value=(None, "unavailable"))
+        with self.assertRaises(MarketCapProviderError):
+            provider.fetch_observation("MU")
 
     @patch("update_market_caps.time.time", return_value=1_000)
     def test_crypto_uses_coingecko_market_cap_and_price(self, _time):

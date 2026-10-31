@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from audit_market_data import (
-    ASSET_CRYPTO, ASSET_ETF, AuditConfig, CoinGeckoReferenceProvider,
+    ASSET_CRYPTO, ASSET_EQUITY, ASSET_ETF, AuditConfig, CoinGeckoReferenceProvider,
     EXIT_CRITICAL, EXIT_INCOMPLETE, EXIT_OK, NasdaqReferenceProvider,
     ReferenceQuote, StoredAsset, align_crypto_references, audit_assets,
     nearest_crypto_observation, parse_nasdaq_etf_history,
@@ -53,6 +53,35 @@ class NasdaqRecoveryTests(unittest.TestCase):
 
         provider._get_json = get_json
         return provider, calls
+
+    def test_equities_use_dated_quote_and_current_summary_not_screener(self):
+        now = instant("2026-10-31T01:00:00")
+        cap = {"data": {"summaryData": {"MarketCap": {
+            "value": "347,546,171,043",
+        }}}}
+        provider, calls = self.provider(live_quote("Oct 30, 2026", "65.76"),
+                                        {"data": None}, cap)
+        quotes, errors = provider.fetch_equities(["INTC"], now=now)
+        self.assertEqual(errors, [])
+        self.assertEqual(quotes["INTC"].price, 65.76)
+        self.assertEqual(quotes["INTC"].market_cap, 347_546_171_043)
+        self.assertEqual(quotes["INTC"].as_of, instant("2026-10-30T20:00:00"))
+        self.assertTrue(all(params["assetclass"] == "stocks" for _, params in calls))
+        self.assertEqual({endpoint for endpoint, _ in calls}, {"info", "summary"})
+        asset = StoredAsset("INTC", "Intel", ASSET_EQUITY, 65.76,
+                            instant("2026-10-30T20:55:00"), 347_546_171_043,
+                            now.date(), now, "nasdaq.equity.summary.MarketCap",
+                            "equity_market_cap")
+        self.assertEqual(audit_assets([asset], quotes, now=now).exit_code, EXIT_OK)
+
+    def test_equity_wrong_session_is_not_reported_as_current(self):
+        provider, calls = self.provider(live_quote("Oct 29, 2026", "92.07"),
+                                        history_row("10/29/2026"),
+                                        {"data": {"summaryData": {"MarketCap": {"value": "1e9"}}}})
+        quotes, errors = provider.fetch_equities(["INTC"], now=instant("2026-10-31T01:00:00"))
+        self.assertTrue(errors)
+        self.assertIsNone(quotes["INTC"].price)
+        self.assertIsNone(quotes["INTC"].as_of)
 
     def test_weekend_thursday_quote_uses_exact_friday_close(self):
         for audit_time in ("2026-08-30T00:30:00", "2026-08-31T01:00:00"):

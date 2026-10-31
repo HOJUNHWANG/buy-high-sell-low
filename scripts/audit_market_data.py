@@ -458,8 +458,10 @@ def parse_nasdaq_etf_quote(
     *,
     expected_session: date | None = None,
     prefer_close: bool = False,
+    asset_class: str = ASSET_ETF,
 ) -> ReferenceQuote | None:
-    """Parse Nasdaq's per-symbol ETF quote (not its delayed ETF screener)."""
+    """Parse a dated per-symbol quote; screeners can lag a full session."""
+    summary_label = "ETF summary" if asset_class == ASSET_ETF else "equity summary"
     data = payload.get("data") or {}
     if not isinstance(data, Mapping):
         return None
@@ -484,9 +486,9 @@ def parse_nasdaq_etf_quote(
         return ReferenceQuote(
             ticker=ticker.upper(),
             source=(
-                "Nasdaq regular-session close + ETF summary"
+                f"Nasdaq regular-session close + {summary_label}"
                 if key == "secondaryData"
-                else "Nasdaq live quote + ETF summary"
+                else f"Nasdaq live quote + {summary_label}"
             ),
             price=price,
             market_cap=None,
@@ -497,6 +499,7 @@ def parse_nasdaq_etf_quote(
 
 def parse_nasdaq_etf_history(
     payload: Mapping[str, Any], ticker: str, session_date: date,
+    *, asset_class: str = ASSET_ETF,
 ) -> ReferenceQuote | None:
     """Accept only the exact requested session's unadjusted closing price."""
     data = payload.get("data")
@@ -515,7 +518,8 @@ def parse_nasdaq_etf_history(
         if observed_date == session_date and price is not None and price > 0:
             return ReferenceQuote(
                 ticker=ticker.upper(),
-                source="Nasdaq historical close + ETF summary",
+                source=("Nasdaq historical close + ETF summary" if asset_class == ASSET_ETF
+                        else "Nasdaq historical close + equity summary"),
                 price=price,
                 market_cap=None,
                 as_of=datetime.combine(
@@ -537,6 +541,14 @@ def parse_nasdaq_etf_aum(payload: Mapping[str, Any]) -> float | None:
     label = str(aum.get("label") or "").lower()
     # Nasdaq labels its ETF AUM value as "Assets Under Management (,000)".
     return value * 1_000 if "000" in label else value
+
+
+def parse_nasdaq_equity_cap(payload: Mapping[str, Any]) -> float | None:
+    data = payload.get("data") or {}
+    summary = data.get("summaryData") if isinstance(data, Mapping) else None
+    cap = summary.get("MarketCap") if isinstance(summary, Mapping) else None
+    value = parse_number(cap.get("value")) if isinstance(cap, Mapping) else None
+    return value if value is not None and value > 0 else None
 
 
 def parse_coingecko_payload(
@@ -800,21 +812,9 @@ class NasdaqReferenceProvider:
                 sleep(REFERENCE_RETRY_DELAY_SECONDS)
 
     def fetch_equities(
-        self, tickers: Sequence[str]
+        self, tickers: Sequence[str], *, now: datetime | None = None,
     ) -> tuple[dict[str, ReferenceQuote], list[str]]:
-        if not tickers:
-            return {}, []
-        try:
-            quotes = self._usable(
-                lambda: parse_nasdaq_stock_payload(self._get_json(
-                    NASDAQ_STOCKS_URL,
-                    params={"tableonly": "true", "limit": "10000", "download": "true"},
-                ), tickers),
-                "Nasdaq equity reference returned no usable quotes",
-            )
-            return quotes, []
-        except (requests.RequestException, ValueError, TypeError) as exc:
-            return {}, [f"Nasdaq equity reference failed: {_safe_error(exc)}"]
+        return self._fetch_us_assets(tickers, asset_class=ASSET_EQUITY, now=now)
 
     def fetch_etfs(
         self,
@@ -822,8 +822,15 @@ class NasdaqReferenceProvider:
         *,
         now: datetime | None = None,
     ) -> tuple[dict[str, ReferenceQuote], list[str]]:
+        return self._fetch_us_assets(tickers, asset_class=ASSET_ETF, now=now)
+
+    def _fetch_us_assets(
+        self, tickers: Sequence[str], *, asset_class: str, now: datetime | None,
+    ) -> tuple[dict[str, ReferenceQuote], list[str]]:
         if not tickers:
             return {}, []
+        api_class = "etf" if asset_class == ASSET_ETF else "stocks"
+        label = "ETF" if asset_class == ASSET_ETF else "equity"
         now = now or datetime.now(timezone.utc)
         if now.tzinfo is None:
             now = now.replace(tzinfo=timezone.utc)
@@ -837,18 +844,18 @@ class NasdaqReferenceProvider:
         errors: list[str] = []
         quotes: dict[str, ReferenceQuote] = {}
 
-        # ETF screener data can remain on the prior session after a new session
-        # has closed. Fetch each tracked ETF's live quote and require its trade
+        # Both screeners can remain on the prior session after a new session
+        # has closed. Fetch each symbol's live quote and require its trade
         # timestamp to identify the expected session before comparing prices.
         def fetch_quote(ticker: str) -> tuple[str, ReferenceQuote | None]:
             try:
                 quote = self._usable(
                     lambda: parse_nasdaq_etf_quote(self._get_json(
                         NASDAQ_ETF_INFO_URL.format(ticker=ticker),
-                        params={"assetclass": "etf"},
+                        params={"assetclass": api_class},
                     ), ticker, expected_session=expected_session,
-                        prefer_close=session_completed),
-                    f"Nasdaq ETF live quote unavailable or wrong session for {ticker} "
+                        prefer_close=session_completed, asset_class=asset_class),
+                    f"Nasdaq {label} live quote unavailable or wrong session for {ticker} "
                     f"(expected {expected_session})",
                 )
                 return ticker, quote
@@ -860,13 +867,13 @@ class NasdaqReferenceProvider:
                         lambda: parse_nasdaq_etf_history(self._get_json(
                             NASDAQ_ETF_HISTORY_URL.format(ticker=ticker),
                             params={
-                                "assetclass": "etf", "limit": "5",
+                                "assetclass": api_class, "limit": "5",
                                 "fromdate": expected_session.isoformat(),
                                 # Nasdaq rejects equal from/to dates.
                                 "todate": (expected_session + timedelta(days=1)).isoformat(),
                             },
-                        ), ticker, expected_session),
-                        f"Nasdaq ETF history has no close for {ticker} on {expected_session}",
+                        ), ticker, expected_session, asset_class=asset_class),
+                        f"Nasdaq {label} history has no close for {ticker} on {expected_session}",
                     )
                     return ticker, quote
                 except (requests.RequestException, ValueError, TypeError) as history_error:
@@ -886,18 +893,18 @@ class NasdaqReferenceProvider:
                         quotes[resolved_ticker] = quote
                 except (requests.RequestException, ValueError, TypeError) as exc:
                     errors.append(
-                        f"Nasdaq ETF live quote failed for {ticker}: "
+                        f"Nasdaq {label} live quote failed for {ticker}: "
                         f"{_safe_error(exc)}"
                     )
 
-        # Nasdaq exposes AUM (the comparable value stored for ETFs) on each
-        # summary endpoint. Fetch the small tracked ETF set concurrently.
+        # Per-symbol summaries update with the dated quote, unlike screeners.
+        parse_cap = parse_nasdaq_etf_aum if asset_class == ASSET_ETF else parse_nasdaq_equity_cap
         def fetch_aum(ticker: str) -> tuple[str, float | None]:
             aum = self._usable(
-                lambda: parse_nasdaq_etf_aum(self._get_json(
+                lambda: parse_cap(self._get_json(
                     NASDAQ_ETF_SUMMARY_URL.format(ticker=ticker),
-                    params={"assetclass": "etf"},
-                )), f"Nasdaq ETF AUM unavailable for {ticker}",
+                    params={"assetclass": api_class},
+                )), f"Nasdaq {label} market value unavailable for {ticker}",
             )
             return ticker, aum
 
@@ -915,14 +922,14 @@ class NasdaqReferenceProvider:
                         # An unavailable price must not discard a valid AUM
                         # comparison. The price error still makes this incomplete.
                         quotes[resolved_ticker] = ReferenceQuote(
-                            ticker=resolved_ticker, source="Nasdaq ETF summary",
+                            ticker=resolved_ticker, source=f"Nasdaq {label} summary",
                             price=None, market_cap=aum, as_of=None,
                         )
                     if aum is None:
-                        errors.append(f"Nasdaq ETF AUM unavailable for {ticker}")
+                        errors.append(f"Nasdaq {label} market value unavailable for {ticker}")
                 except (requests.RequestException, ValueError, TypeError) as exc:
                     errors.append(
-                        f"Nasdaq ETF AUM failed for {ticker}: {_safe_error(exc)}"
+                        f"Nasdaq {label} market value failed for {ticker}: {_safe_error(exc)}"
                     )
         return quotes, errors
 
@@ -1108,7 +1115,7 @@ def fetch_references(
     references: dict[str, ReferenceQuote] = {}
     errors: list[str] = []
     nasdaq = NasdaqReferenceProvider(timeout=timeout)
-    stock_quotes, stock_errors = nasdaq.fetch_equities(equities)
+    stock_quotes, stock_errors = nasdaq.fetch_equities(equities, now=now)
     etf_quotes, etf_errors = nasdaq.fetch_etfs(etfs, now=now)
     crypto_quotes, crypto_errors = CoinGeckoReferenceProvider(
         timeout=timeout

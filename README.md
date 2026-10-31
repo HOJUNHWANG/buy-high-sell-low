@@ -126,7 +126,7 @@ instead of GitHub's scheduled trigger to avoid delayed starts.
 | `fetch_prices.py` | Every 10 min (market hours; script skips closed stock market) | Stock + ETF + crypto prices |
 | `fetch_news.py` | Every 30 min | News aggregation + AI summarization |
 | `update_market_caps.py` | Daily | Market cap refresh |
-| `audit_with_remediation.py` | Daily | Full market-data audit; on the second consecutive failure, refresh only affected canonical price/cap fields once and re-audit |
+| `audit_market_data.py` | Manual only | Read-only diagnosis against dated Nasdaq quotes and CoinGecko; automatic audit/remediation retired |
 | `seed_history.py` | Manual/bootstrap | 1Y daily chart history via yfinance |
 | `seed_etfs.py` | Manual/bootstrap | ETF metadata + 1Y daily history via Twelve Data, with yfinance fallback |
 | `cleanup.py` | Weekly | Data retention (30d intraday, 1Y daily, 90d news) |
@@ -135,13 +135,22 @@ Price ingestion keeps its 10-minute cadence while batching database requests.
 See [Disk I/O optimization and validation](docs/disk-io-optimization.md) for the
 applied database changes, regression checks, and rollout status.
 
-The audit wrapper never copies its independent reference values into the
-database. The first failure is observation-only. A second consecutive failure
-creates a durable attempt marker, calls the existing Twelve Data price and/or
-validated market-cap updater only for affected tickers, and runs one final full
-audit. If that re-audit still fails, the updater is not repeated during the same
-failure streak and the persistent state plus remediation outcome remain visible
-in `/admin/data-health`.
+Equity market caps use Nasdaq's per-symbol summary and a quote from the expected
+US session. The bulk screener can still show yesterday's close after today's
+session ends; it is no longer used for prices or market caps. Yahoo remains a
+secondary provider and share-count cross-check. Formula and large-move guards
+continue to reject unsupported values.
+
+The automatic audit and remediation workflow was retired on October 30, 2026.
+An aggregate CoinGecko quote can differ from Twelve Data's exchange-specific
+quote (XMR/USD is available only on HitBTC); repeatedly fetching the same feed
+does not repair that difference. Routine freshness, anomaly review, collection
+logs, and closing settlement checks remain in Data Health. The read-only CLI
+is available for deliberate investigation:
+
+```bash
+python scripts/audit_market_data.py --no-log
+```
 
 ETF audits retry empty Nasdaq responses and prefer the labelled regular-session
 close after trading ends. If the live quote is missing or has the wrong session,
@@ -157,7 +166,7 @@ price ingestion or market-cap update. This handles ten-minute price snapshots an
 daily cap snapshots without raising the 2% price / 5% cap thresholds. The chosen
 timestamps and original live reference remain in the audit findings. Missing
 history preserves the original failure; persistent discrepancies and stale
-stored values still fail and remain eligible for bounded remediation.
+stored values still fail the manual audit. No automatic re-fetch is triggered.
 
 ---
 
