@@ -1,11 +1,11 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getMarketSnapshot, getScreenerHistory } from "@/lib/cached-data";
 import type { Metadata } from "next";
 import type { Stock, StockPrice } from "@/lib/types";
 import { StockTable } from "@/components/StockTable";
 import { MarketStatusWidget } from "@/components/MarketStatusWidget";
 import { MarketClosedBanner } from "@/components/MarketClosedBanner";
 import { getMarketStatus } from "@/lib/market-hours";
-import { discoveryFilter, getIndexNotice, isDiscoverableStock } from "@/lib/sp100-transition";
+import { getIndexNotice, isDiscoverableStock } from "@/lib/sp100-transition";
 import {
   getLeaderStreaks,
   type MarketCapDailyLeader,
@@ -21,39 +21,11 @@ export const metadata: Metadata = {
 
 type StockRow = Stock & { stock_prices: StockPrice | null };
 
-function getQueryDates() {
-  const now = new Date();
-  const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const dMin = new Date(d30.getTime() - 3 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split("T")[0];
-  const dMax = new Date(d30.getTime() + 3 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split("T")[0];
-  const streakStart = new Date(now);
-  streakStart.setUTCFullYear(streakStart.getUTCFullYear() - 1);
-  return { d30, dMin, dMax, streakStart };
-}
-
 export default async function StocksPage() {
-  const supabase = await createSupabaseServerClient();
   const now = new Date();
-
-  // Target date: ~30 days ago, with ±3 day window for weekends/holidays
-  const { d30, dMin, dMax, streakStart } = getQueryDates();
-
-  const [{ data }, { data: hist30 }, { data: marketCapDailyLeaders }] = await Promise.all([
-    supabase.from("stocks").select("*, stock_prices(*)").or(discoveryFilter(now)).order("ticker"),
-    supabase
-      .from("price_history_long")
-      .select("ticker, close, date")
-      .gte("date", dMin)
-      .lte("date", dMax),
-    supabase
-      .from("market_cap_daily_leaders")
-      .select("ticker, date, asset_type")
-      .gte("date", streakStart.toISOString().split("T")[0])
-      .order("date", { ascending: false }),
+  const d30 = new Date(now.getTime() - 30 * 86_400_000);
+  const [data, { history: hist30, leaders: marketCapDailyLeaders }] = await Promise.all([
+    getMarketSnapshot(), getScreenerHistory(),
   ]);
 
   // For each ticker, pick the entry closest to 30 days ago
@@ -73,7 +45,8 @@ export default async function StocksPage() {
   }
 
   const stocks = ((data as StockRow[] | null) ?? []).filter((s) => isDiscoverableStock(s, now)).map((s) => {
-    const currentPrice = s.stock_prices?.price;
+    const { stock_prices: currentQuote, ...stock } = s;
+    const currentPrice = currentQuote?.price;
     const oldPrice = price30dMap.get(s.ticker)?.close;
     const raw30d =
       currentPrice != null && oldPrice != null && oldPrice !== 0
@@ -82,9 +55,9 @@ export default async function StocksPage() {
     // Discard absurd values (bad historical data)
     const change_30d = raw30d != null && Math.abs(raw30d) < 500 ? raw30d : null;
     return {
-      ...s,
+      ...stock,
       index_notice: getIndexNotice(s.ticker, now),
-      price: s.stock_prices ?? undefined,
+      price: currentQuote ?? undefined,
       change_30d,
     };
   });

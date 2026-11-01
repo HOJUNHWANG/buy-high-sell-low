@@ -12,7 +12,7 @@ from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode, urljoin
 from bs4 import BeautifulSoup
 from tickers import COMPANY_NAMES, SP100_TICKERS, TRACKED_EQUITY_TICKERS, to_yf
 
-QUALITY_VERSION = 2
+QUALITY_VERSION = 3
 
 def yahoo_feed_url(at: float | None = None) -> str:
     """Yahoo requires symbols; rotate the tracked stock universe every 30m."""
@@ -57,9 +57,9 @@ def plain_text(value: str) -> str:
 
 def canonical_url(value: str) -> str:
     try:
-        u=urlsplit(value)
+        u=urlsplit(html.unescape(value))
         if u.scheme not in {"http", "https"} or not u.hostname or u.username or u.password: return ""
-        query=[(k,v) for k,v in parse_qsl(u.query) if not k.lower().startswith("utm_") and k.lower() not in {"fbclid","gclid","ref","source"}]
+        query=[(k,v) for k,v in parse_qsl(u.query) if not k.lower().startswith("utm_") and k.lower() not in {"fbclid","gclid","ref","source",".tsrc","tlnk","mod","cmpid"}]
         return urlunsplit((u.scheme,u.netloc.lower(),u.path.rstrip("/") or "/",urlencode(query),""))
     except ValueError: return ""
 
@@ -114,15 +114,62 @@ def event_key(title: str, evidence: list[dict], published: str | None = None) ->
     return hashlib.sha256(key.encode()).hexdigest()[:32]
 
 
+SOURCE_NOISE = re.compile(r'\b(subscribe|newsletter|sign up|click here|read more|buy now|free shipping|appeared first on|affiliate links?|sponsored content)\b', re.I)
+
+
+def clean_source_text(content: str) -> str:
+    return re.sub(r'\s*\[\+\d+ chars\]\s*$', '', plain_text(content)).strip()[:14000]
+
+
+def source_sentences(content: str) -> list[str]:
+    sentences=[]
+    for paragraph in clean_source_text(content).splitlines():
+        paragraph=paragraph.strip()
+        # Protect abbreviation boundaries without changing source characters.
+        parts=[]; start=0
+        for match in re.finditer(r'''[.!?][”"’']?(?:\s+(?=[A-Z0-9“"'])|$)''', paragraph.strip()):
+            end=match.end(); prefix=paragraph[start:match.start()+1]
+            if re.search(r'\b(?:U\.S|U\.K|Mr|Mrs|Ms|Dr|Inc|Corp|Co|vs|e\.g|i\.e)\.$',prefix): continue
+            parts.append(paragraph[start:end].strip()); start=end
+        if paragraph[start:].strip(): parts.append(paragraph[start:].strip())
+        sentences.extend(parts)
+    return sentences
+
+
+def summary_candidates(content: str, title: str = "") -> list[dict]:
+    """Assign IDs to complete source sentences; the model never rewrites them."""
+    title_key=re.sub(r'\W+', '', title).lower()
+    result=[]; seen=set()
+    for sentence in source_sentences(content):
+        words=sentence.split()
+        key=re.sub(r'\W+','',sentence).lower()
+        if (not 8<=len(words)<=25 or not 30<=len(sentence)<=500
+            or not re.search(r'''[.!?][”"’']?$''',sentence) or sentence.endswith(('…','...'))
+            or SOURCE_NOISE.search(sentence) or key==title_key or key in seen
+            or re.match(r'^(in other words|find out|learn more)\b',sentence,re.I)): continue
+        seen.add(key); result.append({'id':len(result)+1,'text':sentence})
+        if len(result)>=60:return result
+    return result
+
+
+def selected_summary(result: dict, candidates: list[dict]) -> str | None:
+    selected=result.get('sentence_id')
+    if type(selected) is not int:return None
+    return next((row['text'] for row in candidates if row['id']==selected),None)
+
+
 def baseline_analysis(title: str, content: str = "", published: str | None = None) -> tuple[dict,dict]:
-    title=plain_text(title); text=plain_text(content)[:14000]
+    title=plain_text(title); text=clean_source_text(content)
     evidence=entity_evidence(title,text)
     relevant=[e for e in evidence if e["relationship"] in {"direct","material"}]
     category="company" if relevant else "macro" if re.search(r"\b(Fed|inflation|CPI|GDP|jobs|tariffs?|Treasury|interest rates?)\b",title,re.I) else "sector" if FINANCIAL.search(title) else "general"
-    coverage="full_text" if len(text)>1800 else "lead" if len(text)>150 else "headline"
+    candidates=summary_candidates(text,title)
+    useful=bool(candidates) or (len(text)>150 and len(text.split())>=24 and not SOURCE_NOISE.search(text)
+        and re.sub(r'\W+','',text).lower()!=re.sub(r'\W+','',title).lower())
+    coverage=("full_text" if len(text)>1800 else "lead") if useful else "headline"
     # A short source excerpt is deliberately distinguished from AI analysis.
     # Never synthesize causation from a headline-only input.
-    excerpt=(" ".join(text.split()[:24]) + ("…" if len(text.split())>24 else "")) if coverage!="headline" else None
+    excerpt=(candidates[0]['text'] if candidates else " ".join(text.split()[:24]) + ("…" if len(text.split())>24 else "")) if useful else None
     public={"related_tickers":sorted(e["ticker"] for e in relevant),"ai_summary":excerpt,"ai_insight":None,
         "ai_sentiment":None,"ai_caution":None,"summary_method":"source_excerpt" if excerpt else "headline_only",
         "source_coverage":coverage,"news_category":category,"relevance_score":90 if any(e["relationship"]=="direct" for e in evidence) else 65 if relevant else 60 if category=="macro" else 35 if category=="sector" else 10,
@@ -140,23 +187,21 @@ def grounded_summary(result: dict, source_text: str) -> bool:
     """
     sentences=result.get("sentences")
     if not isinstance(sentences,list) or not 1<=len(sentences)<=2: return False
-    sentences_in_source=set()
-    for paragraph in source_text.splitlines():
-        sentences_in_source.update(" ".join(s.split()) for s in re.split(r'(?<=[.!?])\s+(?=[A-Z“\"\'])',paragraph.strip()) if s.strip())
+    sentences_in_source={" ".join(sentence.split()) for sentence in source_sentences(source_text)}
     if sum(len(s.split()) for s in sentences if isinstance(s,str))>25:return False
     return all(isinstance(s,str) and 20<=len(s)<=500 and " ".join(s.split()) in sentences_in_source for s in sentences)
 
 
 
-PUBLISHERS={"decrypt.co","coindesk.com","cointelegraph.com","cnbc.com","marketwatch.com","bbc.com","bbc.co.uk","finance.yahoo.com","reuters.com","apnews.com","investor.intel.com","ir.spacex.com"}
+PUBLISHERS={"decrypt.co","coindesk.com","cointelegraph.com","cnbc.com","marketwatch.com","bbc.com","bbc.co.uk","finance.yahoo.com","reuters.com","apnews.com","investor.intel.com","ir.spacex.com","fool.com"}
 def extract_article_text(document: str) -> str:
     soup=BeautifulSoup(document,"html.parser")
-    candidates=soup.select('article, [itemprop="articleBody"], .post-content, .post__content, .article__body, .article-body, .article-content, .entry-content, [class*="ArticleBody-articleBody"], main .prose')
+    candidates=soup.select('article, [itemprop="articleBody"], .post-content, .post__content, .article__body, .article-body, .article-content, .entry-content, [class*="ArticleBody-articleBody"], main .prose, main .ct-prose')
     texts=[]
     for root in candidates:
-        for noise in root.select('script,style,nav,aside,footer,form,iframe,[class*="widget"],[id*="widget"],[class*="newsletter"],[class*="advertisement"],[class*="share-button"]'):
+        for noise in root.select('script,style,nav,aside,footer,form,iframe,[class*="widget"],[id*="widget"],[class*="newsletter"],[class*="advertisement"],[class*="share-button"],[class*="related-article"],[class*="recommended"]'):
             noise.decompose()
-        text="\n".join(p.get_text(" ",strip=True) for p in root.find_all("p") if len(p.get_text(" ",strip=True))>60)
+        text="\n".join(p.get_text(" ",strip=True) for p in root.find_all("p") if len(p.get_text(" ",strip=True))>=30 and not SOURCE_NOISE.search(p.get_text(" ",strip=True)))
         if text:texts.append(text)
     return max(texts,key=len)[:14000] if texts else ""
 
@@ -171,17 +216,24 @@ def allowed_source_url(url: str) -> bool:
     except (ValueError,OSError): return False
 
 
-def source_lead(session, url: str) -> str:
+def source_lead(session, url: str, diagnostics: dict | None = None) -> str:
     """Read permitted public article metadata/paragraphs without bypassing access controls."""
+    diagnostics = diagnostics if diagnostics is not None else {}
     for _ in range(4):
-        if not allowed_source_url(url): return ""
+        if not allowed_source_url(url):
+            diagnostics['source_status']='not_allowed';return ""
         with session.get(url,timeout=(4,8),allow_redirects=False,stream=True) as response:
+            diagnostics['http_status']=response.status_code
             if response.is_redirect: url=urljoin(url,response.headers.get("Location","")); continue
-            if response.status_code!=200 or "html" not in response.headers.get("Content-Type",""): return ""
+            if response.status_code!=200 or "html" not in response.headers.get("Content-Type",""):
+                diagnostics['source_status']='rate_limited' if response.status_code==429 else 'access_limited' if response.status_code in {401,403} else 'http_error'
+                if response.status_code==429:diagnostics['retry_after']=response.headers.get('Retry-After','')[:100]
+                return ""
             chunks=[]; size=0
             for chunk in response.iter_content(16384):
                 size+=len(chunk)
-                if size>2_000_000: return ""
+                if size>2_000_000:
+                    diagnostics['source_status']='too_large';return ""
                 chunks.append(chunk)
             document=b"".join(chunks).decode(response.encoding or "utf8",errors="replace")
         # JSON-LD articleBody excludes navigation, price widgets and ads.
@@ -192,16 +244,21 @@ def source_lead(session, url: str) -> str:
                     item=stack.pop()
                     if isinstance(item,list): stack.extend(item)
                     elif isinstance(item,dict):
-                        if isinstance(item.get("articleBody"),str): return plain_text(item["articleBody"])[:14000]
+                        kinds=item.get('@type',[]);kinds=[kinds] if isinstance(kinds,str) else kinds
+                        if isinstance(item.get("articleBody"),str) and any(str(k).endswith('Article') for k in kinds):
+                            body=clean_source_text(item['articleBody'])
+                            if body:diagnostics['source_status']='ok';return body
                         stack.extend(v for v in item.values() if isinstance(v,(list,dict)))
             except (ValueError,TypeError): pass
         # Prefer article content, then description; never scrape a site's entire
         # body where unrelated ticker widgets could create false matches.
         text=extract_article_text(document)
-        if text:return text
+        if text:diagnostics['source_status']='ok';return text
         for meta in re.findall(r"<meta\b[^>]*>",document,re.I):
             if re.search(r'(?:name|property)=["\'](?:description|og:description)["\']',meta,re.I):
                 match=re.search(r'content=(["\'])(.*?)\1',meta,re.S|re.I)
-                if match: return plain_text(match.group(2))[:2000]
+                if match:diagnostics['source_status']='metadata_only';return plain_text(match.group(2))[:2000]
+        diagnostics['source_status']='no_article_text'
         return ""
+    diagnostics['source_status']='redirect_limit'
     return ""

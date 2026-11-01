@@ -1,4 +1,5 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getLatestPublicNews } from "@/lib/cached-data";
+import { getNewsAccess } from "@/lib/news-access";
 import type { NewsArticle } from "@/lib/types";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -7,8 +8,7 @@ import { NewsFilter } from "@/components/NewsFilter";
 import { TrendingTickersWidget } from "@/components/TrendingTickersWidget";
 import { SentimentWidget } from "@/components/SentimentWidget";
 
-import { gateSummaries, FREE_USER_DAILY_UNLOCKS } from "@/lib/summary-gate";
-import type { UserTier } from "@/lib/summary-gate";
+import { gateSummaries } from "@/lib/summary-gate";
 
 export const metadata: Metadata = {
   title: "News Feed",
@@ -19,12 +19,7 @@ type Sentiment = "all" | "positive" | "neutral" | "negative";
 
 async function getNews(): Promise<NewsArticle[]> {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase
-      .from("news_articles")
-      .select("*")
-      .order("published_at", { ascending: false })
-      .limit(240);
+    const data = await getLatestPublicNews();
     return diversifyNews(data ?? [], 60);
   } catch {
     return [];
@@ -54,40 +49,9 @@ export default async function NewsPage({
       ? (sentiment as Sentiment)
       : "all";
 
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  let tier: UserTier = "guest";
-  let unlockedIds = new Set<number>();
-  let remainingUnlocks = 0;
-
-  if (user) {
-    const { data: profile } = await supabase
-      .from("user_profiles")
-      .select("tier")
-      .eq("user_id", user.id)
-      .single();
-    tier = (profile?.tier as UserTier) ?? "free";
-
-    // Fetch user's permanently unlocked articles
-    const { data: unlocks } = await supabase
-      .from("summary_unlocks")
-      .select("article_id, unlocked_at")
-      .eq("user_id", user.id);
-    unlockedIds = new Set((unlocks ?? []).map((u: { article_id: number }) => u.article_id));
-
-    // Calculate today's remaining unlocks (only for free tier)
-    if (tier === "free") {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const todayCount = (unlocks ?? []).filter(
-        (u: { unlocked_at: string }) => new Date(u.unlocked_at) >= todayStart,
-      ).length;
-      remainingUnlocks = Math.max(0, FREE_USER_DAILY_UNLOCKS - todayCount);
-    }
-  }
-
-  const rawNews = await getNews();
+  const [rawNews, { user, tier, unlockedIds, remainingUnlocks }] = await Promise.all([
+    getNews(), getNewsAccess(),
+  ]);
   const news = gateSummaries(rawNews, tier, unlockedIds);
 
   return (

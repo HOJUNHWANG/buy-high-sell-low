@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { IntentLink as Link } from "@/components/IntentLink";
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import type { NewsArticle } from "@/lib/types";

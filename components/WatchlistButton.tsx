@@ -2,7 +2,7 @@
 import { loginHref } from "@/lib/auth-redirect";
 
 import { useState, useEffect } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createSupabaseBrowserClient, getBrowserUser } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 export function WatchlistButton({ ticker }: { ticker: string }) {
@@ -13,7 +13,7 @@ export function WatchlistButton({ ticker }: { ticker: string }) {
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    getBrowserUser().then(({ data: { user } }) => {
       if (!user) { setLoading(false); return; }
       setUserId(user.id);
       supabase

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createSupabaseBrowserClient, getBrowserUser } from "@/lib/supabase/client";
 import Link from "next/link";
 import { loginHref } from "@/lib/auth-redirect";
 import { usePathname, useRouter } from "next/navigation";
@@ -17,7 +17,7 @@ export function UserMenu({ isAdmin = false }: { isAdmin?: boolean }) {
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
 
-    supabase.auth.getUser().then(({ data }) => {
+    getBrowserUser().then(({ data }) => {
       setEmail(data.user?.email ?? null);
       setLoading(false);
     });

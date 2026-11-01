@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState, useEffect } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createSupabaseBrowserClient, getBrowserUser } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { safeAuthNext } from "@/lib/auth-redirect";
@@ -27,8 +27,7 @@ function LoginForm() {
   const [message, setMessage] = useState<string | null>(null);
   // Redirect if already logged in
   useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    getBrowserUser().then(({ data: { user } }) => {
       if (user) router.replace(next);
     });
   }, [router, next]);

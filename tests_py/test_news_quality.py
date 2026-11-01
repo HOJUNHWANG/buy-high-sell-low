@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
-from news_quality import baseline_analysis,entity_evidence,grounded_summary,canonical_url,event_key,allowed_source_url,extract_article_text,yahoo_feed_url
+from news_quality import baseline_analysis,entity_evidence,grounded_summary,canonical_url,event_key,allowed_source_url,extract_article_text,yahoo_feed_url,summary_candidates,selected_summary,clean_source_text,source_lead
 from urllib.parse import urlsplit,parse_qs
 from tickers import SP100_TICKERS,TRACKED_EQUITY_TICKERS,to_yf
 
@@ -60,5 +60,62 @@ class NewsQualityTests(unittest.TestCase):
         self.assertIn('Circle froze USDC',text)
         self.assertNotIn('Bitcoin',text)
         self.assertEqual(self.tags('Stablecoin freeze investigation',text),{'USDC-USD','USDT-USD'})
+
+    def test_short_complete_lead_is_not_discarded(self):
+        text='Intel raised its quarterly revenue forecast after demand for server chips improved.'
+        self.assertLess(len(text),150)
+        public,_=baseline_analysis('Intel updates chip guidance',text)
+        self.assertEqual(public['summary_method'],'source_excerpt')
+        self.assertEqual(public['ai_summary'],text)
+        self.assertIsNone(public['ai_sentiment'])
+
+    def test_headline_repeat_promotions_and_truncated_short_text_are_not_summaries(self):
+        title='Intel raises quarterly revenue guidance after stronger demand for server chips.'
+        for body in [title,'Subscribe to our newsletter for the latest stock market news and updates.',
+                     'Intel raised its quarterly revenue forecast after demand for server chips…']:
+            self.assertEqual(baseline_analysis(title,body)[0]['summary_method'],'headline_only')
+
+    def test_sentence_ids_preserve_actor_amount_negation_and_abbreviations(self):
+        text='U.S. regulators did not approve Intel\'s plan to acquire the chip supplier.\nIntel said its revenue rose by $2.4 billion during the quarter.'
+        candidates=summary_candidates(text)
+        self.assertEqual(candidates[0]['text'],text.splitlines()[0])
+        chosen=selected_summary({'sentence_id':1},candidates)
+        self.assertIn('did not approve',chosen)
+        self.assertTrue(grounded_summary({'sentences':[chosen]},text))
+        self.assertIsNone(selected_summary({'sentence_id':True},candidates))
+        self.assertIsNone(selected_summary({'sentence_id':99},candidates))
+        self.assertIsNone(selected_summary({'sentence_id':'1'},candidates))
+        text='The U.S. Treasury did not approve the proposed financing plan on Friday.'
+        sentence=selected_summary({'sentence_id':1},summary_candidates(text))
+        self.assertEqual(sentence,text)
+        self.assertTrue(grounded_summary({'sentences':[sentence]},text))
+
+    def test_cointelegraph_new_body_and_noise_exclusion(self):
+        document='<main><div class="ct-prose"><p>Intel raised its quarterly revenue forecast after demand for server chips improved.</p><aside><p>Bitcoin rallied while Ethereum rose as traders bought tokens in the unrelated market widget.</p></aside></div></main>'
+        text=extract_article_text(document)
+        self.assertIn('Intel raised',text)
+        self.assertNotIn('Bitcoin',text)
+
+    def test_fool_is_allowed_but_redirects_still_require_public_dns(self):
+        with patch('news_quality.socket.getaddrinfo',return_value=[(2,1,6,'',('8.8.8.8',443))]):
+            self.assertTrue(allowed_source_url('https://www.fool.com/investing/story'))
+            self.assertFalse(allowed_source_url('https://fool.com.evil.test/story'))
+        with patch('news_quality.socket.getaddrinfo',return_value=[(2,1,6,'',('10.0.0.1',443))]):
+            self.assertFalse(allowed_source_url('https://www.fool.com/investing/story'))
+
+    def test_newsapi_suffix_and_syndication_tracking_are_removed(self):
+        self.assertEqual(clean_source_text('Intel raises revenue outlook. [+1234 chars]'),'Intel raises revenue outlook.')
+        self.assertEqual(canonical_url('https://www.fool.com/a?.tsrc=rss&utm_source=y&tlnk=abc'),'https://www.fool.com/a')
+
+    def test_source_http_status_is_recorded_without_bypassing_access(self):
+        from unittest.mock import Mock
+        response=Mock(status_code=429,is_redirect=False,headers={'Retry-After':'3600','Content-Type':'text/html'})
+        session=Mock();session.get.return_value.__enter__=Mock(return_value=response);session.get.return_value.__exit__=Mock(return_value=False)
+        diagnostics={}
+        with patch('news_quality.allowed_source_url',return_value=True):
+            self.assertEqual(source_lead(session,'https://www.coindesk.com/a',diagnostics),'')
+        self.assertEqual(diagnostics['source_status'],'rate_limited')
+        self.assertEqual(diagnostics['retry_after'],'3600')
+        self.assertEqual(session.get.call_count,1)
 
 if __name__=='__main__': unittest.main()

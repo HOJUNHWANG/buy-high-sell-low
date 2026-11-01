@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { LogoImage } from "@/components/LogoImage";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createSupabaseBrowserClient, getBrowserUser } from "@/lib/supabase/client";
 import { RoastCard } from "@/components/RoastCard";
 import { formatAssetPrice } from "@/lib/price-format";
 
@@ -108,7 +108,7 @@ export default function PaperTradingPage() {
   const [adminMsg, setAdminMsg] = useState("");
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    getBrowserUser().then(({ data: { user } }) => {
       if (!user) { setAuthed(false); setLoading(false); }
       else {
         setAuthed(true);
@@ -144,27 +144,20 @@ export default function PaperTradingPage() {
     setLoading(true);
     setLoadError("");
     try {
-      const liqRes = await fetch("/api/paper/liquidation");
-      const [portfolioRes, challengeRes] = await Promise.all([
-        fetch("/api/paper/portfolio"),
-        fetch("/api/paper/challenge"),
-      ]);
-
-      if (!portfolioRes.ok) throw new Error("Portfolio unavailable. Please try again.");
-      if (portfolioRes.ok) {
-        const data = await portfolioRes.json();
-        setPortfolio(data);
-        const today = new Date().toISOString().split("T")[0];
-        setCheckinDone(data.lastCheckin === today);
-      }
-      if (liqRes.ok) setLiqStatus(await liqRes.json());
-      if (challengeRes.ok) {
+      const response = await fetch("/api/paper/dashboard");
+      if (!response.ok) throw new Error("Portfolio unavailable. Please try again.");
+      const data = await response.json();
+      setPortfolio(data.portfolio);
+      const today = new Date().toISOString().split("T")[0];
+      setCheckinDone(data.portfolio.lastCheckin === today);
+      if (data.liquidation) setLiqStatus(data.liquidation);
+      if (data.challenge) {
         setChallengeError(null);
-        setChallenge(await challengeRes.json());
+        setChallenge(data.challenge);
       } else {
-        const err = await challengeRes.json().catch(() => null);
-        setChallengeError(err?.error ?? `Challenge unavailable (${challengeRes.status})`);
+        setChallengeError(data.challengeError ?? "Challenge unavailable");
       }
+
     } catch (failure) {
       setLoadError(failure instanceof Error ? failure.message : "Unable to load portfolio.");
     } finally { setLoading(false); }

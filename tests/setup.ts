@@ -3,6 +3,10 @@
  */
 import { vi } from "vitest";
 vi.mock("server-only", () => ({}));
+vi.mock("next/cache", () => ({ unstable_cache: (fn: unknown) => fn }));
+vi.mock("@/lib/supabase/public", () => ({
+  createPublicMarketClient: () => ({ from: (table: string) => createQueryBuilder(table) }),
+}));
 
 // ── Mock next/headers (cookies) ──
 vi.mock("next/headers", () => ({
@@ -206,6 +210,7 @@ function createMutationBuilder(table: string, type: "insert" | "update" | "delet
 }
 
 vi.mock("@/lib/supabase/server", () => ({
+  getCurrentUser: vi.fn(() => Promise.resolve(_mockUser)),
   createSupabaseServerClient: vi.fn(() =>
     Promise.resolve({
       auth: {

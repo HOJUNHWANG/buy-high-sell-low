@@ -1,6 +1,6 @@
 import { HomeNewsCard } from "@/components/HomeNewsCard";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { NewsArticle, StockPrice, Stock } from "@/lib/types";
+import { getNewsAccess } from "@/lib/news-access";
+import type { StockPrice, Stock } from "@/lib/types";
 import { formatAssetPrice } from "@/lib/price-format";
 import { PriceFreshnessBadge } from "@/components/PriceFreshnessBadge";
 import Link from "next/link";
@@ -13,8 +13,7 @@ import { SectorWidget } from "@/components/SectorWidget";
 import { MarketStatsWidget } from "@/components/MarketStatsWidget";
 import { SentimentWidget } from "@/components/SentimentWidget";
 import { gateSummaries } from "@/lib/summary-gate";
-import type { UserTier } from "@/lib/summary-gate";
-import { getAllStockPrices } from "@/lib/cached-data";
+import { getAllStockPrices, getLatestPublicNews } from "@/lib/cached-data";
 import { getMarketStatus } from "@/lib/market-hours";
 import { MarketOverview } from "@/components/MarketOverview";
 
@@ -44,20 +43,6 @@ async function getMovers(): Promise<{
   }
 }
 
-async function getLatestNews(limit = 20): Promise<NewsArticle[]> {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase
-      .from("news_articles")
-      .select("*")
-      .order("published_at", { ascending: false })
-      .limit(limit);
-    return data ?? [];
-  } catch {
-    return [];
-  }
-}
-
 function SidebarSkeleton() {
   return (
     <div className="space-y-2">
@@ -69,30 +54,12 @@ function SidebarSkeleton() {
 }
 
 export default async function HomePage() {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  // Kick off data fetches immediately in parallel with user profile/unlocks
-  const movingDataPromise = getMovers();
-  const newsPromise = getLatestNews(user ? 20 : 6);
-
-  // Determine user tier (parallel fetches)
-  let tier: UserTier = "guest";
-  let unlockedIds = new Set<number>();
-  if (user) {
-    const [{ data: profile }, { data: unlocks }] = await Promise.all([
-      supabase.from("user_profiles").select("tier").eq("user_id", user.id).single(),
-      supabase.from("summary_unlocks").select("article_id").eq("user_id", user.id),
-    ]);
-    tier = (profile?.tier as UserTier) ?? "free";
-    unlockedIds = new Set((unlocks ?? []).map((u: { article_id: number }) => u.article_id));
-  }
-
-  const [{ stockGainers, stockLosers, cryptoGainers, cryptoLosers }, rawNews] = await Promise.all([
-    movingDataPromise,
-    newsPromise,
+  const [movers, articles, access] = await Promise.all([
+    getMovers(), getLatestPublicNews().catch(() => []), getNewsAccess(),
   ]);
-  const news = gateSummaries(rawNews, tier, unlockedIds);
+  const { user, tier, unlockedIds } = access;
+  const { stockGainers, stockLosers, cryptoGainers, cryptoLosers } = movers;
+  const news = gateSummaries(articles.slice(0, user ? 20 : 6), tier, unlockedIds);
   const marketStatus = getMarketStatus();
   const moverGroups = marketStatus.isOpen
     ? [

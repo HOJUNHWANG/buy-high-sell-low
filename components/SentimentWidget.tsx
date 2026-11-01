@@ -1,19 +1,11 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getRecentNewsSignals } from "@/lib/cached-data";
 import Link from "next/link";
 import { sentimentPercentages } from "@/lib/news-sentiment";
 
 export async function SentimentWidget() {
-  let data: { ai_sentiment: string | null; event_key: string | null; id: number }[] | null = null;
+  let data: { ai_sentiment: string | null; event_key?: string | null; id: number }[] | null = null;
   try {
-    const supabase = await createSupabaseServerClient();
-    const todayStart = new Date();
-    todayStart.setTime(todayStart.getTime() - 24 * 3_600_000);
-    const res = await supabase
-      .from("news_articles")
-      .select("id, ai_sentiment, event_key")
-      .gte("published_at", todayStart.toISOString()).gte("quality_version", 2).eq("summary_method", "verified_ai")
-      .not("ai_sentiment", "is", null);
-    data = res.data;
+    data = (await getRecentNewsSignals()).filter(row => row.summary_method === "verified_ai" && row.ai_sentiment);
   } catch {
     return null;
   }
