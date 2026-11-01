@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { NewsArticle } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
+import { NewsSummaryUnavailable } from "@/components/NewsSummaryUnavailable";
 import { NewsEvidenceBadge } from "@/components/NewsEvidenceBadge";
 import { isRecentNews } from "@/lib/news-quality";
 import { SentimentBadge } from "@/components/SentimentBadge";
@@ -109,7 +110,7 @@ export function StockNewsSection({
                           Not investment advice
                         </p>
                       </div>
-                    ) : null}
+                    ) : <NewsSummaryUnavailable article={article} />}
                   </div>
                 </div>
               </article>

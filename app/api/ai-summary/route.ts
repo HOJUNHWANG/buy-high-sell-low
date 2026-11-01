@@ -50,5 +50,5 @@ export async function POST(request: Request) {
     });
   }
 
-  return NextResponse.json({ error: "Source-checked summary is not available for this article yet.", status: "insufficient_source", summaryMethod: article.summary_method }, { status: 409 });
+  return NextResponse.json({ error: "No source-checked summary is available for this article.", status: "insufficient_source", summaryMethod: article.summary_method }, { status: 409 });
 }

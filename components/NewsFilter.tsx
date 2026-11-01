@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import type { NewsArticle } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
+import { NewsSummaryUnavailable } from "@/components/NewsSummaryUnavailable";
 import { NewsEvidenceBadge } from "@/components/NewsEvidenceBadge";
 import { SentimentBadge } from "@/components/SentimentBadge";
 import { LockedSummary } from "@/components/LockedSummary";
@@ -177,7 +178,7 @@ export function NewsFilter({
                           Not investment advice
                         </p>
                       </div>
-                    ) : null}
+                    ) : <NewsSummaryUnavailable article={article} />}
                   </div>
                 </div>
               </article>
