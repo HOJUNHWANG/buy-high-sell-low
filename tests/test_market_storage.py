@@ -155,7 +155,7 @@ class MarketStorageTests(unittest.TestCase):
     def test_news_race_duplicate_does_not_generate_ai_or_count_as_new(self):
         worker = self.load_worker("fetch_news")
         from datetime import datetime, timezone
-        articles = [{"url": "https://example.com/race", "title": "Existing story", "publishedAt": datetime.now(timezone.utc).isoformat()}] * 10
+        articles = [{"url": "https://example.com/race", "title": "Intel raises quarterly earnings guidance", "publishedAt": datetime.now(timezone.utc).isoformat()}] * 10
         with patch.object(worker, "fetch_from_rss", return_value=articles), \
              patch.object(worker, "fetch_from_newsapi", return_value=[]), \
              patch.object(worker, "analyze_article") as ai, \
