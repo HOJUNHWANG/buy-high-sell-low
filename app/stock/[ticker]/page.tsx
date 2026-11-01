@@ -1,10 +1,10 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getMarketSnapshot, getStockHistory, getTickerNews } from "@/lib/cached-data";
+import { getNewsAccess } from "@/lib/news-access";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import type { Metadata } from "next";
 import { getIndexNotice } from "@/lib/sp100-transition";
 import { IndexChangeBadge } from "@/components/IndexChangeBadge";
-import type { Stock, StockPrice, StockPriceHistory, NewsArticle } from "@/lib/types";
 import { LogoImage } from "@/components/LogoImage";
 import Link from "next/link";
 import { StockChart } from "@/components/StockChart";
@@ -13,76 +13,24 @@ import { StockNewsSection } from "@/components/StockNewsSection";
 import { WhyMoving } from "@/components/WhyMoving";
 import { PriceFreshnessBadge } from "@/components/PriceFreshnessBadge";
 import { formatAssetPrice } from "@/lib/price-format";
-import { gateSummaries, FREE_USER_DAILY_UNLOCKS } from "@/lib/summary-gate";
-import type { UserTier } from "@/lib/summary-gate";
+import { gateSummaries } from "@/lib/summary-gate";
 
 interface Props {
   params: Promise<{ ticker: string }>;
 }
 
-type DailyHistoryRow = {
-  close: number;
-  date: string;
-};
-
-const getStockData = cache(async function getStockData(ticker: string) {
-  const supabase = await createSupabaseServerClient();
-  try {
-    const [stockRes, priceRes, historyRes, longHistoryRes, newsRes] = await Promise.all([
-      supabase.from("stocks").select("*").eq("ticker", ticker).single(),
-      supabase.from("stock_prices").select("*").eq("ticker", ticker).single(),
-      supabase
-        .from("stock_price_history")
-        .select("price, recorded_at")
-        .eq("ticker", ticker)
-        .gte("recorded_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-        .order("recorded_at", { ascending: false }),
-      supabase
-        .from("price_history_long")
-        .select("close, date")
-        .eq("ticker", ticker)
-        .gte("date", new Date(Date.now() - 366 * 24 * 60 * 60 * 1000).toISOString().split("T")[0])
-        .order("date", { ascending: false }),
-      supabase
-        .from("news_articles")
-        .select("*")
-        .contains("related_tickers", [ticker]).gte("quality_version", 2)
-        .order("published_at", { ascending: false })
-        .limit(10),
-    ]);
-
-    const intraday = (historyRes?.data ?? []) as StockPriceHistory[];
-    const daily = ((longHistoryRes?.data ?? []) as DailyHistoryRow[]).map((d) => ({
-      price: d.close,
-      recorded_at: d.date,
-    })) as StockPriceHistory[];
-
-    // Combined history logic: Intraday (most recent) + Daily fallback
-    const oldestIntraday = intraday.length > 0
-      ? new Date(intraday[intraday.length - 1].recorded_at)
-      : new Date();
-
-    const dailyFiltered = daily.filter(d => d.recorded_at && new Date(d.recorded_at) < oldestIntraday);
-
-    const history = [...intraday, ...dailyFiltered].sort(
-      (a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
-    );
-
-    return {
-      stock:     stockRes.data as Stock | null,
-      price:     priceRes.data as StockPrice | null,
-      history,
-      news:      (newsRes.data ?? []) as NewsArticle[],
-    };
-  } catch (err) {
-    console.error("Error in getStockData:", err);
-    return { stock: null, price: null, history: [], news: [] };
-  }
+const getStockData = cache(async (ticker: string) => {
+  const [snapshot, history, news] = await Promise.all([
+    getMarketSnapshot(), getStockHistory(ticker), getTickerNews(ticker),
+  ]);
+  const row = snapshot.find(stock => stock.ticker === ticker);
+  return { stock: row ?? null, price: row?.stock_prices ?? null, history, news };
 });
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { ticker } = await params;
-  const { stock, price } = await getStockData(ticker.toUpperCase());
+  const stock = (await getMarketSnapshot()).find(row => row.ticker === ticker.toUpperCase());
+  const price = stock?.stock_prices;
   if (!stock) return { title: ticker };
   const pctStr = price?.change_pct != null
     ? ` (${price.change_pct >= 0 ? "+" : ""}${price.change_pct.toFixed(2)}%)`
@@ -96,40 +44,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function StockDetailPage({ params }: Props) {
   const { ticker } = await params;
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  const { stock, price, history, news: rawNews } = await getStockData(ticker.toUpperCase());
+  const [{ stock, price, history, news: rawNews }, { user, tier, unlockedIds, remainingUnlocks }] = await Promise.all([
+    getStockData(ticker.toUpperCase()), getNewsAccess(),
+  ]);
   if (!stock) notFound();
-
-  // Summary gating
-  let tier: UserTier = "guest";
-  let unlockedIds = new Set<number>();
-  let remainingUnlocks = 0;
-
-  if (user) {
-    const { data: profile } = await supabase
-      .from("user_profiles")
-      .select("tier")
-      .eq("user_id", user.id)
-      .single();
-    tier = (profile?.tier as UserTier) ?? "free";
-
-    const { data: unlocks } = await supabase
-      .from("summary_unlocks")
-      .select("article_id, unlocked_at")
-      .eq("user_id", user.id);
-    unlockedIds = new Set((unlocks ?? []).map((u: { article_id: number }) => u.article_id));
-
-    if (tier === "free") {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const todayCount = (unlocks ?? []).filter(
-        (u: { unlocked_at: string }) => new Date(u.unlocked_at) >= todayStart,
-      ).length;
-      remainingUnlocks = Math.max(0, FREE_USER_DAILY_UNLOCKS - todayCount);
-    }
-  }
 
   const news = gateSummaries(rawNews, tier, unlockedIds);
 

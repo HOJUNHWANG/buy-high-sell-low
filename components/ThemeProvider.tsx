@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createSupabaseBrowserClient, getBrowserUser } from "@/lib/supabase/client";
 import {
   DEFAULT_THEME,
   THEME_BOOT_SCRIPT,
@@ -96,7 +96,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         }
 
         const supabase = getSupabase();
-        const { data: authData, error: authError } = await supabase.auth.getUser();
+        const { data: authData, error: authError } = await getBrowserUser();
         if (authError || !authData.user) return;
 
         const userId = authData.user.id;
@@ -236,7 +236,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const supabase = getSupabase();
     const initialAuthGeneration = authGenerationRef.current;
     void (async () => {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
+      const { data: authData, error: authError } = await getBrowserUser();
       if (
         !active
         || authError

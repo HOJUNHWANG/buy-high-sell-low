@@ -27,6 +27,19 @@ export async function runPaperAction(userId: string, action: Action, payload: Re
   return { data, response: null };
 }
 
+export async function getPaperLiquidation(userId: string, supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>) {
+      const { data: positions, error: positionError } = await supabase.from("paper_positions").select("ticker").eq("user_id", userId);
+      if (positionError) return NextResponse.json({ error: "Unable to check positions" }, { status: 503 });
+      if (positions?.length) {
+        const { data: quotes, error: quoteError } = await supabase.from("stock_prices").select("ticker,price,fetched_at,provider_session_date").in("ticker", positions.map(p => p.ticker));
+        if (quoteError || positions.some(p => !quotes?.some(q => q.ticker === p.ticker && q.price > 0 && ["live", "settled"].includes(getPriceFreshness(q.fetched_at,q.ticker,new Date(),undefined,q.provider_session_date).state)))) {
+          return NextResponse.json({ status: "price_unavailable", message: "Liquidation check is waiting for fresh quotes." }, { headers: { "Cache-Control": "no-store" } });
+        }
+      }
+  const result = await runPaperAction(userId, "liquidation");
+  return result.response ?? NextResponse.json(result.data, { headers: { "Cache-Control": "no-store" } });
+}
+
 /** Fixed server action; the owner always comes from the verified session. */
 export async function paperActionResponse(action: Action, request?: Request, options: { admin?: boolean; emptyBody?: boolean } = {}) {
   try {
@@ -46,16 +59,7 @@ export async function paperActionResponse(action: Action, request?: Request, opt
     }
     const requestId = request?.headers.get("Idempotency-Key");
     if (requestId && !UUID.test(requestId)) return NextResponse.json({ error: "Invalid idempotency key" }, { status: 400 });
-    if (action === "liquidation") {
-      const { data: positions, error: positionError } = await supabase.from("paper_positions").select("ticker").eq("user_id", user.id);
-      if (positionError) return NextResponse.json({ error: "Unable to check positions" }, { status: 503 });
-      if (positions?.length) {
-        const { data: quotes, error: quoteError } = await supabase.from("stock_prices").select("ticker,price,fetched_at,provider_session_date").in("ticker", positions.map(p => p.ticker));
-        if (quoteError || positions.some(p => !quotes?.some(q => q.ticker === p.ticker && q.price > 0 && ["live", "settled"].includes(getPriceFreshness(q.fetched_at,q.ticker,new Date(),undefined,q.provider_session_date).state)))) {
-          return NextResponse.json({ status: "price_unavailable", message: "Liquidation check is waiting for fresh quotes." }, { headers: { "Cache-Control": "no-store" } });
-        }
-      }
-    }
+    if (action === "liquidation") return getPaperLiquidation(user.id, supabase);
     if (["buy", "short", "sell", "cover"].includes(action)) {
       if (typeof body.ticker !== "string" || !/^[A-Z0-9][A-Z0-9./-]{0,14}$/i.test(body.ticker.trim()) || typeof body.shares !== "number" || !Number.isFinite(body.shares) || body.shares <= 0) {
         return NextResponse.json({ error: "ticker and shares (> 0) are required" }, { status: 400 });

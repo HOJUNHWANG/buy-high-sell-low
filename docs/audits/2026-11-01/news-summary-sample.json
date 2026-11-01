@@ -1,0 +1,53 @@
+{
+  "audited_commit": "402f58d796d94a54bc12d02685c061163ecc81e9",
+  "published_at_gte": "2026-10-31T14:15:00Z",
+  "published_at_lt": "2026-11-01T14:15:00Z",
+  "fetched_at_lt": "2026-11-01T14:15:00Z",
+  "rows": 210,
+  "byMethod": {
+    "headline_only": 106,
+    "verified_ai": 51,
+    "source_excerpt": 53
+  },
+  "shortComplete10": 78,
+  "headlineEmptyBody": 10,
+  "sourceExcerptWithCandidate": 42,
+  "sourceExcerptImpossible": 11,
+  "shortExamples": [
+    {
+      "id": 103706,
+      "chars": 124,
+      "words": 18
+    },
+    {
+      "id": 103695,
+      "chars": 113,
+      "words": 20
+    },
+    {
+      "id": 103703,
+      "chars": 111,
+      "words": 17
+    },
+    {
+      "id": 103641,
+      "chars": 113,
+      "words": 20
+    },
+    {
+      "id": 103651,
+      "chars": 139,
+      "words": 24
+    },
+    {
+      "id": 103664,
+      "chars": 126,
+      "words": 14
+    }
+  ],
+  "notes": [
+    "Short complete sentence candidates are structural screening results, not approved summaries or a guaranteed recovery rate.",
+    "Stored source excerpts remain distinct from AI-verified summaries.",
+    "No article source text, credentials, or genuine user information is included."
+  ]
+}

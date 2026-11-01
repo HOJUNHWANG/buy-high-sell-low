@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createSupabaseBrowserClient, getBrowserUser } from "@/lib/supabase/client";
 import { PaperTradeBanner } from "@/components/PaperTradeBanner";
 
 /* ── Types ── */
@@ -76,7 +76,7 @@ export default function LeaderboardPage() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    getBrowserUser().then(({ data: { user } }) => {
       setCurrentUserId(user?.id ?? null);
     });
   }, [supabase]);

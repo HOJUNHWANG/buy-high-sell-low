@@ -6,11 +6,10 @@ import { UserMenu } from "@/components/UserMenu";
 import { ThemePicker } from "@/components/ThemePicker";
 import { DesignToggle } from "@/components/DesignToggle";
 import { WorkspaceNavigation, WorkspaceLocation } from "@/components/WorkspaceNavigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/supabase/server";
 
 export async function Navbar() {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   const isAdmin = Boolean(process.env.ADMIN_EMAIL && user?.email === process.env.ADMIN_EMAIL);
 
   return (

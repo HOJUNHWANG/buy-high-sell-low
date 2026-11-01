@@ -3,6 +3,15 @@ name: Fetch News & AI Summaries
 on:
   # Cronjob.org owns production timing to avoid GitHub scheduled-run delays.
   workflow_dispatch:
+    inputs:
+      retry_only:
+        description: Recover queued recent articles without inserting new articles
+        type: boolean
+        default: false
+      retry_limit:
+        description: Maximum queued articles to retry (0-120)
+        type: number
+        default: 20
 
 permissions:
   contents: read
@@ -29,8 +38,13 @@ jobs:
       - name: Install Python dependencies
         run: python -m pip install --disable-pip-version-check -r scripts/requirements.txt
       - name: Fetch news and generate summaries
-        run: python scripts/fetch_news.py
+        run: |
+          args=(--retry-limit "$RETRY_LIMIT")
+          if [ "$RETRY_ONLY" = "true" ]; then args+=(--retry-only); fi
+          python scripts/fetch_news.py "${args[@]}"
         env:
+          RETRY_ONLY: ${{ inputs.retry_only || 'false' }}
+          RETRY_LIMIT: ${{ inputs.retry_limit || '20' }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}

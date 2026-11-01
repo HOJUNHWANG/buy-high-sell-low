@@ -1,6 +1,7 @@
 import { NewsSentimentBreakdown } from "@/components/NewsSentimentBreakdown";
 import type { SentimentBreakdown } from "@/lib/news-sentiment";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createPublicMarketClient } from "@/lib/supabase/public";
+import { unstable_cache } from "next/cache";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -28,29 +29,17 @@ const SENTIMENT_STYLE = {
   neutral: { color: "var(--text-2)", bg: "var(--surface-3)", label: "Mixed Day" },
 };
 
-async function getBrief(): Promise<MarketBrief | null> {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("market_briefs")
-    .select("*")
-    .order("date", { ascending: false })
-    .limit(1)
-    .single();
-  return data as MarketBrief | null;
-}
-
-async function getPastBriefs(): Promise<Pick<MarketBrief, "date" | "headline" | "overall_sentiment">[]> {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("market_briefs")
-    .select("date, headline, overall_sentiment")
-    .order("date", { ascending: false })
-    .range(1, 7);
-  return (data ?? []) as Pick<MarketBrief, "date" | "headline" | "overall_sentiment">[];
-}
+const getBriefArchive = unstable_cache(async (): Promise<MarketBrief[]> => {
+  const { data, error } = await createPublicMarketClient().from("market_briefs").select("*")
+    .order("date", { ascending: false }).limit(8);
+  if (error) throw new Error("Market brief unavailable");
+  return (data ?? []) as MarketBrief[];
+}, ["market-brief-archive-v1"], { revalidate: 300, tags: ["public-news"] });
 
 export default async function MarketBriefPage() {
-  const [brief, past] = await Promise.all([getBrief(), getPastBriefs()]);
+  const archive = await getBriefArchive();
+  const brief = archive[0] ?? null;
+  const past = archive.slice(1);
 
   if (!brief) {
     return (

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { loginHref } from "@/lib/auth-redirect";
 import { LogoImage } from "@/components/LogoImage";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createSupabaseBrowserClient, getBrowserUser } from "@/lib/supabase/client";
 import { PaperTradeBanner } from "@/components/PaperTradeBanner";
 import { PriceFreshnessBadge } from "@/components/PriceFreshnessBadge";
 import { getPriceFreshness } from "@/lib/price-freshness";
@@ -76,7 +76,7 @@ export default function TradePage({ params }: { params: Promise<{ ticker: string
   const [error, setError] = useState("");
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    getBrowserUser().then(({ data: { user } }) => {
       if (!user) router.push(loginHref(`/paper/trade/${ticker}`));
       else setAuthed(true);
     }).catch(() => setError("Unable to verify sign-in. Please refresh."));

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { loginHref } from "@/lib/auth-redirect";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createSupabaseBrowserClient, getBrowserUser } from "@/lib/supabase/client";
 import { PaperTradeBanner } from "@/components/PaperTradeBanner";
 import type { PaperTransaction } from "@/lib/types";
 import { formatAssetPrice } from "@/lib/price-format";
@@ -20,7 +20,7 @@ export default function PaperHistoryPage() {
   const LIMIT = 50;
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    getBrowserUser().then(({ data: { user } }) => {
       if (!user) router.push(loginHref("/paper/history"));
       else setAuthed(true);
     });

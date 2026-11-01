@@ -1,6 +1,10 @@
 import { describe,it,expect } from "vitest";
 import { diversifyNews,isRecentNews } from "@/lib/news-quality";
 describe("news evidence selection",()=>{
+  it("counts Yahoo syndication groups by the actual publisher domain",()=>{
+    const rows=Array.from({length:12},(_,i)=>({title:`Story ${i}`,url:`https://www.fool.com/story-${i}`,source:`Yahoo Finance group ${i}`,published_at:"2026-10-31T11:00:00Z"}));
+    expect(diversifyNews(rows,12,new Date("2026-10-31T12:00:00Z"))).toHaveLength(3);
+  });
   const now=new Date("2026-10-31T12:00:00Z");
   it("does not use old or future headlines as current drivers",()=>{
     expect(isRecentNews("2026-09-02",now)).toBe(false);

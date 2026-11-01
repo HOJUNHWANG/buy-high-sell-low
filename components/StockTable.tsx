@@ -2,7 +2,7 @@
 
 import { useCallback, useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { IntentLink as Link } from "@/components/IntentLink";
 import { LogoImage } from "./LogoImage";
 import type { Stock, StockPrice } from "@/lib/types";
 import { fmtVol } from "@/lib/utils";

@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
-export async function createSupabaseServerClient() {
+export const createSupabaseServerClient = cache(async function createSupabaseServerClient() {
   const cookieStore = await cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,4 +24,11 @@ export async function createSupabaseServerClient() {
       },
     }
   );
-}
+});
+
+/** Request-scoped only. User/session results never enter a shared data cache. */
+export const getCurrentUser = cache(async function getCurrentUser() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+});
