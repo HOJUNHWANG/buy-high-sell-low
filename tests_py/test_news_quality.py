@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
-from news_quality import baseline_analysis,entity_evidence,grounded_summary,canonical_url,event_key,allowed_source_url,extract_article_text,yahoo_feed_url,summary_candidates,selected_summary,clean_source_text,source_lead
+from news_quality import baseline_analysis,entity_evidence,grounded_summary,canonical_url,event_key,allowed_source_url,extract_article_text,yahoo_feed_url,summary_candidates,selected_summary,clean_source_text,source_lead,is_market_news
 from urllib.parse import urlsplit,parse_qs
 from tickers import SP100_TICKERS,TRACKED_EQUITY_TICKERS,to_yf
 
@@ -83,6 +83,17 @@ class NewsQualityTests(unittest.TestCase):
         fact='BlackRock said private capital assets rose by $20 billion during the quarter.'
         candidates=summary_candidates(vague+'\n'+fact,'BlackRock private capital growth')
         self.assertEqual([row['text'] for row in candidates],[fact])
+
+    def test_market_selection_excludes_query_noise_but_keeps_macro_and_sports_business(self):
+        for title in ['AFC North 2027 NFL mock draft: New QBs enter the fold',
+                      '$149: CRAFTSMAN mechanics tool set at Lowe\'s',
+                      'My husband\'s kids abandoned him when he was dying']:
+            category=baseline_analysis(title)[0]['news_category']
+            self.assertFalse(is_market_news(title,'https://example.com/a',category))
+        for title in ['US futures rise as bond yields fall','Oil prices rise on supply concerns',
+                      'NFL revenue rises after new broadcast deal','Disney earnings rise on sports revenue']:
+            category=baseline_analysis(title)[0]['news_category']
+            self.assertTrue(is_market_news(title,'https://example.com/a',category))
 
     def test_sentence_ids_preserve_actor_amount_negation_and_abbreviations(self):
         text='U.S. regulators did not approve Intel\'s plan to acquire the chip supplier.\nIntel said its revenue rose by $2.4 billion during the quarter.'

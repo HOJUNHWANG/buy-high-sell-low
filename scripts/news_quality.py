@@ -36,6 +36,19 @@ AMBIGUOUS = {"T", "V", "C", "F", "SO", "NOW", "ALL", "LOW", "NEAR", "DIA", "CAT"
 MATERIAL_ACTION = re.compile(r"\b(earnings|revenue|profit|shares?|stocks?|dividend|IPO|buyback|guidance|raised|cut|fell|rose|freez\w*|froze|frozen|seized|stolen|stole|theft|exploit\w*|hack\w*|breach|transferred|issued|redemption|depeg|supply|delist\w*|listed|liquidations?)\b", re.I)
 CRIME = re.compile(r"\b(kidnapp?\w*|ransom|robbery|tortur\w*|murder\w*)\b", re.I)
 FINANCIAL = re.compile(r"\b(earnings|revenue|shares?|stock|profit|guidance|acqui\w*|merger|dividend|buyback|IPO|ETF|fund|regulat\w*|SEC|lawsuit|hack\w*|exploit\w*|breach|freez\w*|froze|frozen|stablecoins?|supply|token|blockchain|mainnet|protocol|treasur\w*|rate|inflation|GDP|jobs|tariff\w*|launch\w*|contracts?|partnership|production|deliveries|recall|chips?|cloud|satellites?|FCC|FDA|approval|antitrust|CEO|CFO)\b", re.I)
+MARKET_CONTEXT = re.compile(r'\b(Fed|inflation|CPI|GDP|jobs|tariffs?|Treasury|interest rates?|futures|recession|economy|unemployment|jobless|bond yields?|retail sales|consumer confidence|oil prices?|crude oil|gold prices?|Wall Street|stock markets?)\b',re.I)
+
+
+def is_market_news(title: str, url: str, category: str) -> bool:
+    host=(urlsplit(url).hostname or '').removeprefix('www.')
+    if host in {'pypi.org','slickdeals.net','dealnews.com','arrowheadpride.com'}:return False
+    # Retail coupon offers and sports/personal-advice stories can mention
+    # issuers incidentally. Preserve actual earnings, ownership and rights news.
+    if re.match(r'^\s*\$[\d,.]+\s*:',title):return False
+    commercial=bool(re.search(r'\b(earnings|revenue|profit|shares?|stock|IPO|acquisition|merger|stake|broadcast rights|broadcast deal)\b',title,re.I))
+    genre=re.search(r'\b(NFL|NBA|NHL|MLB|NCAA|mock draft|quarterback|my husband|my wife|my kids|dating advice)\b',title,re.I)
+    if genre and not commercial:return False
+    return category!='general' or bool(MARKET_CONTEXT.search(title))
 
 
 class TextExtractor(HTMLParser):
@@ -173,7 +186,7 @@ def baseline_analysis(title: str, content: str = "", published: str | None = Non
     title=plain_text(title); text=clean_source_text(content)
     evidence=entity_evidence(title,text)
     relevant=[e for e in evidence if e["relationship"] in {"direct","material"}]
-    category="company" if relevant else "macro" if re.search(r"\b(Fed|inflation|CPI|GDP|jobs|tariffs?|Treasury|interest rates?)\b",title,re.I) else "sector" if FINANCIAL.search(title) else "general"
+    category="company" if relevant else "macro" if MARKET_CONTEXT.search(title) else "sector" if FINANCIAL.search(title) else "general"
     candidates=summary_candidates(text,title)
     useful=bool(candidates) or (len(text)>150 and len(text.split())>=24 and not SOURCE_NOISE.search(text) and informative_sentence(text,title)
         and re.sub(r'\W+','',text).lower()!=re.sub(r'\W+','',title).lower())

@@ -17,7 +17,7 @@ from db_requests import execute_db
 from market_storage import existing_news_urls
 from groq_config import get_completion_settings, get_json_response_format
 from tickers import SP100_TICKERS, TRACKED_EQUITY_TICKERS, COMPANY_NAMES
-from news_quality import baseline_analysis, plain_text, canonical_url, source_lead, grounded_summary, yahoo_feed_url, clean_source_text, summary_candidates, selected_summary
+from news_quality import baseline_analysis, plain_text, canonical_url, source_lead, grounded_summary, yahoo_feed_url, clean_source_text, summary_candidates, selected_summary, is_market_news
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env.local")); load_dotenv()
 supabase=create_client(os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABASE_URL"],os.environ["SUPABASE_SERVICE_ROLE_KEY"])
@@ -77,7 +77,7 @@ def fetch_from_newsapi():
     # One rotating query per half-hour, using the existing account/quota.
     group=TARGET_GROUPS[(int(time.time())//1800)%len(TARGET_GROUPS)]
     query=" OR ".join('"'+name+'"' for name in group)
-    response=http_session.get("https://newsapi.org/v2/everything",params={"q":query,"language":"en","sortBy":"publishedAt","pageSize":30,"apiKey":key},timeout=(5,20))
+    response=http_session.get("https://newsapi.org/v2/everything",params={"q":query,"searchIn":"title,description","language":"en","sortBy":"publishedAt","pageSize":30,"apiKey":key},timeout=(5,20))
     response.raise_for_status(); return response.json().get("articles",[])
 
 
@@ -111,6 +111,10 @@ def analyze_article(title,content="",url="",published=None,*,fetch_body=True,all
     public,evidence=baseline_analysis(title,content,published)
     candidates=summary_candidates(content,title)
     evidence.update(diagnostics,retry_attempt=retry_attempt,retryable=False)
+    if not is_market_news(title,url,public['news_category']):
+        public.update(relevance_score=0,news_category='general',related_tickers=[])
+        evidence['analysis_status']='not_market_news'
+        return public,evidence
     status=diagnostics.get('source_status')
     if status=='rate_limited':evidence['retry_after_seconds']=retry_after_seconds(diagnostics.get('retry_after'))
     source_retry=status in {'network_error','rate_limited','no_article_text','metadata_only','http_error'} and diagnostics.get('http_status') not in {404,410}
@@ -176,8 +180,7 @@ def main(argv=()):
         if time.monotonic()-started>14*60: break
         base,_=baseline_analysis(article['title'],best_content(article),article['publishedAt'])
         # Exclude clear non-market query noise, preserving macro and sector news.
-        host=urlsplit(article['url']).hostname or ''
-        if host in {'pypi.org','slickdeals.net','www.dealnews.com','www.arrowheadpride.com'}:continue
+        if not is_market_news(article['title'],article['url'],base['news_category']):continue
         event=base["event_key"];event_counts[event]=event_counts.get(event,0)+1
         if event_counts[event]>3: continue
         try:

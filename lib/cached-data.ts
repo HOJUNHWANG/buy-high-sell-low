@@ -23,6 +23,7 @@ export const getAllStockPrices = cache(async (): Promise<StockPriceWithStock[]> 
 
 export const getLatestPublicNews = cache(unstable_cache(async (): Promise<NewsArticle[]> => {
   const { data, error } = await createPublicMarketClient().from("news_articles").select("*")
+    .gte("relevance_score", 35)
     .order("published_at", { ascending: false }).order("id", { ascending: false }).limit(240);
   if (error) throw new Error("News unavailable");
   return (data ?? []) as NewsArticle[];
@@ -33,7 +34,7 @@ export const getRecentNewsSignals = cache(unstable_cache(async (): Promise<Recen
   const since = new Date(Date.now() - 24 * 3_600_000).toISOString();
   const { data, error } = await createPublicMarketClient().from("news_articles")
     .select("id,related_tickers,ai_sentiment,event_key,summary_method,published_at")
-    .gte("published_at", since).gte("quality_version", 2)
+    .gte("published_at", since).gte("quality_version", 2).gte("relevance_score", 35)
     .order("published_at", { ascending: false }).order("id", { ascending: false }).limit(1000);
   if (error) throw new Error("News signals unavailable");
   return (data ?? []) as RecentNewsSignal[];
