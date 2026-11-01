@@ -115,6 +115,16 @@ def event_key(title: str, evidence: list[dict], published: str | None = None) ->
 
 
 SOURCE_NOISE = re.compile(r'\b(subscribe|newsletter|sign up|click here|read more|buy now|free shipping|appeared first on|affiliate links?|sponsored content)\b', re.I)
+SUMMARY_VAGUE = re.compile(r'\b(same core question|the key question|what investors think|very different things|read on to|only time will tell)\b', re.I)
+SUMMARY_STOPWORDS = set('the a an this that these those what why how when where who which your their its with from into about after before stock stocks share shares investors investor investing report update latest could would should will have has are was were does did can for and but not'.split())
+
+
+def informative_sentence(sentence: str, title: str) -> bool:
+    if SUMMARY_VAGUE.search(sentence):return False
+    anchors=set(re.findall(r'[a-z]{3,}',title.lower()))-SUMMARY_STOPWORDS
+    overlap=anchors.intersection(re.findall(r'[a-z]{3,}',sentence.lower()))
+    facts=bool(FINANCIAL.search(sentence) or re.search(r'\d|\b(sales|debt|cash|demand|spending|costs?|layoffs?|funding)\b',sentence,re.I))
+    return not title or bool(overlap) or facts
 
 
 def clean_source_text(content: str) -> str:
@@ -146,6 +156,7 @@ def summary_candidates(content: str, title: str = "") -> list[dict]:
         if (not 8<=len(words)<=25 or not 30<=len(sentence)<=500
             or not re.search(r'''[.!?][”"’']?$''',sentence) or sentence.endswith(('…','...'))
             or SOURCE_NOISE.search(sentence) or key==title_key or key in seen
+            or not informative_sentence(sentence,title)
             or re.match(r'^(in other words|find out|learn more)\b',sentence,re.I)): continue
         seen.add(key); result.append({'id':len(result)+1,'text':sentence})
         if len(result)>=60:return result
@@ -164,7 +175,7 @@ def baseline_analysis(title: str, content: str = "", published: str | None = Non
     relevant=[e for e in evidence if e["relationship"] in {"direct","material"}]
     category="company" if relevant else "macro" if re.search(r"\b(Fed|inflation|CPI|GDP|jobs|tariffs?|Treasury|interest rates?)\b",title,re.I) else "sector" if FINANCIAL.search(title) else "general"
     candidates=summary_candidates(text,title)
-    useful=bool(candidates) or (len(text)>150 and len(text.split())>=24 and not SOURCE_NOISE.search(text)
+    useful=bool(candidates) or (len(text)>150 and len(text.split())>=24 and not SOURCE_NOISE.search(text) and informative_sentence(text,title)
         and re.sub(r'\W+','',text).lower()!=re.sub(r'\W+','',title).lower())
     coverage=("full_text" if len(text)>1800 else "lead") if useful else "headline"
     # A short source excerpt is deliberately distinguished from AI analysis.
