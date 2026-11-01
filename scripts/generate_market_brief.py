@@ -21,6 +21,7 @@ load_dotenv()
 sys.path.insert(0, os.path.dirname(__file__))
 from groq_config import get_completion_settings, get_json_response_format
 from tickers import CRYPTO_TICKERS
+from news_sentiment import compute_sentiment_breakdown
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
@@ -97,7 +98,7 @@ def fetch_movers(limit: int = 8) -> tuple[list[dict], list[dict]]:
 def fetch_recent_news(hours: int = 24) -> list[dict]:
     since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
     result = supabase.table("news_articles") \
-        .select("title, published_at, source, ai_sentiment, related_tickers, event_key, relevance_score") \
+        .select("title, published_at, source, ai_sentiment, summary_method, related_tickers, event_key, relevance_score") \
         .gte("published_at", since) \
         .gte("quality_version", 2) \
         .not_.is_("title", "null") \
@@ -122,15 +123,6 @@ def fetch_crypto_prices() -> list[dict]:
     # Return in defined order
     price_map = {r["ticker"]: r for r in (result.data or [])}
     return [price_map[t] for t in CRYPTO_TICKERS if t in price_map]
-
-
-def compute_sentiment_breakdown(news: list[dict]) -> dict:
-    counts = {"positive": 0, "neutral": 0, "negative": 0, "unknown": 0}
-    for n in news:
-        s = n.get("ai_sentiment") or "unknown"
-        counts[s if s in counts else "unknown"] += 1
-    total = max(sum(counts.values()), 1)
-    return {k: round(v / total * 100) for k, v in counts.items()}
 
 
 def generate_brief(gainers: list[dict], losers: list[dict],

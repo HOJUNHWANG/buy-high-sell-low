@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { sentimentPercentages } from "@/lib/news-sentiment";
 
 export async function SentimentWidget() {
   let data: { ai_sentiment: string | null; event_key: string | null; id: number }[] | null = null;
@@ -31,15 +32,13 @@ export async function SentimentWidget() {
   const total = pos + neu + neg;
   if (total === 0) return null;
 
-  const posPct  = Math.round((pos / total) * 100);
-  const negPct  = Math.round((neg / total) * 100);
-  const neuPct  = 100 - posPct - negPct;
+  const { positive: posPct, neutral: neuPct, negative: negPct } = sentimentPercentages({ positive: pos, neutral: neu, negative: neg });
 
   const mood =
-    posPct > 55 ? "Bullish" :
-    negPct > 55 ? "Bearish" :
-    posPct > negPct ? "Slightly Bullish" :
-    negPct > posPct ? "Slightly Bearish" :
+    pos / total > 0.55 ? "Bullish" :
+    neg / total > 0.55 ? "Bearish" :
+    pos > neg ? "Slightly Bullish" :
+    neg > pos ? "Slightly Bearish" :
     "Neutral";
 
   const moodColor =

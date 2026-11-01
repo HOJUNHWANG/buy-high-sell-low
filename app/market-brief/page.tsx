@@ -1,3 +1,5 @@
+import { NewsSentimentBreakdown } from "@/components/NewsSentimentBreakdown";
+import type { SentimentBreakdown } from "@/lib/news-sentiment";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -15,7 +17,7 @@ interface MarketBrief {
   bullets: string[];
   crypto_notes: string;
   sector_notes: string;
-  sentiment_breakdown: { positive: number; neutral: number; negative: number; unknown: number };
+  sentiment_breakdown: SentimentBreakdown;
   news_count: number;
   generated_at: string;
 }
@@ -45,30 +47,6 @@ async function getPastBriefs(): Promise<Pick<MarketBrief, "date" | "headline" | 
     .order("date", { ascending: false })
     .range(1, 7);
   return (data ?? []) as Pick<MarketBrief, "date" | "headline" | "overall_sentiment">[];
-}
-
-function SentimentBar({ breakdown }: { breakdown: MarketBrief["sentiment_breakdown"] }) {
-  const segments = [
-    { key: "positive", label: "Positive", color: "var(--up)",   pct: breakdown.positive },
-    { key: "neutral",  label: "Neutral",  color: "var(--text-3)", pct: breakdown.neutral  },
-    { key: "negative", label: "Negative", color: "var(--down)", pct: breakdown.negative },
-  ];
-  return (
-    <div className="space-y-2">
-      <div className="flex h-2.5 rounded-full overflow-hidden gap-px">
-        {segments.map(s => s.pct > 0 && (
-          <div key={s.key} style={{ width: `${s.pct}%`, background: s.color }} />
-        ))}
-      </div>
-      <div className="flex justify-between text-[10px]" style={{ color: "var(--text-3)" }}>
-        {segments.map(s => (
-          <span key={s.key} style={{ color: s.color }}>
-            {s.label} {s.pct}%
-          </span>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 export default async function MarketBriefPage() {
@@ -185,10 +163,7 @@ export default async function MarketBriefPage() {
               <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>
                 News Sentiment
               </p>
-              <SentimentBar breakdown={brief.sentiment_breakdown} />
-              <p className="text-[10px]" style={{ color: "var(--text-3)" }}>
-                Based on {brief.news_count} articles today
-              </p>
+              <NewsSentimentBreakdown breakdown={brief.sentiment_breakdown} newsCount={brief.news_count} />
             </div>
           )}
 
