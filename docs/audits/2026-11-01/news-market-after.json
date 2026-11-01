@@ -1,0 +1,2585 @@
+{
+  "runtime_commit": "80ffa428c3eb85986b248756f8c5fbd9a80dd299",
+  "production_authenticated": {
+    "results": [
+      {
+        "run": 0,
+        "route": "/",
+        "status": 200,
+        "readyMs": 2633,
+        "responseEndMs": 2577,
+        "domContentLoadedMs": 2579,
+        "requests": [
+          {
+            "path": "/auth/v1/user",
+            "startMs": 834,
+            "durationMs": 446
+          },
+          {
+            "path": "/rest/v1/user_preferences",
+            "startMs": 1282,
+            "durationMs": 519
+          },
+          {
+            "path": "/auth/v1/user",
+            "startMs": 1282,
+            "durationMs": 288
+          }
+        ]
+      },
+      {
+        "run": 0,
+        "route": "/news",
+        "status": 200,
+        "readyMs": 873,
+        "responseEndMs": 855,
+        "domContentLoadedMs": 870,
+        "requests": [
+          {
+            "path": "/auth/v1/user",
+            "startMs": 541,
+            "durationMs": 225
+          },
+          {
+            "path": "/rest/v1/user_preferences",
+            "startMs": 768,
+            "durationMs": 455
+          },
+          {
+            "path": "/auth/v1/user",
+            "startMs": 768,
+            "durationMs": 128
+          }
+        ]
+      },
+      {
+        "run": 0,
+        "route": "/stock/AAPL",
+        "status": 200,
+        "readyMs": 591,
+        "responseEndMs": 579,
+        "domContentLoadedMs": 581,
+        "requests": [
+          {
+            "path": "/auth/v1/user",
+            "startMs": 562,
+            "durationMs": 118
+          },
+          {
+            "path": "/rest/v1/user_preferences",
+            "startMs": 681,
+            "durationMs": 129
+          },
+          {
+            "path": "/auth/v1/user",
+            "startMs": 681,
+            "durationMs": 112
+          },
+          {
+            "path": "/rest/v1/watchlist",
+            "startMs": 815,
+            "durationMs": 210
+          }
+        ]
+      },
+      {
+        "run": 0,
+        "route": "/paper",
+        "status": 200,
+        "readyMs": 2824,
+        "responseEndMs": 419,
+        "domContentLoadedMs": 422,
+        "requests": [
+          {
+            "path": "/auth/v1/user",
+            "startMs": 484,
+            "durationMs": 122
+          },
+          {
+            "path": "/auth/v1/user",
+            "startMs": 607,
+            "durationMs": 100
+          },
+          {
+            "path": "/api/paper/admin/status",
+            "startMs": 707,
+            "durationMs": 1363
+          },
+          {
+            "path": "/api/paper/dashboard",
+            "startMs": 708,
+            "durationMs": 1824
+          },
+          {
+            "path": "/rest/v1/user_preferences",
+            "startMs": 709,
+            "durationMs": 225
+          },
+          {
+            "path": "/auth/v1/user",
+            "startMs": 709,
+            "durationMs": 186
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "route": "/",
+        "status": 200,
+        "readyMs": 712,
+        "responseEndMs": 489,
+        "domContentLoadedMs": 491,
+        "requests": [
+          {
+            "path": "/auth/v1/user",
+            "startMs": 371,
+            "durationMs": 86
+          },
+          {
+            "path": "/rest/v1/user_preferences",
+            "startMs": 458,
+            "durationMs": 139
+          },
+          {
+            "path": "/auth/v1/user",
+            "startMs": 458,
+            "durationMs": 139
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "route": "/news",
+        "status": 200,
+        "readyMs": 458,
+        "responseEndMs": 453,
+        "domContentLoadedMs": 454,
+        "requests": [
+          {
+            "path": "/auth/v1/user",
+            "startMs": 390,
+            "durationMs": 107
+          },
+          {
+            "path": "/rest/v1/user_preferences",
+            "startMs": 498,
+            "durationMs": 138
+          },
+          {
+            "path": "/auth/v1/user",
+            "startMs": 498,
+            "durationMs": 138
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "route": "/stock/AAPL",
+        "status": 200,
+        "readyMs": 486,
+        "responseEndMs": 480,
+        "domContentLoadedMs": 482,
+        "requests": [
+          {
+            "path": "/auth/v1/user",
+            "startMs": 439,
+            "durationMs": 111
+          },
+          {
+            "path": "/rest/v1/user_preferences",
+            "startMs": 552,
+            "durationMs": 114
+          },
+          {
+            "path": "/auth/v1/user",
+            "startMs": 552,
+            "durationMs": 94
+          },
+          {
+            "path": "/auth/v1/user",
+            "startMs": 718,
+            "durationMs": 98
+          },
+          {
+            "path": "/rest/v1/watchlist",
+            "startMs": 818,
+            "durationMs": 118
+          }
+        ]
+      },
+      {
+        "run": 1,
+        "route": "/paper",
+        "status": 200,
+        "readyMs": 1623,
+        "responseEndMs": 202,
+        "domContentLoadedMs": 242,
+        "requests": [
+          {
+            "path": "/auth/v1/user",
+            "startMs": 291,
+            "durationMs": 141
+          },
+          {
+            "path": "/rest/v1/user_preferences",
+            "startMs": 449,
+            "durationMs": 112
+          },
+          {
+            "path": "/auth/v1/user",
+            "startMs": 450,
+            "durationMs": 125
+          },
+          {
+            "path": "/api/paper/admin/status",
+            "startMs": 576,
+            "durationMs": 392
+          },
+          {
+            "path": "/api/paper/dashboard",
+            "startMs": 577,
+            "durationMs": 811
+          }
+        ]
+      }
+    ],
+    "errors": [],
+    "cleanupSucceeded": true,
+    "failure": null
+  },
+  "production_guest": [
+    {
+      "run": 0,
+      "route": "/",
+      "status": 200,
+      "cache": "MISS",
+      "readyMs": 715,
+      "ttfbMs": 91,
+      "responseEndMs": 597,
+      "domContentLoadedMs": 693,
+      "documentBytes": 177440,
+      "transferBytes": 21511,
+      "lcpMs": 772,
+      "jsBytes": 765871,
+      "resources": [
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 118,
+          "bytes": 226
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 122,
+          "bytes": 234
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 122,
+          "bytes": 234
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 143,
+          "bytes": 237
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 102,
+          "bytes": 227
+        },
+        {
+          "path": "/stock/VOO",
+          "kind": "fetch",
+          "durationMs": 92,
+          "bytes": 312
+        },
+        {
+          "path": "/stock/QQQ",
+          "kind": "fetch",
+          "durationMs": 96,
+          "bytes": 312
+        },
+        {
+          "path": "/stock/BTC-USD",
+          "kind": "fetch",
+          "durationMs": 117,
+          "bytes": 316
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 137,
+          "bytes": 276
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 133,
+          "bytes": 229
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 147,
+          "bytes": 2395
+        },
+        {
+          "path": "/stock/VOO",
+          "kind": "fetch",
+          "durationMs": 133,
+          "bytes": 5402
+        },
+        {
+          "path": "/stock/QQQ",
+          "kind": "fetch",
+          "durationMs": 164,
+          "bytes": 5058
+        },
+        {
+          "path": "/stock/BTC-USD",
+          "kind": "fetch",
+          "durationMs": 175,
+          "bytes": 5031
+        },
+        {
+          "path": "/stock/ETH-USD",
+          "kind": "fetch",
+          "durationMs": 160,
+          "bytes": 5034
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 122,
+          "bytes": 13177
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 118,
+          "bytes": 2401
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 118,
+          "bytes": 2181
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 107,
+          "bytes": 2437
+        },
+        {
+          "path": "/stock/TRX-USD",
+          "kind": "fetch",
+          "durationMs": 110,
+          "bytes": 5004
+        },
+        {
+          "path": "/stock/AVAX-USD",
+          "kind": "fetch",
+          "durationMs": 104,
+          "bytes": 5034
+        },
+        {
+          "path": "/stock/AAVE-USD",
+          "kind": "fetch",
+          "durationMs": 110,
+          "bytes": 5010
+        },
+        {
+          "path": "/stock/BNB-USD",
+          "kind": "fetch",
+          "durationMs": 120,
+          "bytes": 4998
+        },
+        {
+          "path": "/stock/NEAR-USD",
+          "kind": "fetch",
+          "durationMs": 102,
+          "bytes": 5058
+        },
+        {
+          "path": "/stock/ZEC-USD",
+          "kind": "fetch",
+          "durationMs": 111,
+          "bytes": 5016
+        },
+        {
+          "path": "/stock/TMUS",
+          "kind": "fetch",
+          "durationMs": 119,
+          "bytes": 5010
+        },
+        {
+          "path": "/stock/ACN",
+          "kind": "fetch",
+          "durationMs": 144,
+          "bytes": 5010
+        }
+      ],
+      "errors": []
+    },
+    {
+      "run": 0,
+      "route": "/news",
+      "status": 200,
+      "cache": "MISS",
+      "readyMs": 559,
+      "ttfbMs": 99,
+      "responseEndMs": 477,
+      "domContentLoadedMs": 538,
+      "documentBytes": 249212,
+      "transferBytes": 25030,
+      "lcpMs": 592,
+      "jsBytes": 767730,
+      "resources": [
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 149,
+          "bytes": 186
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 149,
+          "bytes": 234
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 149,
+          "bytes": 234
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 149,
+          "bytes": 237
+        },
+        {
+          "path": "/stock/GOOG",
+          "kind": "fetch",
+          "durationMs": 110,
+          "bytes": 313
+        },
+        {
+          "path": "/stock/PLTR",
+          "kind": "fetch",
+          "durationMs": 110,
+          "bytes": 313
+        },
+        {
+          "path": "/stock/AAPL",
+          "kind": "fetch",
+          "durationMs": 110,
+          "bytes": 313
+        },
+        {
+          "path": "/stock/META",
+          "kind": "fetch",
+          "durationMs": 138,
+          "bytes": 313
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 120,
+          "bytes": 280
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 125,
+          "bytes": 267
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 131,
+          "bytes": 229
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 113,
+          "bytes": 227
+        },
+        {
+          "path": "/stock/GOOG",
+          "kind": "fetch",
+          "durationMs": 119,
+          "bytes": 5348
+        },
+        {
+          "path": "/stock/PLTR",
+          "kind": "fetch",
+          "durationMs": 145,
+          "bytes": 5118
+        },
+        {
+          "path": "/stock/AAPL",
+          "kind": "fetch",
+          "durationMs": 125,
+          "bytes": 4992
+        },
+        {
+          "path": "/stock/META",
+          "kind": "fetch",
+          "durationMs": 130,
+          "bytes": 5046
+        },
+        {
+          "path": "/stock/MSFT",
+          "kind": "fetch",
+          "durationMs": 100,
+          "bytes": 5016
+        },
+        {
+          "path": "/stock/SPCX",
+          "kind": "fetch",
+          "durationMs": 119,
+          "bytes": 4998
+        },
+        {
+          "path": "/stock/NVDA",
+          "kind": "fetch",
+          "durationMs": 149,
+          "bytes": 4998
+        },
+        {
+          "path": "/stock/INTC",
+          "kind": "fetch",
+          "durationMs": 153,
+          "bytes": 4992
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 110,
+          "bytes": 2441
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 105,
+          "bytes": 2428
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 124,
+          "bytes": 2364
+        },
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 114,
+          "bytes": 2345
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 123,
+          "bytes": 13177
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 122,
+          "bytes": 2291
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 126,
+          "bytes": 2195
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 107,
+          "bytes": 2395
+        }
+      ],
+      "errors": []
+    },
+    {
+      "run": 0,
+      "route": "/stocks",
+      "status": 200,
+      "cache": "MISS",
+      "readyMs": 565,
+      "ttfbMs": 83,
+      "responseEndMs": 420,
+      "domContentLoadedMs": 432,
+      "documentBytes": 223523,
+      "transferBytes": 26971,
+      "lcpMs": 564,
+      "jsBytes": 787800,
+      "resources": [
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 121,
+          "bytes": 226
+        },
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 133,
+          "bytes": 186
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 119,
+          "bytes": 234
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 137,
+          "bytes": 237
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 120,
+          "bytes": 282
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 119,
+          "bytes": 229
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 105,
+          "bytes": 227
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 100,
+          "bytes": 2401
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 94,
+          "bytes": 2195
+        },
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 145,
+          "bytes": 2345
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 134,
+          "bytes": 2364
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 104,
+          "bytes": 2443
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 126,
+          "bytes": 2181
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 85,
+          "bytes": 2291
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 152,
+          "bytes": 2395
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 134,
+          "bytes": 267
+        }
+      ],
+      "errors": []
+    },
+    {
+      "run": 0,
+      "route": "/stock/AAPL",
+      "status": 200,
+      "cache": "MISS",
+      "readyMs": 561,
+      "ttfbMs": 57,
+      "responseEndMs": 434,
+      "domContentLoadedMs": 527,
+      "documentBytes": 164372,
+      "transferBytes": 27160,
+      "lcpMs": 548,
+      "jsBytes": 967468,
+      "resources": [
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 102,
+          "bytes": 186
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 101,
+          "bytes": 234
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 102,
+          "bytes": 226
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 133,
+          "bytes": 234
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 140,
+          "bytes": 288
+        },
+        {
+          "path": "/paper/trade/AAPL",
+          "kind": "fetch",
+          "durationMs": 127,
+          "bytes": 342
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 125,
+          "bytes": 229
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 110,
+          "bytes": 237
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 149,
+          "bytes": 227
+        },
+        {
+          "path": "/paper/trade/AAPL",
+          "kind": "fetch",
+          "durationMs": 146,
+          "bytes": 2514
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 138,
+          "bytes": 2449
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 137,
+          "bytes": 13177
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 141,
+          "bytes": 2364
+        },
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 142,
+          "bytes": 2345
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 171,
+          "bytes": 2181
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 148,
+          "bytes": 2291
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 118,
+          "bytes": 2195
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 98,
+          "bytes": 2395
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 90,
+          "bytes": 267
+        }
+      ],
+      "errors": []
+    },
+    {
+      "run": 0,
+      "route": "/market-brief",
+      "status": 200,
+      "cache": "MISS",
+      "readyMs": 1481,
+      "ttfbMs": 44,
+      "responseEndMs": 1451,
+      "domContentLoadedMs": 1453,
+      "documentBytes": 68079,
+      "transferBytes": 11569,
+      "lcpMs": 736,
+      "jsBytes": 758548,
+      "resources": [
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 126,
+          "bytes": 186
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 104,
+          "bytes": 237
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 115,
+          "bytes": 226
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 123,
+          "bytes": 234
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 98,
+          "bytes": 288
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 94,
+          "bytes": 229
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 80,
+          "bytes": 227
+        },
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 91,
+          "bytes": 2345
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 111,
+          "bytes": 2449
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 122,
+          "bytes": 13177
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 84,
+          "bytes": 2364
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 97,
+          "bytes": 2181
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 77,
+          "bytes": 2195
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 130,
+          "bytes": 2395
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 106,
+          "bytes": 267
+        }
+      ],
+      "errors": []
+    },
+    {
+      "run": 1,
+      "route": "/",
+      "status": 200,
+      "cache": "MISS",
+      "readyMs": 846,
+      "ttfbMs": 82,
+      "responseEndMs": 461,
+      "domContentLoadedMs": 464,
+      "documentBytes": 177440,
+      "transferBytes": 21505,
+      "lcpMs": 800,
+      "jsBytes": 765871,
+      "resources": [
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 186,
+          "bytes": 234
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 181,
+          "bytes": 237
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 221,
+          "bytes": 226
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 232,
+          "bytes": 234
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 166,
+          "bytes": 227
+        },
+        {
+          "path": "/stock/VOO",
+          "kind": "fetch",
+          "durationMs": 146,
+          "bytes": 312
+        },
+        {
+          "path": "/stock/QQQ",
+          "kind": "fetch",
+          "durationMs": 128,
+          "bytes": 312
+        },
+        {
+          "path": "/stock/BTC-USD",
+          "kind": "fetch",
+          "durationMs": 115,
+          "bytes": 316
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 164,
+          "bytes": 276
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 150,
+          "bytes": 229
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 145,
+          "bytes": 2395
+        },
+        {
+          "path": "/stock/VOO",
+          "kind": "fetch",
+          "durationMs": 176,
+          "bytes": 5402
+        },
+        {
+          "path": "/stock/QQQ",
+          "kind": "fetch",
+          "durationMs": 115,
+          "bytes": 5058
+        },
+        {
+          "path": "/stock/BTC-USD",
+          "kind": "fetch",
+          "durationMs": 110,
+          "bytes": 5031
+        },
+        {
+          "path": "/stock/ETH-USD",
+          "kind": "fetch",
+          "durationMs": 169,
+          "bytes": 5034
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 117,
+          "bytes": 13177
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 98,
+          "bytes": 2401
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 95,
+          "bytes": 2181
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 96,
+          "bytes": 2437
+        },
+        {
+          "path": "/stock/TRX-USD",
+          "kind": "fetch",
+          "durationMs": 119,
+          "bytes": 5004
+        },
+        {
+          "path": "/stock/AVAX-USD",
+          "kind": "fetch",
+          "durationMs": 164,
+          "bytes": 5034
+        },
+        {
+          "path": "/stock/AAVE-USD",
+          "kind": "fetch",
+          "durationMs": 200,
+          "bytes": 5010
+        },
+        {
+          "path": "/stock/BNB-USD",
+          "kind": "fetch",
+          "durationMs": 127,
+          "bytes": 4998
+        },
+        {
+          "path": "/stock/NEAR-USD",
+          "kind": "fetch",
+          "durationMs": 188,
+          "bytes": 5058
+        },
+        {
+          "path": "/stock/ZEC-USD",
+          "kind": "fetch",
+          "durationMs": 185,
+          "bytes": 5016
+        },
+        {
+          "path": "/stock/TMUS",
+          "kind": "fetch",
+          "durationMs": 243,
+          "bytes": 5010
+        },
+        {
+          "path": "/stock/ACN",
+          "kind": "fetch",
+          "durationMs": 141,
+          "bytes": 5010
+        },
+        {
+          "path": "/stock/CMCSA",
+          "kind": "fetch",
+          "durationMs": 148,
+          "bytes": 5007
+        },
+        {
+          "path": "/stock/MDLZ",
+          "kind": "fetch",
+          "durationMs": 136,
+          "bytes": 5007
+        },
+        {
+          "path": "/stock/LLY",
+          "kind": "fetch",
+          "durationMs": 108,
+          "bytes": 5016
+        }
+      ],
+      "errors": []
+    },
+    {
+      "run": 1,
+      "route": "/news",
+      "status": 200,
+      "cache": "MISS",
+      "readyMs": 640,
+      "ttfbMs": 109,
+      "responseEndMs": 527,
+      "domContentLoadedMs": 604,
+      "documentBytes": 249212,
+      "transferBytes": 24972,
+      "lcpMs": 628,
+      "jsBytes": 767730,
+      "resources": [
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 127,
+          "bytes": 186
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 122,
+          "bytes": 237
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 125,
+          "bytes": 234
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 172,
+          "bytes": 234
+        },
+        {
+          "path": "/stock/GOOG",
+          "kind": "fetch",
+          "durationMs": 145,
+          "bytes": 313
+        },
+        {
+          "path": "/stock/PLTR",
+          "kind": "fetch",
+          "durationMs": 146,
+          "bytes": 313
+        },
+        {
+          "path": "/stock/AAPL",
+          "kind": "fetch",
+          "durationMs": 137,
+          "bytes": 313
+        },
+        {
+          "path": "/stock/META",
+          "kind": "fetch",
+          "durationMs": 107,
+          "bytes": 313
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 120,
+          "bytes": 280
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 137,
+          "bytes": 267
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 125,
+          "bytes": 229
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 102,
+          "bytes": 227
+        },
+        {
+          "path": "/stock/GOOG",
+          "kind": "fetch",
+          "durationMs": 136,
+          "bytes": 5348
+        },
+        {
+          "path": "/stock/PLTR",
+          "kind": "fetch",
+          "durationMs": 122,
+          "bytes": 5118
+        },
+        {
+          "path": "/stock/AAPL",
+          "kind": "fetch",
+          "durationMs": 142,
+          "bytes": 4992
+        },
+        {
+          "path": "/stock/META",
+          "kind": "fetch",
+          "durationMs": 140,
+          "bytes": 5046
+        },
+        {
+          "path": "/stock/MSFT",
+          "kind": "fetch",
+          "durationMs": 117,
+          "bytes": 5016
+        },
+        {
+          "path": "/stock/SPCX",
+          "kind": "fetch",
+          "durationMs": 136,
+          "bytes": 4998
+        },
+        {
+          "path": "/stock/NVDA",
+          "kind": "fetch",
+          "durationMs": 117,
+          "bytes": 4998
+        },
+        {
+          "path": "/stock/INTC",
+          "kind": "fetch",
+          "durationMs": 105,
+          "bytes": 4992
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 125,
+          "bytes": 2441
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 105,
+          "bytes": 2428
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 124,
+          "bytes": 2364
+        },
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 118,
+          "bytes": 2345
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 118,
+          "bytes": 13177
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 112,
+          "bytes": 2291
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 110,
+          "bytes": 2195
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 101,
+          "bytes": 2395
+        }
+      ],
+      "errors": []
+    },
+    {
+      "run": 1,
+      "route": "/stocks",
+      "status": 200,
+      "cache": "MISS",
+      "readyMs": 664,
+      "ttfbMs": 37,
+      "responseEndMs": 337,
+      "domContentLoadedMs": 343,
+      "documentBytes": 223523,
+      "transferBytes": 26971,
+      "lcpMs": 340,
+      "jsBytes": 787800,
+      "resources": [
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 81,
+          "bytes": 186
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 80,
+          "bytes": 237
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 81,
+          "bytes": 234
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 81,
+          "bytes": 226
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 75,
+          "bytes": 282
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 78,
+          "bytes": 229
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 82,
+          "bytes": 227
+        },
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 70,
+          "bytes": 2345
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 75,
+          "bytes": 2181
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 73,
+          "bytes": 2443
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 68,
+          "bytes": 2364
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 131,
+          "bytes": 2291
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 83,
+          "bytes": 2401
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 82,
+          "bytes": 2195
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 75,
+          "bytes": 2395
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 105,
+          "bytes": 267
+        }
+      ],
+      "errors": []
+    },
+    {
+      "run": 1,
+      "route": "/stock/AAPL",
+      "status": 200,
+      "cache": "MISS",
+      "readyMs": 515,
+      "ttfbMs": 58,
+      "responseEndMs": 357,
+      "domContentLoadedMs": 482,
+      "documentBytes": 164372,
+      "transferBytes": 26770,
+      "lcpMs": 504,
+      "jsBytes": 967468,
+      "resources": [
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 110,
+          "bytes": 186
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 98,
+          "bytes": 234
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 110,
+          "bytes": 234
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 114,
+          "bytes": 226
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 102,
+          "bytes": 288
+        },
+        {
+          "path": "/paper/trade/AAPL",
+          "kind": "fetch",
+          "durationMs": 101,
+          "bytes": 342
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 99,
+          "bytes": 229
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 90,
+          "bytes": 237
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 104,
+          "bytes": 227
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 98,
+          "bytes": 2449
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 108,
+          "bytes": 13177
+        },
+        {
+          "path": "/paper/trade/AAPL",
+          "kind": "fetch",
+          "durationMs": 97,
+          "bytes": 2514
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 125,
+          "bytes": 2364
+        },
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 121,
+          "bytes": 2345
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 96,
+          "bytes": 2181
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 113,
+          "bytes": 2291
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 123,
+          "bytes": 2195
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 97,
+          "bytes": 2395
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 211,
+          "bytes": 267
+        }
+      ],
+      "errors": []
+    },
+    {
+      "run": 1,
+      "route": "/market-brief",
+      "status": 200,
+      "cache": "MISS",
+      "readyMs": 490,
+      "ttfbMs": 45,
+      "responseEndMs": 349,
+      "domContentLoadedMs": 458,
+      "documentBytes": 68079,
+      "transferBytes": 11459,
+      "lcpMs": 612,
+      "jsBytes": 758548,
+      "resources": [
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 83,
+          "bytes": 186
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 77,
+          "bytes": 226
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 77,
+          "bytes": 237
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 86,
+          "bytes": 234
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 79,
+          "bytes": 288
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 85,
+          "bytes": 227
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 80,
+          "bytes": 229
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 79,
+          "bytes": 2181
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 80,
+          "bytes": 2449
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 79,
+          "bytes": 13177
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 92,
+          "bytes": 2395
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 89,
+          "bytes": 2364
+        },
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 80,
+          "bytes": 2345
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 77,
+          "bytes": 2195
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 93,
+          "bytes": 267
+        }
+      ],
+      "errors": []
+    },
+    {
+      "run": 2,
+      "route": "/",
+      "status": 200,
+      "cache": "MISS",
+      "readyMs": 683,
+      "ttfbMs": 32,
+      "responseEndMs": 328,
+      "domContentLoadedMs": 333,
+      "documentBytes": 177440,
+      "transferBytes": 21429,
+      "lcpMs": 668,
+      "jsBytes": 765871,
+      "resources": [
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 74,
+          "bytes": 226
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 139,
+          "bytes": 234
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 87,
+          "bytes": 234
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 73,
+          "bytes": 237
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 84,
+          "bytes": 276
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 83,
+          "bytes": 229
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 77,
+          "bytes": 227
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 86,
+          "bytes": 13177
+        },
+        {
+          "path": "/stock/TRX-USD",
+          "kind": "fetch",
+          "durationMs": 83,
+          "bytes": 316
+        },
+        {
+          "path": "/stock/AVAX-USD",
+          "kind": "fetch",
+          "durationMs": 96,
+          "bytes": 317
+        },
+        {
+          "path": "/stock/AAVE-USD",
+          "kind": "fetch",
+          "durationMs": 81,
+          "bytes": 317
+        },
+        {
+          "path": "/stock/BNB-USD",
+          "kind": "fetch",
+          "durationMs": 70,
+          "bytes": 316
+        },
+        {
+          "path": "/stock/TRX-USD",
+          "kind": "fetch",
+          "durationMs": 87,
+          "bytes": 5330
+        },
+        {
+          "path": "/stock/AVAX-USD",
+          "kind": "fetch",
+          "durationMs": 92,
+          "bytes": 5034
+        },
+        {
+          "path": "/stock/AAVE-USD",
+          "kind": "fetch",
+          "durationMs": 88,
+          "bytes": 5010
+        },
+        {
+          "path": "/stock/BNB-USD",
+          "kind": "fetch",
+          "durationMs": 83,
+          "bytes": 4998
+        },
+        {
+          "path": "/stock/BTC-USD",
+          "kind": "fetch",
+          "durationMs": 83,
+          "bytes": 5031
+        },
+        {
+          "path": "/stock/NEAR-USD",
+          "kind": "fetch",
+          "durationMs": 98,
+          "bytes": 5058
+        },
+        {
+          "path": "/stock/ZEC-USD",
+          "kind": "fetch",
+          "durationMs": 79,
+          "bytes": 5016
+        },
+        {
+          "path": "/stock/TMUS",
+          "kind": "fetch",
+          "durationMs": 83,
+          "bytes": 5010
+        },
+        {
+          "path": "/stock/ACN",
+          "kind": "fetch",
+          "durationMs": 83,
+          "bytes": 5010
+        },
+        {
+          "path": "/stock/CMCSA",
+          "kind": "fetch",
+          "durationMs": 79,
+          "bytes": 5007
+        },
+        {
+          "path": "/stock/MDLZ",
+          "kind": "fetch",
+          "durationMs": 95,
+          "bytes": 5007
+        },
+        {
+          "path": "/stock/LLY",
+          "kind": "fetch",
+          "durationMs": 93,
+          "bytes": 5016
+        },
+        {
+          "path": "/stock/INTC",
+          "kind": "fetch",
+          "durationMs": 107,
+          "bytes": 4992
+        },
+        {
+          "path": "/stock/SNDK",
+          "kind": "fetch",
+          "durationMs": 110,
+          "bytes": 5013
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 70,
+          "bytes": 2395
+        },
+        {
+          "path": "/stock/VOO",
+          "kind": "fetch",
+          "durationMs": 87,
+          "bytes": 5076
+        },
+        {
+          "path": "/stock/QQQ",
+          "kind": "fetch",
+          "durationMs": 216,
+          "bytes": 5058
+        },
+        {
+          "path": "/stock/ETH-USD",
+          "kind": "fetch",
+          "durationMs": 98,
+          "bytes": 5034
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 82,
+          "bytes": 2401
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 83,
+          "bytes": 2181
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 101,
+          "bytes": 2437
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 164,
+          "bytes": 2364
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 79,
+          "bytes": 2291
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 80,
+          "bytes": 2195
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 130,
+          "bytes": 267
+        }
+      ],
+      "errors": []
+    },
+    {
+      "run": 2,
+      "route": "/news",
+      "status": 200,
+      "cache": "MISS",
+      "readyMs": 561,
+      "ttfbMs": 67,
+      "responseEndMs": 417,
+      "domContentLoadedMs": 534,
+      "documentBytes": 249212,
+      "transferBytes": 25201,
+      "lcpMs": 556,
+      "jsBytes": 767730,
+      "resources": [
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 86,
+          "bytes": 186
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 96,
+          "bytes": 237
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 106,
+          "bytes": 234
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 110,
+          "bytes": 234
+        },
+        {
+          "path": "/stock/GOOG",
+          "kind": "fetch",
+          "durationMs": 106,
+          "bytes": 313
+        },
+        {
+          "path": "/stock/PLTR",
+          "kind": "fetch",
+          "durationMs": 97,
+          "bytes": 313
+        },
+        {
+          "path": "/stock/AAPL",
+          "kind": "fetch",
+          "durationMs": 88,
+          "bytes": 313
+        },
+        {
+          "path": "/stock/META",
+          "kind": "fetch",
+          "durationMs": 117,
+          "bytes": 313
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 92,
+          "bytes": 280
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 113,
+          "bytes": 267
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 123,
+          "bytes": 229
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 83,
+          "bytes": 227
+        },
+        {
+          "path": "/stock/GOOG",
+          "kind": "fetch",
+          "durationMs": 108,
+          "bytes": 5348
+        },
+        {
+          "path": "/stock/PLTR",
+          "kind": "fetch",
+          "durationMs": 115,
+          "bytes": 5118
+        },
+        {
+          "path": "/stock/AAPL",
+          "kind": "fetch",
+          "durationMs": 145,
+          "bytes": 4992
+        },
+        {
+          "path": "/stock/META",
+          "kind": "fetch",
+          "durationMs": 104,
+          "bytes": 5046
+        },
+        {
+          "path": "/stock/MSFT",
+          "kind": "fetch",
+          "durationMs": 118,
+          "bytes": 5016
+        },
+        {
+          "path": "/stock/SPCX",
+          "kind": "fetch",
+          "durationMs": 106,
+          "bytes": 4998
+        },
+        {
+          "path": "/stock/NVDA",
+          "kind": "fetch",
+          "durationMs": 120,
+          "bytes": 4998
+        },
+        {
+          "path": "/stock/INTC",
+          "kind": "fetch",
+          "durationMs": 104,
+          "bytes": 4992
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 93,
+          "bytes": 2441
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 88,
+          "bytes": 2428
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 95,
+          "bytes": 2364
+        },
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 76,
+          "bytes": 2345
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 101,
+          "bytes": 13177
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 88,
+          "bytes": 2291
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 82,
+          "bytes": 2195
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 88,
+          "bytes": 2395
+        }
+      ],
+      "errors": []
+    },
+    {
+      "run": 2,
+      "route": "/stocks",
+      "status": 200,
+      "cache": "MISS",
+      "readyMs": 688,
+      "ttfbMs": 36,
+      "responseEndMs": 335,
+      "domContentLoadedMs": 347,
+      "documentBytes": 223523,
+      "transferBytes": 26971,
+      "lcpMs": 356,
+      "jsBytes": 787800,
+      "resources": [
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 363,
+          "bytes": 186
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 65,
+          "bytes": 234
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 75,
+          "bytes": 226
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 75,
+          "bytes": 237
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 91,
+          "bytes": 282
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 89,
+          "bytes": 229
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 75,
+          "bytes": 227
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 72,
+          "bytes": 2181
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 69,
+          "bytes": 2443
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 69,
+          "bytes": 2364
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 74,
+          "bytes": 2401
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 71,
+          "bytes": 2195
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 61,
+          "bytes": 2291
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 308,
+          "bytes": 2395
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 119,
+          "bytes": 267
+        },
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 78,
+          "bytes": 2345
+        }
+      ],
+      "errors": []
+    },
+    {
+      "run": 2,
+      "route": "/stock/AAPL",
+      "status": 200,
+      "cache": "MISS",
+      "readyMs": 599,
+      "ttfbMs": 61,
+      "responseEndMs": 468,
+      "domContentLoadedMs": 565,
+      "documentBytes": 164372,
+      "transferBytes": 27152,
+      "lcpMs": 584,
+      "jsBytes": 967468,
+      "resources": [
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 144,
+          "bytes": 186
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 144,
+          "bytes": 226
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 145,
+          "bytes": 234
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 145,
+          "bytes": 234
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 95,
+          "bytes": 288
+        },
+        {
+          "path": "/paper/trade/AAPL",
+          "kind": "fetch",
+          "durationMs": 87,
+          "bytes": 342
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 87,
+          "bytes": 229
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 104,
+          "bytes": 237
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 93,
+          "bytes": 227
+        },
+        {
+          "path": "/paper/trade/AAPL",
+          "kind": "fetch",
+          "durationMs": 100,
+          "bytes": 2514
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 88,
+          "bytes": 2449
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 100,
+          "bytes": 13177
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 84,
+          "bytes": 2364
+        },
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 84,
+          "bytes": 2345
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 99,
+          "bytes": 2181
+        },
+        {
+          "path": "/market-brief",
+          "kind": "fetch",
+          "durationMs": 85,
+          "bytes": 2291
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 102,
+          "bytes": 2195
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 102,
+          "bytes": 2395
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 93,
+          "bytes": 267
+        }
+      ],
+      "errors": []
+    },
+    {
+      "run": 2,
+      "route": "/market-brief",
+      "status": 200,
+      "cache": "MISS",
+      "readyMs": 570,
+      "ttfbMs": 69,
+      "responseEndMs": 397,
+      "domContentLoadedMs": 519,
+      "documentBytes": 68079,
+      "transferBytes": 11472,
+      "lcpMs": 688,
+      "jsBytes": 758548,
+      "resources": [
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 84,
+          "bytes": 186
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 96,
+          "bytes": 226
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 104,
+          "bytes": 234
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 78,
+          "bytes": 237
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 109,
+          "bytes": 288
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 87,
+          "bytes": 229
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 105,
+          "bytes": 227
+        },
+        {
+          "path": "/news",
+          "kind": "fetch",
+          "durationMs": 97,
+          "bytes": 2181
+        },
+        {
+          "path": "/privacy",
+          "kind": "fetch",
+          "durationMs": 106,
+          "bytes": 2364
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 98,
+          "bytes": 2449
+        },
+        {
+          "path": "/stocks",
+          "kind": "fetch",
+          "durationMs": 94,
+          "bytes": 13177
+        },
+        {
+          "path": "/paper",
+          "kind": "fetch",
+          "durationMs": 123,
+          "bytes": 2395
+        },
+        {
+          "path": "/",
+          "kind": "fetch",
+          "durationMs": 88,
+          "bytes": 2345
+        },
+        {
+          "path": "/market-calendar",
+          "kind": "fetch",
+          "durationMs": 101,
+          "bytes": 2195
+        },
+        {
+          "path": "/auth/login",
+          "kind": "fetch",
+          "durationMs": 109,
+          "bytes": 267
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "market_quote_chart_smoke": [
+    {
+      "mobile": false,
+      "page": "/stocks",
+      "tab": "Stocks",
+      "rows": 25,
+      "quotes": true
+    },
+    {
+      "mobile": false,
+      "page": "/stocks",
+      "tab": "ETFs",
+      "rows": 11,
+      "quotes": true
+    },
+    {
+      "mobile": false,
+      "page": "/stocks",
+      "tab": "Crypto",
+      "rows": 19,
+      "quotes": true
+    },
+    {
+      "mobile": false,
+      "page": "/stock/AAPL",
+      "quote": true,
+      "chart": true
+    },
+    {
+      "mobile": false,
+      "page": "/stock/BTC-USD",
+      "quote": true,
+      "chart": true
+    },
+    {
+      "mobile": true,
+      "page": "/stocks",
+      "tab": "Stocks",
+      "rows": 25,
+      "quotes": true
+    },
+    {
+      "mobile": true,
+      "page": "/stocks",
+      "tab": "ETFs",
+      "rows": 11,
+      "quotes": true
+    },
+    {
+      "mobile": true,
+      "page": "/stocks",
+      "tab": "Crypto",
+      "rows": 19,
+      "quotes": true
+    },
+    {
+      "mobile": true,
+      "page": "/stock/AAPL",
+      "quote": true,
+      "chart": true
+    },
+    {
+      "mobile": true,
+      "page": "/stock/BTC-USD",
+      "quote": true,
+      "chart": true
+    }
+  ],
+  "news_fixed_sample": {
+    "total": 210,
+    "before": {
+      "verified_ai": 51,
+      "source_excerpt": 53,
+      "headline_only": 106
+    },
+    "after": {
+      "verified_ai": 90,
+      "source_excerpt": 79,
+      "headline_only": 41
+    },
+    "original_rows_preserved": true
+  },
+  "repeat_market_and_chart_public_reads": 0,
+  "latest_recovery": {
+    "run_id": 41331068178,
+    "new": 1,
+    "retried": 120,
+    "ai_attempts": 40,
+    "summary_errors": 0,
+    "records_failed": 0,
+    "feed_errors": 0
+  },
+  "final_io": {
+    "seconds": 251,
+    "rates": {
+      "node_vmstat_pswpin{supabase_project_ref=\"idapkkkixnbdsfrvwzde\",supabase_identifier=\"idapkkkixnbdsfrvwzde\",service_type=\"db\"}": 1230.401,
+      "node_vmstat_pswpout{supabase_project_ref=\"idapkkkixnbdsfrvwzde\",supabase_identifier=\"idapkkkixnbdsfrvwzde\",service_type=\"db\"}": 1201.063,
+      "node_disk_read_bytes_total{supabase_project_ref=\"idapkkkixnbdsfrvwzde\",supabase_identifier=\"idapkkkixnbdsfrvwzde\",service_type=\"db\",device=\"nvme0n1\"}": 38773881.342,
+      "node_disk_read_bytes_total{supabase_project_ref=\"idapkkkixnbdsfrvwzde\",supabase_identifier=\"idapkkkixnbdsfrvwzde\",service_type=\"db\",device=\"nvme1n1\"}": 187382.499,
+      "node_disk_io_time_seconds_total{supabase_project_ref=\"idapkkkixnbdsfrvwzde\",supabase_identifier=\"idapkkkixnbdsfrvwzde\",service_type=\"db\",device=\"nvme0n1\"}": 0.528,
+      "node_disk_io_time_seconds_total{supabase_project_ref=\"idapkkkixnbdsfrvwzde\",supabase_identifier=\"idapkkkixnbdsfrvwzde\",service_type=\"db\",device=\"nvme1n1\"}": 0.002,
+      "node_disk_written_bytes_total{supabase_project_ref=\"idapkkkixnbdsfrvwzde\",supabase_identifier=\"idapkkkixnbdsfrvwzde\",service_type=\"db\",device=\"nvme0n1\"}": 4955204.294,
+      "node_disk_written_bytes_total{supabase_project_ref=\"idapkkkixnbdsfrvwzde\",supabase_identifier=\"idapkkkixnbdsfrvwzde\",service_type=\"db\",device=\"nvme1n1\"}": 156781.102
+    }
+  },
+  "financial_live_e2e": {
+    "checks_passed": 9,
+    "cleanupSucceeded": true,
+    "error": null
+  }
+}

@@ -90,7 +90,12 @@ try {
   assert.ok(!board.data.entries.some(e=>e.userId===userId));
   assert.equal(board.data.myRank,null);ok('QA identity is excluded from rankings');
   for(const path of ['/paper','/paper/history','/paper/leaderboard']){
-    const response=await page.goto(base+path,{waitUntil:'networkidle'});assert.equal(response.status(),200);
+    const leaderboard=path==='/paper/leaderboard' ? page.waitForResponse(r=>r.url().includes('/api/paper/leaderboard?')&&r.request().method()==='GET') : null;
+    const response=await page.goto(base+path,{waitUntil:'domcontentloaded'});assert.equal(response.status(),200);
+    if(path==='/paper')await page.getByText('Total Value',{exact:true}).waitFor();
+    else await page.getByRole('heading',{name:path==='/paper/history'?'Transaction History':'Leaderboard',exact:true}).waitFor();
+    if(leaderboard)assert.equal((await leaderboard).status(),200);
+    if(path==='/paper/history')assert.equal(await page.getByText('No transactions yet.',{exact:true}).count(),0);
   }
   assert.equal(errors.length,0);ok('authenticated portfolio, history and ranking screens load');
 } catch(error) { failure=error; }
