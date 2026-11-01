@@ -75,6 +75,15 @@ class NewsQualityTests(unittest.TestCase):
                      'Intel raised its quarterly revenue forecast after demand for server chips…']:
             self.assertEqual(baseline_analysis(title,body)[0]['summary_method'],'headline_only')
 
+    def test_generic_complete_sentences_are_not_ai_summary_candidates(self):
+        body='What investors think they own and what they actually own may be two very different things.'
+        self.assertEqual(summary_candidates(body,'Crypto ETFs and SEC rules'),[])
+        self.assertEqual(baseline_analysis('Crypto ETFs and SEC rules',body)[0]['summary_method'],'headline_only')
+        vague='That combination of robotics ETFs, private capital data and technology platforms feeds into the same core question.'
+        fact='BlackRock said private capital assets rose by $20 billion during the quarter.'
+        candidates=summary_candidates(vague+'\n'+fact,'BlackRock private capital growth')
+        self.assertEqual([row['text'] for row in candidates],[fact])
+
     def test_sentence_ids_preserve_actor_amount_negation_and_abbreviations(self):
         text='U.S. regulators did not approve Intel\'s plan to acquire the chip supplier.\nIntel said its revenue rose by $2.4 billion during the quarter.'
         candidates=summary_candidates(text)
