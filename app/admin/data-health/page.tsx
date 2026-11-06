@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { getPriceFreshness } from "@/lib/price-freshness";
 import { formatAssetPrice } from "@/lib/price-format";
 import { revalidatePath } from "next/cache";
+import { LiveDataRefresh } from "@/components/LiveDataRefresh";
 
 export const dynamic = "force-dynamic";
 
@@ -208,6 +209,7 @@ export default async function DataHealthPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-5 py-8 space-y-6">
+      <LiveDataRefresh renderedAt={new Date().getTime()} />
       <div>
         <h1 className="text-xl font-semibold" style={{ color: "var(--text)" }}>Data Health</h1>
         <p className="text-xs mt-1" style={{ color: "var(--text-3)" }}>

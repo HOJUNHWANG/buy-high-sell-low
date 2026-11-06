@@ -1,7 +1,9 @@
 import { NewsSentimentBreakdown } from "@/components/NewsSentimentBreakdown";
 import type { SentimentBreakdown } from "@/lib/news-sentiment";
 import { createPublicMarketClient } from "@/lib/supabase/public";
-import { unstable_cache } from "next/cache";
+import { cachePublicData } from "@/lib/public-data-cache";
+import { connection } from "next/server";
+import { LiveDataRefresh } from "@/components/LiveDataRefresh";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -29,14 +31,15 @@ const SENTIMENT_STYLE = {
   neutral: { color: "var(--text-2)", bg: "var(--surface-3)", label: "Mixed Day" },
 };
 
-const getBriefArchive = unstable_cache(async (): Promise<MarketBrief[]> => {
+const getBriefArchive = cachePublicData(async (): Promise<MarketBrief[]> => {
   const { data, error } = await createPublicMarketClient().from("market_briefs").select("*")
     .order("date", { ascending: false }).limit(8);
   if (error) throw new Error("Market brief unavailable");
   return (data ?? []) as MarketBrief[];
-}, ["market-brief-archive-v1"], { revalidate: 300, tags: ["public-news"] });
+}, ["market-brief-archive-v2"], { revalidate: 60, tags: ["public-news"] });
 
 export default async function MarketBriefPage() {
+  await connection();
   const archive = await getBriefArchive();
   const brief = archive[0] ?? null;
   const past = archive.slice(1);
@@ -44,6 +47,7 @@ export default async function MarketBriefPage() {
   if (!brief) {
     return (
       <div className="max-w-4xl mx-auto px-5 py-16 text-center space-y-3">
+        <LiveDataRefresh renderedAt={new Date().getTime()} />
         <p className="text-2xl font-bold" style={{ color: "var(--text)" }}>No Brief Yet</p>
         <p className="text-sm" style={{ color: "var(--text-2)" }}>
           The daily market brief is generated after market close. Check back later.
@@ -62,6 +66,7 @@ export default async function MarketBriefPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-5 py-8 space-y-6 fade-up">
+      <LiveDataRefresh renderedAt={new Date().getTime()} />
 
       {/* Header */}
       <div className="page-header space-y-2">

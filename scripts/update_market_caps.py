@@ -517,6 +517,47 @@ class MarketDataProvider:
         if quote is not None and quote.as_of is not None and quote.price is not None:
             market_cap = quote.market_cap
             if market_cap is not None and market_cap > 0:
+                # The summary's cap can follow extended-hours trading while
+                # the dated quote deliberately represents the regular close.
+                # Do not compare those two instants as if they were identical.
+                # Only derive an aligned cap when Yahoo's explicit cap confirms
+                # both its own share formula and the dated Nasdaq-price formula.
+                secondary = yfinance_observation
+                if (
+                    secondary is not None
+                    and secondary.quantity is not None
+                    and secondary.quantity > 0
+                    and secondary.quantity_name == "shares_outstanding"
+                    and secondary.price is not None
+                    and secondary.price > 0
+                    and secondary.source in (
+                        "yfinance.info.marketCap", "yfinance.fast_info.market_cap",
+                    )
+                ):
+                    aligned_cap = quote.price * secondary.quantity
+                    limit = FORMULA_TOLERANCE[ASSET_EQUITY]
+                    if (
+                        _relative_difference(market_cap, aligned_cap) > limit
+                        and _relative_difference(secondary.market_cap, aligned_cap)
+                        <= EQUITY_CROSS_CHECK_TOLERANCE
+                        and _relative_difference(
+                            secondary.market_cap, secondary.price * secondary.quantity,
+                        ) <= limit
+                    ):
+                        return replace(
+                            secondary,
+                            market_cap=int(round(aligned_cap)),
+                            price=quote.price,
+                            source="derived.nasdaq_price_x_yfinance_shares",
+                            cross_check_market_cap=secondary.market_cap,
+                            cross_check_source=secondary.source,
+                            provider_note=(
+                                f"Nasdaq quote as_of={quote.as_of.isoformat()}; "
+                                f"summary cap={int(round(market_cap))} disagrees "
+                                "with dated price x shares; using aligned formula "
+                                f"confirmed by Yahoo cap={secondary.market_cap}"
+                            ),
+                        )
                 return MarketCapObservation(
                     ticker=ticker,
                     asset_class=ASSET_EQUITY,

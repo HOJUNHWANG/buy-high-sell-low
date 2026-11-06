@@ -1,4 +1,6 @@
 import { getMarketSnapshot, getScreenerHistory } from "@/lib/cached-data";
+import { connection } from "next/server";
+import { LiveDataRefresh } from "@/components/LiveDataRefresh";
 import type { Metadata } from "next";
 import type { Stock, StockPrice } from "@/lib/types";
 import { StockTable } from "@/components/StockTable";
@@ -11,8 +13,6 @@ import {
   type MarketCapDailyLeader,
 } from "@/lib/market-leader-streaks";
 
-export const revalidate = 300; // 5 min cache so UI picks up the 10-min price cron shortly after completion
-
 export const metadata: Metadata = {
   title: "Screener — Stocks, ETFs & Crypto",
   description:
@@ -22,6 +22,7 @@ export const metadata: Metadata = {
 type StockRow = Stock & { stock_prices: StockPrice | null };
 
 export default async function StocksPage() {
+  await connection();
   const now = new Date();
   const d30 = new Date(now.getTime() - 30 * 86_400_000);
   const [data, { history: hist30, leaders: marketCapDailyLeaders }] = await Promise.all([
@@ -73,6 +74,7 @@ export default async function StocksPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-5 py-8">
+      <LiveDataRefresh renderedAt={new Date().getTime()} />
       {/* Header row */}
       <div className="page-header flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
         <div>

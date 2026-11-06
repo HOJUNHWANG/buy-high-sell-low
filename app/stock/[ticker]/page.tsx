@@ -14,6 +14,7 @@ import { WhyMoving } from "@/components/WhyMoving";
 import { PriceFreshnessBadge } from "@/components/PriceFreshnessBadge";
 import { formatAssetPrice } from "@/lib/price-format";
 import { gateSummaries } from "@/lib/summary-gate";
+import { LiveDataRefresh } from "@/components/LiveDataRefresh";
 
 interface Props {
   params: Promise<{ ticker: string }>;
@@ -62,6 +63,7 @@ export default async function StockDetailPage({ params }: Props) {
 
   return (
     <div className="max-w-7xl mx-auto px-5 py-8">
+      <LiveDataRefresh renderedAt={new Date().getTime()} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
         {/* ── Main column ── */}

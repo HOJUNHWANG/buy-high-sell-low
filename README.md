@@ -141,6 +141,19 @@ session ends; it is no longer used for prices or market caps. Yahoo remains a
 secondary provider and share-count cross-check. Formula and large-move guards
 continue to reject unsupported values.
 
+Nasdaq's summary market cap can track extended-hours trading while the dated
+quote represents the regular-session close. If that cap fails the price × shares
+check, the updater uses the dated Nasdaq price × Yahoo share count only when
+Yahoo's explicit cap independently confirms both the aligned formula and its own
+price × shares. Unconfirmed values still fail and preserve the previous value.
+
+Public market and news reads share a one-minute cache window. The first request
+in a new window awaits a fresh read instead of receiving the previous window's
+stale snapshot. Home, screener, stock detail, news, market brief, and Data Health
+refresh automatically every minute while visible and online, and check for an
+overdue refresh when returning to the tab or reconnecting. This displays the latest
+stored data; provider collection retains its existing 10-minute/daily cadence.
+
 The automatic audit and remediation workflow was retired on October 30, 2026.
 An aggregate CoinGecko quote can differ from Twelve Data's exchange-specific
 quote (XMR/USD is available only on HitBTC); repeatedly fetching the same feed
