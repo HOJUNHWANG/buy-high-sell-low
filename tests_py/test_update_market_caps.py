@@ -323,6 +323,60 @@ class PrimaryProviderTests(unittest.TestCase):
         with self.assertRaises(MarketCapProviderError):
             provider.fetch_observation("MU")
 
+    def test_mixed_session_caps_use_dated_formula_when_yahoo_confirms_it(self):
+        for ticker, price, shares, secondary_cap, mismatch in (
+            ("LRCX", 184.875, 1_251_424_362, 231_763_787_776, 1.196),
+            ("SNDK", 804.79, 142_289_365, 114_746_408_960, 1.289),
+        ):
+            with self.subTest(ticker=ticker):
+                provider = MarketDataProvider(session=MagicMock())
+                aligned_cap = round(price * shares)
+                provider._equity_quotes[ticker] = ReferenceQuote(
+                    ticker, "Nasdaq", price, round(aligned_cap * mismatch),
+                    datetime(2026, 11, 5, 21, tzinfo=timezone.utc),
+                )
+                provider._equity_errors[ticker] = []
+                provider._try_yfinance = MagicMock(return_value=(MarketCapObservation(
+                    ticker=ticker, asset_class=ASSET_EQUITY, semantic="equity_market_cap",
+                    market_cap=secondary_cap, source="yfinance.info.marketCap",
+                    price=secondary_cap / shares, quantity=shares,
+                    quantity_name="shares_outstanding",
+                ), None))
+
+                observation = provider.fetch_observation(ticker)
+
+                self.assertEqual(observation.market_cap, aligned_cap)
+                self.assertEqual(observation.price, price)
+                self.assertEqual(observation.source, "derived.nasdaq_price_x_yfinance_shares")
+                self.assertEqual(observation.cross_check_market_cap, secondary_cap)
+                self.assertIn("2026-11-05T21:00:00", observation.provider_note)
+                self.assertTrue(validate_market_cap(
+                    observation, PreviousMarketData(aligned_cap, price),
+                ).accepted)
+
+    def test_mixed_session_formula_still_rejects_unconfirmed_share_counts(self):
+        for secondary_cap, secondary_price, source in (
+            (200_000_000_000, 100, "yfinance.info.marketCap"),
+            (100_000_000_000, 200, "yfinance.info.marketCap"),
+            (100_000_000_000, 100, "derived.price_x_shares_outstanding"),
+        ):
+            with self.subTest(cap=secondary_cap, price=secondary_price, source=source):
+                provider = MarketDataProvider(session=MagicMock())
+                provider._equity_quotes["LRCX"] = ReferenceQuote(
+                    "LRCX", "Nasdaq", 100, 150_000_000_000,
+                    datetime(2026, 11, 5, 21, tzinfo=timezone.utc),
+                )
+                provider._equity_errors["LRCX"] = []
+                provider._try_yfinance = MagicMock(return_value=(MarketCapObservation(
+                    ticker="LRCX", asset_class=ASSET_EQUITY, semantic="equity_market_cap",
+                    market_cap=secondary_cap, source=source, price=secondary_price,
+                    quantity=1_000_000_000, quantity_name="shares_outstanding",
+                ), None))
+                observation = provider.fetch_observation("LRCX")
+                self.assertFalse(validate_market_cap(
+                    observation, PreviousMarketData(100_000_000_000, 100),
+                ).accepted)
+
     @patch("update_market_caps.time.time", return_value=1_000)
     def test_crypto_uses_coingecko_market_cap_and_price(self, _time):
         provider = MarketDataProvider(session=MagicMock())

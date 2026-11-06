@@ -7,6 +7,7 @@ import { diversifyNews } from "@/lib/news-quality";
 import { NewsFilter } from "@/components/NewsFilter";
 import { TrendingTickersWidget } from "@/components/TrendingTickersWidget";
 import { SentimentWidget } from "@/components/SentimentWidget";
+import { LiveDataRefresh } from "@/components/LiveDataRefresh";
 
 import { gateSummaries } from "@/lib/summary-gate";
 
@@ -56,6 +57,7 @@ export default async function NewsPage({
 
   return (
     <div className="max-w-7xl mx-auto px-5 py-8">
+      <LiveDataRefresh renderedAt={new Date().getTime()} />
       <div className="flex gap-5 items-start">
 
         {/* ── Left sidebar ── */}

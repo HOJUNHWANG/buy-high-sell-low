@@ -1,0 +1,15 @@
+{
+  "checkedAt": "2026-11-06T12:33:26.534Z",
+  "checks": [
+    "desktop screener loads stored quotes and accepts filters",
+    "real one-minute router refresh returns 200 and preserves the filter",
+    "overdue focus triggers a refresh and preserves the filter",
+    "/ renders successfully",
+    "/news renders successfully",
+    "/stock/AAPL renders successfully",
+    "/market-brief renders successfully",
+    "mobile screener has no horizontal overflow",
+    "no browser page errors"
+  ],
+  "browserErrors": []
+}

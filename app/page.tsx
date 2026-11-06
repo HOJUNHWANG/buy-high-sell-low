@@ -16,6 +16,7 @@ import { gateSummaries } from "@/lib/summary-gate";
 import { getAllStockPrices, getLatestPublicNews } from "@/lib/cached-data";
 import { getMarketStatus } from "@/lib/market-hours";
 import { MarketOverview } from "@/components/MarketOverview";
+import { LiveDataRefresh } from "@/components/LiveDataRefresh";
 
 async function getMovers(): Promise<{
   stockGainers: (StockPrice & { stocks: Stock })[];
@@ -73,6 +74,7 @@ export default async function HomePage() {
 
   return (
     <div className="home-page">
+      <LiveDataRefresh renderedAt={new Date().getTime()} />
       {/* ── Landing hero (guest only) ── */}
       {!user && (
         <div className="classic-home-hero hero-gradient relative overflow-hidden">
