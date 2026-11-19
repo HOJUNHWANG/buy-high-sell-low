@@ -13,11 +13,13 @@ type Tab = "all" | "positive" | "neutral" | "negative";
 
 export function NewsFilter({
   articles,
+  renderedAt,
   initialTab = "all",
   isLoggedIn = false,
   initialRemainingUnlocks = 0,
 }: {
   articles: NewsArticle[];
+  renderedAt: number;
   initialTab?: Tab;
   isLoggedIn?: boolean;
   initialRemainingUnlocks?: number;
@@ -29,6 +31,7 @@ export function NewsFilter({
   >({});
   const router = useRouter();
   const pathname = usePathname();
+  const referenceTime = new Date(renderedAt);
 
   function handleTab(next: Tab) {
     setTab(next);
@@ -123,7 +126,7 @@ export function NewsFilter({
                         </span>
                       )}
                       <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
-                        {timeAgo(article.published_at)}
+                        {timeAgo(article.published_at, referenceTime)}
                       </span>
                       <NewsEvidenceBadge article={article} />
                     </div>

@@ -51,6 +51,7 @@ export default async function StockDetailPage({ params }: Props) {
   if (!stock) notFound();
 
   const news = gateSummaries(rawNews, tier, unlockedIds);
+  const renderedAt = new Date().getTime();
 
   const isUp   = (price?.change_pct ?? 0) >= 0;
   const pctStr = price?.change_pct != null
@@ -63,7 +64,7 @@ export default async function StockDetailPage({ params }: Props) {
 
   return (
     <div className="max-w-7xl mx-auto px-5 py-8">
-      <LiveDataRefresh renderedAt={new Date().getTime()} />
+      <LiveDataRefresh renderedAt={renderedAt} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
         {/* ── Main column ── */}
@@ -142,6 +143,7 @@ export default async function StockDetailPage({ params }: Props) {
           <StockChart
             ticker={stock.ticker}
             history={history}
+            renderedAt={renderedAt}
             isCrypto={stock.sector === "Cryptocurrency"}
             currentPrice={price ? { price: price.price, fetched_at: price.fetched_at } : null}
           />
@@ -153,6 +155,7 @@ export default async function StockDetailPage({ params }: Props) {
           <StockNewsSection
             news={news}
             ticker={stock.ticker}
+            renderedAt={renderedAt}
             isLoggedIn={!!user}
             initialRemainingUnlocks={remainingUnlocks}
           />

@@ -13,10 +13,10 @@ const evidence = { source_text:'Intel updates guidance\n'+publicData.ai_summary,
 const write = (id, pub=publicData, ev=evidence) => db.query('SELECT public.write_news_analysis_v3($1,$2,$3)',[id,JSON.stringify(pub),JSON.stringify(ev)]);
 try {
   await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS;
-    CREATE TABLE stocks(ticker text PRIMARY KEY);
+    ${table('stocks')}
     ${table('news_articles')}
     CREATE TABLE price_history_long(ticker text,date date,close numeric);
-    INSERT INTO stocks VALUES('INTC');
+    INSERT INTO stocks(ticker,name) VALUES('INTC','Intel');
     ALTER TABLE news_articles ENABLE ROW LEVEL SECURITY;
     CREATE POLICY public_news ON news_articles FOR SELECT TO anon,authenticated USING(true);
     GRANT USAGE ON SCHEMA public TO anon,authenticated,service_role;
@@ -55,4 +55,35 @@ try {
   await assert.rejects(()=>write(4,{...publicData,summary_method:'invented'}),e=>e.code==='P0001');
   assert.equal((await one('SELECT summary_method FROM news_articles WHERE id=4')).summary_method,'source_excerpt');
   console.log('News retry SQL: indexes, public reads, service-only evidence, bounded attempts, replay, archives, rollback and verified-result preservation passed.');
+
+  await db.exec(`
+    RESET ROLE;
+    INSERT INTO stocks(ticker,name,logo_url) VALUES
+      ('ANT','Anthropic',null),
+      ('ADBE','Adobe','https://www.google.com/s2/favicons?domain=adobe.com&sz=128'),
+      ('COST','Costco','https://example.com/already-replaced.png');
+    INSERT INTO news_articles(id,title,url,published_at,fetched_at,quality_version,related_tickers,summary_method,ai_summary)
+    VALUES
+      (11,'Anthropic shares climb on IPO debut','https://example.com/ant-ipo','2026-11-19T20:00Z','2026-11-19T21:00Z',3,ARRAY['INTC'],'verified_ai','Existing verified summary'),
+      (12,'Anthropic tools debut at a student event','https://example.com/ant-demo','2026-11-19T20:00Z','2026-11-19T21:00Z',3,ARRAY[]::text[],'headline_only',null),
+      (13,'Anthropic IPO coverage after deployment','https://example.com/ant-later','2026-11-19T23:20Z','2026-11-19T23:21Z',3,ARRAY[]::text[],'headline_only',null);
+    INSERT INTO private.news_evidence(article_id,source_text,evidence)
+    VALUES (11,'Existing source excerpt','{"entities":[{"ticker":"INTC"}]}');
+  `);
+  const displayRepair=readFileSync('supabase/migrations/20261119234510_repair_market_display_data.sql','utf8');
+  await db.transaction(tx=>tx.exec(displayRepair));
+  await db.transaction(tx=>tx.exec(displayRepair));
+  assert.deepEqual(await one('SELECT related_tickers, ai_summary, quality_version FROM news_articles WHERE id=11'), {
+    related_tickers:['INTC','ANT'], ai_summary:'Existing verified summary', quality_version:3,
+  });
+  assert.deepEqual((await db.query('SELECT related_tickers FROM news_articles WHERE id IN (12,13) ORDER BY id')).rows, [
+    { related_tickers:[] }, { related_tickers:[] },
+  ]);
+  const reviewed = await one('SELECT evidence, source_text FROM private.news_evidence WHERE article_id=11');
+  assert.deepEqual(reviewed.evidence.entities.map(item=>item.ticker), ['INTC','ANT']);
+  assert.equal(reviewed.source_text,'Existing source excerpt');
+  assert.equal(Number((await one("SELECT count(*) n FROM private.repair_archive WHERE repair_id='anthropic-ipo-tags'")).n),2);
+  assert.equal((await one("SELECT logo_url FROM stocks WHERE ticker='ADBE'")).logo_url,'https://financialmodelingprep.com/image-stock/ADBE.png');
+  assert.equal((await one("SELECT logo_url FROM stocks WHERE ticker='COST'")).logo_url,'https://example.com/already-replaced.png');
+  console.log('Market display data repair: scoped tags, evidence, old icons, existing summaries and replay passed.');
 } finally { await db.close(); }

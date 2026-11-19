@@ -11,6 +11,7 @@ import { LockedSummary } from "@/components/LockedSummary";
 interface StockNewsSectionProps {
   news: NewsArticle[];
   ticker: string;
+  renderedAt: number;
   isLoggedIn: boolean;
   initialRemainingUnlocks: number;
 }
@@ -18,6 +19,7 @@ interface StockNewsSectionProps {
 export function StockNewsSection({
   news,
   ticker,
+  renderedAt,
   isLoggedIn,
   initialRemainingUnlocks,
 }: StockNewsSectionProps) {
@@ -25,6 +27,7 @@ export function StockNewsSection({
   const [unlockedMap, setUnlockedMap] = useState<
     Record<number, { summary: string; insight: string | null; sentiment: string | null; caution: string | null }>
   >({});
+  const referenceTime = new Date(renderedAt);
 
   return (
     <section>
@@ -61,8 +64,8 @@ export function StockNewsSection({
                     <div className="flex items-center gap-1.5 flex-wrap text-[10px]" style={{ color: "var(--text-3)" }}>
                       {article.source && <span>{article.source}</span>}
                       <NewsEvidenceBadge article={article} />
-                      <span>{timeAgo(article.published_at)}</span>
-                      {!isRecentNews(article.published_at) && <span>Older coverage · not a current price driver</span>}
+                      <span>{timeAgo(article.published_at, referenceTime)}</span>
+                      {!isRecentNews(article.published_at, referenceTime) && <span>Older coverage · not a current price driver</span>}
                     </div>
                     <a
                       href={article.url}
