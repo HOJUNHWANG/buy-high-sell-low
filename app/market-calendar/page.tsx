@@ -1,20 +1,24 @@
 import { MarketStatusWidget } from "@/components/MarketStatusWidget";
+import earlyCloses from "@/data/us-market-early-closes.json";
 import marketHolidays from "@/data/us-market-holidays.json";
-
-const EARLY_CLOSES = [
-  { date: "2026-11-27", label: "Day after Thanksgiving", status: "Early close 1:00 PM ET" },
-  { date: "2026-12-24", label: "Christmas Eve", status: "Early close 1:00 PM ET" },
-  { date: "2027-11-26", label: "Day after Thanksgiving", status: "Early close 1:00 PM ET" },
-  { date: "2027-12-23", label: "Christmas Eve observed", status: "Early close 1:00 PM ET" },
-];
+import { getEasternTime } from "@/lib/market-hours";
 
 export const dynamic = "force-dynamic";
 
 function getUpcomingEvents() {
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
+  const today = getEasternTime(new Date()).date;
+  const timeFormat = new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    hour: "numeric",
+    minute: "2-digit",
+  });
   return [
     ...marketHolidays.map((holiday) => ({ ...holiday, status: "Closed" })),
-    ...EARLY_CLOSES,
+    ...earlyCloses.map(({ date, label, closeMinute }) => ({
+      date,
+      label,
+      status: `Early close ${timeFormat.format(closeMinute * 60_000)} ET`,
+    })),
   ]
     .filter((event) => event.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -43,7 +47,7 @@ export default function MarketCalendarPage() {
         <div className="card rounded-xl p-4 text-sm" style={{ color: "var(--text-2)" }}>
           <p><strong style={{ color: "var(--text)" }}>Regular session:</strong> 9:30 AM – 4:00 PM ET</p>
           <p className="mt-2"><strong style={{ color: "var(--text)" }}>Price cron:</strong> every 10 minutes; stocks are skipped outside market/post-close windows.</p>
-          <p className="mt-2"><strong style={{ color: "var(--text)" }}>Settlement refresh:</strong> first successful 10-minute cron tick between 4:45 PM – 5:15 PM ET, once per day.</p>
+          <p className="mt-2"><strong style={{ color: "var(--text)" }}>Settlement refresh:</strong> first successful price update 45–75 minutes after the session closes.</p>
         </div>
       </div>
 

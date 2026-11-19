@@ -9,6 +9,7 @@ import { assetPriceFractionDigits, formatAssetPrice } from "@/lib/price-format";
 interface Props {
   ticker: string;
   history: StockPriceHistory[];
+  renderedAt: number;
   isCrypto?: boolean;
   /** Latest current price + timestamp to ensure chart always shows most recent data */
   currentPrice?: { price: number; fetched_at: string } | null;
@@ -25,9 +26,9 @@ const RANGE_MS: Record<Range, number> = {
   "1Y": 365 * 24 * 60 * 60 * 1000,
 };
 
-function filterByRange(data: StockPriceHistory[], range: Range): StockPriceHistory[] {
-  const now = Date.now();
-  return data.filter((d) => new Date(d.recorded_at).getTime() >= now - RANGE_MS[range]);
+function filterByRange(data: StockPriceHistory[], range: Range, renderedAt: number): StockPriceHistory[] {
+  const cutoff = renderedAt - RANGE_MS[range];
+  return data.filter((point) => Date.parse(point.recorded_at) >= cutoff);
 }
 
 /**
@@ -74,7 +75,7 @@ function getRangeStats(data: StockPriceHistory[]) {
   return { low, high, first: oldest, last: newest, change, changePct };
 }
 
-export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
+export function StockChart({ ticker, history, renderedAt, isCrypto, currentPrice }: Props) {
   const chartRef = useRef<HTMLDivElement>(null);
   const { theme } = useTheme();
   const { design } = useDesign();
@@ -102,24 +103,36 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
     ];
   }, [history, currentPrice, ticker]);
 
-  const filtered = useMemo(() => filterByRange(historyWithCurrent, range), [historyWithCurrent, range]);
+  const filtered = useMemo(() => filterByRange(historyWithCurrent, range, renderedAt), [historyWithCurrent, range, renderedAt]);
+  const seriesData = useMemo(() => {
+    const points = filtered.map(({ recorded_at, price }) => ({
+      time: Math.floor(Date.parse(recorded_at) / 1000),
+      value: price,
+    })).sort((a, b) => a.time - b.time);
+    const aggregated = aggregateData(points, range);
+    return aggregated.filter((point, index) => index === 0 || point.time !== aggregated[index - 1].time);
+  }, [filtered, range]);
+  const hasChart = seriesData.length >= 2;
   const stats = useMemo(() => getRangeStats(filtered), [filtered]);
   const isUp = (stats?.changePct ?? 0) >= 0;
   const priceDigits = assetPriceFractionDigits(stats?.last ?? currentPrice?.price ?? 0, ticker);
 
   useEffect(() => {
-    if (!chartRef.current || historyWithCurrent.length === 0) return;
+    const container = chartRef.current;
+    if (!container || !hasChart) return;
     let chart: ReturnType<typeof import("lightweight-charts")["createChart"]> | null = null;
+    let observer: ResizeObserver | undefined;
+    let disposed = false;
 
-    async function init() {
+    async function init(container: HTMLDivElement) {
       let createChart, ColorType, AreaSeries;
       try {
         ({ createChart, ColorType, AreaSeries } = await import("lightweight-charts"));
       } catch {
-        setChartError(true);
+        if (!disposed) setChartError(true);
         return;
       }
-      if (!chartRef.current) return;
+      if (disposed) return;
 
       const styles = getComputedStyle(document.documentElement);
       const themeColor = (name: string) => styles.getPropertyValue(name).trim();
@@ -133,8 +146,8 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
       // Show time (HH:MM) only for intraday views
       const showTime = range === "1D" || range === "1W";
 
-      chart = createChart(chartRef.current, {
-        width: chartRef.current.clientWidth,
+      chart = createChart(container, {
+        width: container.clientWidth,
         height: 280,
         layout: {
           background: { type: ColorType.Solid, color: chartSurface },
@@ -187,36 +200,20 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
         },
       });
 
-      const filteredData = filterByRange(historyWithCurrent, range);
-      const rawPoints = filteredData
-        .map((d) => ({
-          time: Math.floor(new Date(d.recorded_at).getTime() / 1000) as number,
-          value: d.price,
-        }))
-        .sort((a, b) => (a.time as number) - (b.time as number));
-
-      // Aggregate based on range to reduce noise
-      const aggregated = aggregateData(rawPoints, range);
-
-      // Remove duplicate timestamps
-      const deduped = aggregated.filter((p, i) => i === 0 || p.time !== aggregated[i - 1].time);
-
-      areaSeries.setData(deduped as Parameters<typeof areaSeries.setData>[0]);
+      areaSeries.setData(seriesData as Parameters<typeof areaSeries.setData>[0]);
       chart.timeScale().fitContent();
 
-      const handleResize = () => {
-        if (chart && chartRef.current)
-          chart.applyOptions({ width: chartRef.current.clientWidth });
-      };
-      window.addEventListener("resize", handleResize);
-      return () => window.removeEventListener("resize", handleResize);
+      observer = new ResizeObserver(() => chart?.applyOptions({ width: container.clientWidth }));
+      observer.observe(container);
     }
 
-    init();
+    void init(container);
     return () => {
+      disposed = true;
+      observer?.disconnect();
       chart?.remove();
     };
-  }, [historyWithCurrent, range, isUp, priceDigits, theme, design]);
+  }, [hasChart, seriesData, range, isUp, priceDigits, theme, design]);
 
   return (
     <div
@@ -225,13 +222,15 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
     >
       {/* Range tabs + stats */}
       <div
-        className="flex items-center justify-between px-4 py-3"
+        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3"
         style={{ borderBottom: "1px solid var(--border)" }}
       >
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           {allRanges.map((r) => (
               <button
                 key={r}
+                type="button"
+                aria-pressed={range === r}
                 onClick={() => setRange(r)}
                 className="px-2.5 py-1 text-[11px] font-medium rounded-md transition-all"
                 style={{
@@ -246,12 +245,12 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
         </div>
 
         {/* Range summary */}
-        {stats && (
-          <div className="flex items-center gap-3 text-[11px]">
-            <span style={{ color: "var(--text-3)" }}>
+        {hasChart && stats && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+            <span className="whitespace-nowrap" style={{ color: "var(--text-3)" }}>
               H: <span style={{ color: "var(--text-2)" }}>{formatAssetPrice(stats.high, ticker)}</span>
             </span>
-            <span style={{ color: "var(--text-3)" }}>
+            <span className="whitespace-nowrap" style={{ color: "var(--text-3)" }}>
               L: <span style={{ color: "var(--text-2)" }}>{formatAssetPrice(stats.low, ticker)}</span>
             </span>
             <span
@@ -265,7 +264,7 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
         )}
       </div>
 
-      {chartError ? (
+      {hasChart && chartError ? (
         <div
           className="h-64 flex flex-col items-center justify-center gap-2 text-xs"
           style={{ color: "var(--text-3)" }}
@@ -311,14 +310,20 @@ export function StockChart({ ticker, history, isCrypto, currentPrice }: Props) {
             </span>
           )}
         </div>
+      ) : !hasChart ? (
+        <p className="h-64 grid place-items-center px-6 text-center text-xs" style={{ color: "var(--text-3)" }}>
+          Only one price point is available for {range}.
+        </p>
       ) : (
         <div ref={chartRef} className="w-full" style={{ touchAction: "pan-y", height: 280 }} />
       )}
 
       {/* Data resolution note */}
-      <div className="px-4 py-2 text-[10px] text-center italic" style={{ borderTop: "1px solid var(--border)", color: "var(--text-3)" }}>
-        Intraday data (5m) for the last 30 days, daily close for earlier dates.
-      </div>
+      {hasChart && !chartError && (
+        <div className="px-4 py-2 text-[10px] text-center italic" style={{ borderTop: "1px solid var(--border)", color: "var(--text-3)" }}>
+          Intraday data (5m) for the last 30 days, daily close for earlier dates.
+        </div>
+      )}
     </div>
   );
 }

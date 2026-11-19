@@ -3,7 +3,7 @@
 ALTER TABLE stocks
   ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
 
--- These assets remain in `stocks` for historical records but are excluded from
+-- These assets remain in stocks for historical records but are excluded from
 -- public search, the screener, sitemap, and market overview queries.
 UPDATE stocks
 SET is_active = FALSE, updated_at = NOW()

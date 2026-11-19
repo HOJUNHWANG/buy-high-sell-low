@@ -54,10 +54,11 @@ export default async function NewsPage({
     getNews(), getNewsAccess(),
   ]);
   const news = gateSummaries(rawNews, tier, unlockedIds);
+  const renderedAt = new Date().getTime();
 
   return (
     <div className="max-w-7xl mx-auto px-5 py-8">
-      <LiveDataRefresh renderedAt={new Date().getTime()} />
+      <LiveDataRefresh renderedAt={renderedAt} />
       <div className="flex gap-5 items-start">
 
         {/* ── Left sidebar ── */}
@@ -86,6 +87,7 @@ export default async function NewsPage({
 
           <NewsFilter
             articles={news}
+            renderedAt={renderedAt}
             initialTab={initialTab}
             isLoggedIn={!!user}
             initialRemainingUnlocks={remainingUnlocks}

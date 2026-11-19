@@ -1,8 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { HomeNewsCard } from "@/components/HomeNewsCard";
+import { NewsFilter } from "@/components/NewsFilter";
+import { StockNewsSection } from "@/components/StockNewsSection";
 import { gateSummaries } from "@/lib/summary-gate";
 import type { NewsArticle } from "@/lib/types";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: vi.fn() }),
+  usePathname: () => "/news",
+}));
 
 const article = (overrides: Partial<NewsArticle> = {}): NewsArticle => ({
   id: 1, ticker: "AAPL", title: "Apple earnings", url: "https://example.test/article",
@@ -15,6 +22,28 @@ const render = (row: NewsArticle, loggedIn: boolean) => renderToStaticMarkup(
 );
 
 describe("news summary availability", () => {
+  it("keeps the initial news times the same after a client clock change", () => {
+    const row = article();
+    const renderedAt = Date.parse("2026-10-31T20:01:00Z");
+    const renderNews = () => renderToStaticMarkup(
+      <>
+        <NewsFilter articles={[row]} renderedAt={renderedAt} />
+        <StockNewsSection news={[row]} ticker="AAPL" renderedAt={renderedAt} isLoggedIn={false} initialRemainingUnlocks={0} />
+      </>,
+    );
+
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(renderedAt);
+      const server = renderNews();
+      vi.setSystemTime(new Date("2026-11-03T20:01:00Z"));
+      expect(server).toContain("1m ago");
+      expect(renderNews()).toBe(server);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it.each([true, false])("does not pretend a missing body is generating (logged in: %s)", loggedIn => {
     const html = render(article(), loggedIn);
     expect(html).toContain("Headline only");

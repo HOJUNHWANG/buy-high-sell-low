@@ -227,6 +227,11 @@ tests/                          # Vitest suites
 
 ## Operations
 
+Production SQL in `supabase/migrations/` follows the production Supabase migration ledger.
+Review pending migrations with `supabase db push --dry-run` before deployment. The
+original setup SQL from before that ledger is preserved in `supabase/legacy-migrations/`,
+and `supabase/schema.sql` provides the reference schema.
+
 [지수 종목 교체 절차와 실행 기록 템플릿](docs/index-rebalance-runbook.md) · [2026년 9월 S&P 100 교체 기록](docs/sp100-refresh-2026-09.md)
 
 ## Disclaimer

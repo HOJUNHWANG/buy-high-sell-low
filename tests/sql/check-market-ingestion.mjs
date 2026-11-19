@@ -24,7 +24,7 @@ try {
     ${table("stock_prices")}
     ${table("stock_price_history")}
     ${table("price_history_long")}
-    ${read("supabase/migrations/20260709_fictional_market.sql").split("CREATE INDEX")[0]}
+    ${read("supabase/legacy-migrations/20260709_fictional_market.sql").split("CREATE INDEX")[0]}
     ALTER TABLE public.price_history_long ADD CONSTRAINT price_history_long_new_ticker_date_key UNIQUE (ticker, date);
     ALTER TABLE public.price_history_long ENABLE ROW LEVEL SECURITY;
     ALTER TABLE public.fictional_price_history_daily ENABLE ROW LEVEL SECURITY;
