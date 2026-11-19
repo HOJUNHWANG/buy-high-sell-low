@@ -120,6 +120,46 @@ class FetchSelectedPricesTests(unittest.TestCase):
         self.assertNotIn(fetch_prices.TWELVE_DATA_API_KEY, message)
         self.assertIn("[redacted]", message)
 
+    @patch("fetch_prices.fetch_yahoo_equity_quote", return_value={"close": 97.17})
+    @patch("fetch_prices.http_session.get")
+    def test_ant_falls_back_on_missing_twelve_data_quote(self, get, fallback):
+        get.return_value.status_code = 422
+        self.assertEqual(fetch_prices.fetch_batch(["ANT"]), {"ANT": {"close": 97.17}})
+
+        get.return_value.status_code = 200
+        other_quote = {"close": "200"}
+        get.return_value.json.return_value = {"ANT": {"status": "error"}, "AAPL": other_quote}
+        self.assertEqual(
+            fetch_prices.fetch_batch(["ANT", "AAPL"]),
+            {"ANT": {"close": 97.17}, "AAPL": other_quote},
+        )
+        self.assertEqual(fallback.call_count, 2)
+
+        get.return_value.json.return_value = {"close": "97.17"}
+        self.assertEqual(fetch_prices.fetch_batch(["ANT"]), {"ANT": {"close": "97.17"}})
+        self.assertEqual(fallback.call_count, 2)
+
+    @patch("fetch_prices.requests.get")
+    def test_yahoo_fallback_accepts_first_session_and_rejects_stale_session(self, get):
+        et = ZoneInfo("America/New_York")
+        observed = datetime(2026, 11, 19, 16, 0, 1, tzinfo=et)
+        timestamp = int(observed.timestamp())
+        get.return_value.json.return_value = {"chart": {"result": [{
+            "meta": {"symbol": "ANT", "currency": "USD", "regularMarketTime": timestamp,
+                     "regularMarketPrice": 97.17},
+            "timestamp": [timestamp],
+            "indicators": {"quote": [{"open": [111.50], "high": [115.10], "low": [92.72],
+                                       "volume": [851818130]}]},
+        }]}}
+        self.assertEqual(
+            fetch_prices.fetch_yahoo_equity_quote("ANT", datetime(2026, 11, 19, 18, tzinfo=et)),
+            {"datetime": "2026-11-19", "timestamp": timestamp, "close": 97.17,
+             "open": 111.50, "high": 115.10, "low": 92.72, "volume": 851818130},
+        )
+        self.assertIsNone(
+            fetch_prices.fetch_yahoo_equity_quote("ANT", datetime(2026, 11, 20, 10, tzinfo=et)),
+        )
+
     @patch("fetch_prices.upsert_prices")
     @patch("fetch_prices.fetch_batch")
     def test_refreshes_mixed_tickers_and_normalizes_crypto_failures(

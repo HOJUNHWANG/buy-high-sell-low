@@ -32,7 +32,7 @@ ALIASES = {
     "SOL-USD": ["Solana", "SOL"], "NEAR-USD": ["NEAR Protocol"],
     "UNI-USD": ["Uniswap"], "XLM-USD": ["Stellar Lumens"], "AVAX-USD": ["Avalanche", "AVAX"],
 }
-AMBIGUOUS = {"T", "V", "C", "F", "SO", "NOW", "ALL", "LOW", "NEAR", "DIA", "CAT", "A", "B", "AMT", "UPS"}
+AMBIGUOUS = {"T", "V", "C", "F", "SO", "NOW", "ALL", "LOW", "NEAR", "DIA", "CAT", "A", "B", "AMT", "UPS", "ANT"}
 MATERIAL_ACTION = re.compile(r"\b(earnings|revenue|profit|shares?|stocks?|dividend|IPO|buyback|guidance|raised|cut|fell|rose|freez\w*|froze|frozen|seized|stolen|stole|theft|exploit\w*|hack\w*|breach|transferred|issued|redemption|depeg|supply|delist\w*|listed|liquidations?)\b", re.I)
 CRIME = re.compile(r"\b(kidnapp?\w*|ransom|robbery|tortur\w*|murder\w*)\b", re.I)
 FINANCIAL = re.compile(r"\b(earnings|revenue|shares?|stock|profit|guidance|acqui\w*|merger|dividend|buyback|IPO|ETF|fund|regulat\w*|SEC|lawsuit|hack\w*|exploit\w*|breach|freez\w*|froze|frozen|stablecoins?|supply|token|blockchain|mainnet|protocol|treasur\w*|rate|inflation|GDP|jobs|tariff\w*|launch\w*|contracts?|partnership|production|deliveries|recall|chips?|cloud|satellites?|FCC|FDA|approval|antitrust|CEO|CFO)\b", re.I)

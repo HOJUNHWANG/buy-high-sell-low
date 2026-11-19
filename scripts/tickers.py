@@ -77,6 +77,7 @@ SP500_TICKERS = SP100_TICKERS
 # Extra equities tracked outside the S&P 100 universe.
 TRACKED_EQUITY_TICKERS = [
     "SPCX",
+    "ANT",
 ]
 
 TRACKED_EQUITY_METADATA = {
@@ -84,6 +85,12 @@ TRACKED_EQUITY_METADATA = {
         "name": "SpaceX",
         "exchange": "NASDAQ",
         "sector": "Industrials",
+    },
+    "ANT": {
+        "name": "Anthropic, PBC",
+        "exchange": "NASDAQ",
+        "sector": "Information Technology",
+        "logo_url": "https://icons.duckduckgo.com/ip3/anthropic.com.ico",
     },
 }
 
@@ -162,7 +169,7 @@ COMPANY_NAMES = {
     "V": "Visa",
     "VZ": "Verizon", "WFC": "Wells Fargo", "WMT": "Walmart", "XOM": "ExxonMobil",
     # Additional tracked equities
-    "SPCX": "SpaceX",
+    "SPCX": "SpaceX", "ANT": "Anthropic",
     # Announced S&P 100 additions (effective September 21, 2026)
     "DELL": "Dell Technologies", "PANW": "Palo Alto Networks",
     "ANET": "Arista Networks", "SNDK": "Sandisk",
