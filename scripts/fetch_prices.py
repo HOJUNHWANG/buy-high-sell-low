@@ -28,7 +28,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 sys.path.insert(0, os.path.dirname(__file__))
 from tickers import (
     ALL_EQUITY_TICKERS, ALL_CRYPTO_TICKERS, ALL_ETF_TICKERS,
-    CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_crypto,
+    CRYPTO_TICKERS, ETF_TICKERS, to_twelve_data_crypto, to_yf,
 )
 from asset_retention import filter_collectable_tickers
 from price_adjustments import (
@@ -145,6 +145,45 @@ def already_completed_settlement_close_today(
     return len(result.data or []) > 0
 
 
+def fetch_yahoo_equity_quote(ticker: str, now_et: datetime | None = None) -> dict | None:
+    symbol = to_yf(ticker)
+    response = requests.get(
+        f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
+        params={"range": "5d", "interval": "1d"},
+        headers={"User-Agent": "Mozilla/5.0"},
+        timeout=10,
+    )
+    response.raise_for_status()
+    chart = response.json()["chart"]["result"][0]
+    meta = chart["meta"]
+    if meta.get("symbol") != symbol or meta.get("currency") != "USD":
+        return None
+
+    et = pytz.timezone("America/New_York")
+    now_et = now_et or datetime.now(et)
+    observed_et = datetime.fromtimestamp(meta["regularMarketTime"], tz=et)
+    market_open = is_market_open(now_et)
+    session = now_et.date() if market_open else settlement_market_date(now_et)
+    if observed_et.date() != session or observed_et > now_et:
+        return None
+    if market_open and now_et - observed_et > timedelta(minutes=5):
+        return None
+    if not market_open and observed_et.hour * 60 + observed_et.minute < session_close_minutes(session):
+        return None
+
+    # Only pair the observed price with OHLCV from the same regular session.
+    bar_date = datetime.fromtimestamp(chart["timestamp"][-1], tz=et).date()
+    if bar_date != session:
+        return None
+    daily = chart["indicators"]["quote"][0]
+    return {
+        "datetime": session.isoformat(),
+        "timestamp": meta["regularMarketTime"],
+        "close": meta["regularMarketPrice"],
+        **{field: daily[field][-1] for field in ("open", "high", "low", "volume") if daily.get(field)},
+    }
+
+
 def fetch_batch(tickers: list[str]) -> dict:
     symbols = ",".join(tickers)
     # Manual URL construction to avoid potential issues with encoded '/' in crypto symbols
@@ -152,17 +191,31 @@ def fetch_batch(tickers: list[str]) -> dict:
 
     # Increased timeout to 60s for batches to handle potential server lags
     r = http_session.get(url, timeout=60)
-    r.raise_for_status()
-    data = r.json()
+    single_ant = tickers == ["ANT"]
+    if single_ant and r.status_code in (404, 422):
+        data = {}
+    else:
+        r.raise_for_status()
+        data = r.json()
 
     # Top-level error response (e.g. rate limit, invalid key)
     if isinstance(data, dict) and data.get("status") == "error":
-        raise Exception(f"Twelve Data API error {data.get('code', '?')}: {data.get('message', 'unknown')}")
+        if not (single_ant and data.get("code") in (404, 422)):
+            raise Exception(f"Twelve Data API error {data.get('code', '?')}: {data.get('message', 'unknown')}")
 
     # Single ticker returns flat dict, multiple returns nested
-    if len(tickers) == 1:
-        return {tickers[0]: data} if "close" in data else {}
-    return data
+    quotes = ({tickers[0]: data} if "close" in data else {}) if len(tickers) == 1 else data
+    if "ANT" in tickers:
+        quote = quotes.get("ANT")
+        # Twelve Data can return no quote for ANT even after the first trading session.
+        if not isinstance(quote, dict) or quote.get("close") in (None, ""):
+            try:
+                fallback = fetch_yahoo_equity_quote("ANT")
+                if fallback is not None:
+                    quotes["ANT"] = fallback
+            except (requests.RequestException, ValueError, KeyError, IndexError, TypeError, OverflowError) as exc:
+                print(f"  ANT fallback quote unavailable: {safe_provider_error(exc)}")
+    return quotes
 
 
 def build_current_price_row(

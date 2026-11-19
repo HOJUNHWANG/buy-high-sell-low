@@ -60,6 +60,7 @@ STOCK_DOMAINS = {
     "AMAT": "appliedmaterials.com", "AMCR": "amcor.com", "AMD": "amd.com",
     "AME": "ametek.com", "AMGN": "amgen.com", "AMP": "ameriprise.com",
     "AMT": "americantower.com", "AMZN": "amazon.com", "ANET": "arista.com",
+    "ANT": "anthropic.com",
     "AON": "aon.com", "AOS": "aosmith.com", "APA": "apacorp.com",
     "APD": "airproducts.com", "APH": "amphenol.com", "APO": "apollo.com",
     "APP": "applovin.com", "APTV": "aptiv.com", "ARE": "are.com",
