@@ -20,7 +20,7 @@ export function WorkspaceNavigation({ isAdmin }: { isAdmin: boolean }) {
       <div className="workspace-sidebar-note"><span className="workspace-note-dot" /><div>A little practice.<br /><strong>A better perspective.</strong><p>Trade with simulated money.</p></div></div>
     </aside>
     <nav className="workspace-mobile-nav design-v2-only" aria-label="Quick navigation">
-      {navigation.filter((item) => ["/", "/stocks", "/news", "/paper"].includes(item.href)).map((item) => <Link key={item.href} href={item.href} aria-current={isNavigationActive(pathname, item.href) ? "page" : undefined}><NavigationIcon icon={item.icon} /><span>{item.href === "/paper" ? "Portfolio" : item.label.split(" ")[0]}</span></Link>)}
+      {navigation.filter((item) => ["/", "/stocks", "/heatmap", "/news", "/paper"].includes(item.href)).map((item) => <Link key={item.href} href={item.href} aria-current={isNavigationActive(pathname, item.href) ? "page" : undefined}><NavigationIcon icon={item.icon} /><span>{item.href === "/paper" ? "Portfolio" : item.label.split(" ")[0]}</span></Link>)}
     </nav>
   </>;
 }
