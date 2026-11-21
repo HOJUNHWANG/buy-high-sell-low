@@ -46,7 +46,12 @@ from tickers import (  # noqa: E402
     ALL_ETF_TICKERS,
     to_yf,
 )
-from audit_market_data import NasdaqReferenceProvider, ReferenceQuote  # noqa: E402
+from audit_market_data import (  # noqa: E402
+    NasdaqReferenceProvider,
+    REFERENCE_ATTEMPTS,
+    REFERENCE_RETRY_DELAY_SECONDS,
+    ReferenceQuote,
+)
 
 
 load_dotenv(dotenv_path=os.path.join(SCRIPT_DIR, "..", ".env.local"))
@@ -648,20 +653,25 @@ class MarketDataProvider:
     def _fetch_etf(self, ticker: str) -> MarketCapObservation:
         if ticker not in self._etf_aum and ticker not in self._etf_errors:
             try:
-                response = self.session.get(
-                    NASDAQ_ETF_SUMMARY_URL.format(ticker=ticker),
-                    params={"assetclass": "etf"},
-                    headers=NASDAQ_HEADERS,
-                    timeout=HTTP_TIMEOUT_SECONDS,
-                )
-                response.raise_for_status()
-                payload = response.json()
-                if not isinstance(payload, Mapping):
-                    raise ValueError("Nasdaq ETF summary is not an object")
-                aum = _nasdaq_etf_aum(payload)
-                if aum is None:
+                for attempt in range(REFERENCE_ATTEMPTS):
+                    if attempt:
+                        time.sleep(REFERENCE_RETRY_DELAY_SECONDS)
+                    response = self.session.get(
+                        NASDAQ_ETF_SUMMARY_URL.format(ticker=ticker),
+                        params={"assetclass": "etf"},
+                        headers=NASDAQ_HEADERS,
+                        timeout=HTTP_TIMEOUT_SECONDS,
+                    )
+                    response.raise_for_status()
+                    payload = response.json()
+                    if not isinstance(payload, Mapping):
+                        raise ValueError("Nasdaq ETF summary is not an object")
+                    aum = _nasdaq_etf_aum(payload)
+                    if aum is not None:
+                        self._etf_aum[ticker] = aum
+                        break
+                else:
                     raise ValueError("Nasdaq ETF summary has no usable AUM")
-                self._etf_aum[ticker] = aum
             except Exception as exc:
                 self._etf_errors[ticker] = str(exc)
 
