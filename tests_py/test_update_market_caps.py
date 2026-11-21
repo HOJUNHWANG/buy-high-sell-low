@@ -253,6 +253,24 @@ class PrimaryProviderTests(unittest.TestCase):
 
         self.assertEqual(set(ALL_CRYPTO_TICKERS), set(CRYPTO_COINGECKO_IDS))
 
+    def test_retries_empty_etf_aum_and_caches_the_valid_response(self):
+        session = MagicMock()
+        session.get.return_value.json.side_effect = [
+            {"data": {"summaryData": {"AUM": {"value": "--"}}}},
+            {"data": {"summaryData": {"AUM": {
+                "label": "Assets Under Management (,000)", "value": "451,205,472",
+            }}}},
+        ]
+        provider = MarketDataProvider(session=session)
+        provider._try_yfinance = MagicMock(return_value=(None, None))
+
+        with patch("update_market_caps.time.sleep") as sleep:
+            for _ in range(2):
+                self.assertEqual(provider.fetch_observation("QQQ").market_cap, 451_205_472_000)
+
+        self.assertEqual(session.get.call_count, 2)
+        sleep.assert_called_once()
+
     def test_equity_uses_nasdaq_primary_with_yfinance_cross_check(self):
         provider = MarketDataProvider(session=MagicMock())
         provider._nasdaq.fetch_equities = MagicMock(return_value=({

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
+import type { Time, UTCTimestamp } from "lightweight-charts";
 import type { StockPriceHistory } from "@/lib/types";
 import { useTheme } from "@/components/ThemeProvider";
 import { useDesign } from "@/components/DesignProvider";
@@ -16,6 +17,10 @@ interface Props {
 }
 
 type Range = "1D" | "1W" | "1M" | "3M" | "6M" | "1Y";
+type ChartPoint = { time: UTCTimestamp; value: number; isDaily: boolean };
+
+const dateOptions = { month: "short", day: "numeric" } as const;
+const utcDate = new Intl.DateTimeFormat("en-US", { ...dateOptions, timeZone: "UTC" });
 
 const RANGE_MS: Record<Range, number> = {
   "1D": 1 * 24 * 60 * 60 * 1000,
@@ -33,30 +38,50 @@ function filterByRange(data: StockPriceHistory[], range: Range, renderedAt: numb
 
 /**
  * Aggregate data points to reduce noise on longer timeframes.
- * - 1D: raw points (intraday 15-min)
- * - 1W: one point per hour
+ * - 1D: raw observations
+ * - 1W: last observation per hour, at its actual timestamp
  * - 1M+: one point per day (last price of that day)
  */
-function aggregateData(
-  data: { time: number; value: number }[],
-  range: Range
-): { time: number; value: number }[] {
-  if (data.length === 0) return [];
-  if (range === "1D") return data; // raw intraday
+function aggregateData(data: ChartPoint[], range: Range): ChartPoint[] {
+  if (range === "1D") return data;
 
-  const bucketSize =
-    range === "1W"
-      ? 60 * 60 // 1 hour
-      : 24 * 60 * 60; // 1 day for 1M/3M/6M/1Y
-
-  const buckets = new Map<number, { time: number; value: number }>();
+  const weekly = range === "1W";
+  const bucketSize = weekly ? 3600 : 86_400;
+  const buckets = new Map<number, ChartPoint>();
   for (const point of data) {
     const key = Math.floor(point.time / bucketSize) * bucketSize;
-    // Keep last value per bucket (most recent price)
-    buckets.set(key, { time: key, value: point.value });
+    buckets.set(key, weekly ? point : { ...point, time: key as UTCTimestamp });
   }
 
-  return Array.from(buckets.values()).sort((a, b) => a.time - b.time);
+  return [...buckets.values()];
+}
+
+function formatDailyTick(time: Time) {
+  return typeof time === "number" ? utcDate.format(new Date(time * 1000)) : null;
+}
+
+function weeklyTimeFormatters(data: ChartPoint[], isCrypto?: boolean) {
+  const timeZone = isCrypto ? "UTC" : "America/New_York";
+  const sessionDate = isCrypto ? utcDate : new Intl.DateTimeFormat("en-US", { ...dateOptions, timeZone });
+  const observationTime = new Intl.DateTimeFormat("en-US", {
+    ...dateOptions, timeZone, hour: "numeric", minute: "2-digit", timeZoneName: "short",
+  });
+  const ticks = new Map<number, string>();
+  const closes = new Map<number, string>();
+  let previousDate = "";
+  for (const { time, isDaily } of data) {
+    const date = new Date(time * 1000);
+    const label = (isDaily ? utcDate : sessionDate).format(date);
+    if (label !== previousDate) ticks.set(time, label);
+    if (isDaily) closes.set(time, `${label} close`);
+    previousDate = label;
+  }
+  return {
+    tickMarkFormatter: (time: Time) => typeof time === "number" ? ticks.get(time) ?? "" : null,
+    timeFormatter: (time: Time) => typeof time === "number"
+      ? closes.get(time) ?? observationTime.format(new Date(time * 1000))
+      : String(time),
+  };
 }
 
 function getRangeStats(data: StockPriceHistory[]) {
@@ -106,8 +131,9 @@ export function StockChart({ ticker, history, renderedAt, isCrypto, currentPrice
   const filtered = useMemo(() => filterByRange(historyWithCurrent, range, renderedAt), [historyWithCurrent, range, renderedAt]);
   const seriesData = useMemo(() => {
     const points = filtered.map(({ recorded_at, price }) => ({
-      time: Math.floor(Date.parse(recorded_at) / 1000),
+      time: Math.floor(Date.parse(recorded_at) / 1000) as UTCTimestamp,
       value: price,
+      isDaily: recorded_at.length === 10,
     })).sort((a, b) => a.time - b.time);
     const aggregated = aggregateData(points, range);
     return aggregated.filter((point, index) => index === 0 || point.time !== aggregated[index - 1].time);
@@ -145,6 +171,7 @@ export function StockChart({ ticker, history, renderedAt, isCrypto, currentPrice
 
       // Show time (HH:MM) only for intraday views
       const showTime = range === "1D" || range === "1W";
+      const weekly = range === "1W" ? weeklyTimeFormatters(seriesData, isCrypto) : null;
 
       chart = createChart(container, {
         width: container.clientWidth,
@@ -166,6 +193,7 @@ export function StockChart({ ticker, history, renderedAt, isCrypto, currentPrice
           borderColor: chartGrid,
           textColor: chartText,
         },
+        localization: weekly ? { timeFormatter: weekly.timeFormatter } : {},
         timeScale: {
           borderColor: chartGrid,
           timeVisible: showTime,
@@ -173,12 +201,7 @@ export function StockChart({ ticker, history, renderedAt, isCrypto, currentPrice
           fixLeftEdge: true,
           fixRightEdge: true,
           rightOffset: 2,
-          tickMarkFormatter: showTime
-            ? undefined
-            : (time: number) => {
-                const d = new Date(time * 1000);
-                return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-              },
+          tickMarkFormatter: weekly?.tickMarkFormatter ?? (showTime ? undefined : formatDailyTick),
         },
         handleScroll: { mouseWheel: true, pressedMouseMove: true },
       });
@@ -200,7 +223,7 @@ export function StockChart({ ticker, history, renderedAt, isCrypto, currentPrice
         },
       });
 
-      areaSeries.setData(seriesData as Parameters<typeof areaSeries.setData>[0]);
+      areaSeries.setData(seriesData);
       chart.timeScale().fitContent();
 
       observer = new ResizeObserver(() => chart?.applyOptions({ width: container.clientWidth }));
@@ -213,7 +236,7 @@ export function StockChart({ ticker, history, renderedAt, isCrypto, currentPrice
       observer?.disconnect();
       chart?.remove();
     };
-  }, [hasChart, seriesData, range, isUp, priceDigits, theme, design]);
+  }, [hasChart, seriesData, range, isCrypto, isUp, priceDigits, theme, design]);
 
   return (
     <div
@@ -321,7 +344,9 @@ export function StockChart({ ticker, history, renderedAt, isCrypto, currentPrice
       {/* Data resolution note */}
       {hasChart && !chartError && (
         <div className="px-4 py-2 text-[10px] text-center italic" style={{ borderTop: "1px solid var(--border)", color: "var(--text-3)" }}>
-          Intraday data (5m) for the last 30 days, daily close for earlier dates.
+          {range === "1W"
+            ? `Hourly samples where available · ${isCrypto ? "UTC" : "U.S. Eastern time"}`
+            : "Intraday data (5m) for the last 30 days, daily close for earlier dates."}
         </div>
       )}
     </div>
