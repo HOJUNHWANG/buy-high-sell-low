@@ -7,13 +7,18 @@ suppressed when a known corporate action makes the provider value misleading.
 from __future__ import annotations
 from db_requests import execute_db
 
+import json
 import math
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
 
 EXTREME_EQUITY_CHANGE_PCT = 40.0
+STOCK_SPLITS = json.loads(
+    (Path(__file__).resolve().parents[1] / "data" / "stock-splits.json").read_text(encoding="utf-8")
+)
 
 # Corporate-action values are intentionally explicit and date-scoped. They
 # should be removed only after the historical record no longer needs to be
@@ -98,8 +103,9 @@ def get_previous_closes(
     *,
     tickers: list[str],
     close_date: str,
+    market_date: str | None = None,
 ) -> tuple[dict[str, float], str | None]:
-    """Load each ticker's stored close for an exact reference date."""
+    """Load the reference close on the same share basis as the current session."""
     normalized_tickers = list(dict.fromkeys(ticker.upper() for ticker in tickers))
     if not normalized_tickers:
         return {}, None
@@ -107,7 +113,7 @@ def get_previous_closes(
     try:
         result = (
             execute_db(supabase.table("price_history_long")
-            .select("ticker,close")
+            .select("ticker,close,price_basis")
             .in_("ticker", normalized_tickers)
             .eq("date", close_date)
             .limit(len(normalized_tickers)), operation='price_adjustments:price_history_long', retry_safe=True)
@@ -120,7 +126,12 @@ def get_previous_closes(
         ticker = str(row.get("ticker", "")).upper()
         close = row.get("close")
         if ticker and close is not None:
-            previous_closes[ticker] = float(close)
+            price = float(close)
+            if market_date and row.get("price_basis") != "split_adjusted":
+                for split in STOCK_SPLITS:
+                    if split["ticker"] == ticker and close_date < split["marketDate"] <= market_date:
+                        price /= split["ratio"]
+            previous_closes[ticker] = price
 
     return previous_closes, None
 
@@ -158,7 +169,7 @@ def normalize_change_pct(
         return (
             None,
             f"{normalized_ticker} {market_date}: suppressed unreviewed "
-            f"provider change {provider_change_pct}%",
+            f"change {provider_change_pct}%",
             "extreme_change_suppressed",
         )
 

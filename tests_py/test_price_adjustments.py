@@ -97,6 +97,29 @@ class PreviousCloseTests(unittest.TestCase):
         self.assertIsNone(error)
         builder.eq.assert_called_once_with("date", "2026-07-06")
 
+    def test_uses_comparable_sandisk_close_on_the_split_session(self):
+        client = MagicMock()
+        builder = client.table.return_value
+        builder.select.return_value = builder
+        builder.in_.return_value = builder
+        builder.eq.return_value = builder
+        builder.limit.return_value = builder
+
+        for price_basis, price in ((None, 754.98999), ("split_adjusted", 754.98999 / 8)):
+            with self.subTest(price_basis=price_basis):
+                builder.execute.return_value.data = [
+                    {"ticker": "SNDK", "close": price, "price_basis": price_basis},
+                ]
+                closes, error = get_previous_closes(
+                    client, tickers=["SNDK"], close_date="2026-11-19", market_date="2026-11-20",
+                )
+                self.assertIsNone(error)
+                change, _ = calculate_change_pct(79.24, closes["SNDK"], None)
+                self.assertAlmostEqual(change, -16.04, places=2)
+                value, _, reason = normalize_change_pct("SNDK", "2026-11-20", change)
+                self.assertEqual(value, change)
+                self.assertIsNone(reason)
+
     def test_lookup_failure_falls_back_cleanly(self):
         client = MagicMock()
         client.table.side_effect = RuntimeError("offline")

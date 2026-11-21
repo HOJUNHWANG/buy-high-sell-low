@@ -7,6 +7,8 @@ import { LiveDataRefresh } from "@/components/LiveDataRefresh";
 
 export const dynamic = "force-dynamic";
 
+const PRICE_JOBS = ["prices", "crypto_prices", "prices_close_settlement"] as const;
+
 type FetchLog = {
   id: number;
   job_name: string;
@@ -179,7 +181,7 @@ export default async function DataHealthPage() {
 
   const admin = createSupabaseAdmin();
   const [
-    { data: logs },
+    { data: logs, error: logsError },
     { data: prices },
     { data: anomalies },
     { data: newsHealth },
@@ -201,6 +203,20 @@ export default async function DataHealthPage() {
   for (const log of typedLogs) {
     if (!latestByJob.has(log.job_name)) latestByJob.set(log.job_name, log);
   }
+
+  // Frequent crypto and news jobs can fill the recent list during stock-market closures.
+  const missingJobs = PRICE_JOBS.filter(job => !latestByJob.has(job));
+  const olderResults = await Promise.all(missingJobs.map(async job => {
+    const { data, error } = await admin.from("fetch_logs").select("*")
+      .eq("job_name", job).order("executed_at", { ascending: false }).limit(1).maybeSingle();
+    return { job, log: data as FetchLog | null, error };
+  }));
+  const unavailableJobs = new Set<string>();
+  for (const { job, log, error } of olderResults) {
+    if (error) unavailableJobs.add(job);
+    else if (log) latestByJob.set(job, log);
+  }
+
   const stalePrices = typedPrices.filter((row) => {
     const state = getPriceFreshness(row.fetched_at, row.ticker, new Date(), undefined, row.provider_session_date).state;
     return state === "delayed" || state === "unavailable";
@@ -322,13 +338,13 @@ export default async function DataHealthPage() {
       </section>
 
       <div className="grid gap-3 md:grid-cols-3">
-        {["prices", "crypto_prices", "prices_close_settlement"].map((job) => {
+        {PRICE_JOBS.map((job) => {
           const log = latestByJob.get(job);
           return (
             <div key={job} className="card rounded-xl p-4">
               <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "var(--text-3)" }}>{job}</p>
               <p className="text-sm font-semibold mt-2" style={{ color: log?.status === "success" ? "var(--up)" : "var(--accent)" }}>
-                {log?.status ?? "No log"}
+                {log?.status ?? (unavailableJobs.has(job) ? "Status unavailable" : "No log")}
               </p>
               <p className="text-xs mt-1" style={{ color: "var(--text-2)" }}>{fmtTime(log?.executed_at)}</p>
               <p className="text-[11px] mt-2" style={{ color: "var(--text-3)" }}>
@@ -360,7 +376,9 @@ export default async function DataHealthPage() {
           <p className="text-xs mt-2" style={{ color: "var(--text-2)" }}>
             {settlement
               ? `Last settlement close ${settlement.status} at ${fmtTime(settlement.executed_at)} with ${settlement.records_fetched ?? 0} records fetched.`
-              : "No settlement-close log in the latest 30 fetch logs."}
+              : unavailableJobs.has("prices_close_settlement")
+                ? "Settlement-close status unavailable."
+                : "No settlement-close run recorded."}
           </p>
           {settlement?.failed_tickers && settlement.failed_tickers.length > 0 && (
             <p className="text-[11px] mt-2" style={{ color: "var(--down)" }}>
@@ -385,6 +403,7 @@ export default async function DataHealthPage() {
             <tr><th className="text-left py-2">Job</th><th>Status</th><th>Fetched</th><th>Failed</th><th className="text-left">Executed</th></tr>
           </thead>
           <tbody>
+            {logsError && <tr><td colSpan={5} className="py-2" style={{ color: "var(--text-3)" }}>Recent fetch logs unavailable.</td></tr>}
             {typedLogs.map((log) => (
               <tr key={log.id} style={{ borderTop: "1px solid var(--border)" }}>
                 <td className="py-2" style={{ color: "var(--text)" }}>{log.job_name}</td>

@@ -287,6 +287,7 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
             supabase,
             tickers=db_tickers,
             close_date=reference_date,
+            market_date=market_date,
         )
         previous_closes.update(
             ((ticker, market_date), close) for ticker, close in closes.items()
@@ -413,6 +414,7 @@ def upsert_prices(results: dict, force_history: bool = False, ticker_map: dict |
             "ticker": db_ticker,
             "date":   market_date,
             "close":  price,
+            "price_basis": "raw",
         }
         row_long.update(parsed_ohlc)
         if volume is not None:
