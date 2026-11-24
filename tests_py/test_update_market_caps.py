@@ -1,8 +1,10 @@
 import sys
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import ANY, MagicMock, patch
-from datetime import datetime, timezone
+
+import requests
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -12,10 +14,12 @@ from update_market_caps import (  # noqa: E402
     ASSET_EQUITY,
     ASSET_ETF,
     CRYPTO_COINGECKO_IDS,
+    EtfAumUnavailable,
     MarketDataProvider,
     MarketCapObservation,
     MarketCapProviderError,
     PreviousMarketData,
+    RunSummary,
     build_log_details,
     log_result,
     observation_from_provider_data,
@@ -23,9 +27,12 @@ from update_market_caps import (  # noqa: E402
     resolve_tickers,
     update_market_cap,
     validate_market_cap,
-    _nasdaq_etf_aum,
 )
-from audit_market_data import ReferenceQuote
+from audit_market_data import ReferenceQuote, parse_nasdaq_etf_aum
+from etf_aum import ETFIQ_AUM_URL, EtfAumProvider
+
+
+ETF_RUN_TIME = datetime(2026, 11, 24, 1, tzinfo=timezone.utc)
 
 
 class ProviderNormalizationTests(unittest.TestCase):
@@ -188,6 +195,45 @@ class SafeWriteTests(unittest.TestCase):
 
         self.assertEqual(outcome.status, "failed")
         self.assertEqual(outcome.fallback_action, "preserved_last_known_good")
+
+    @patch("update_market_caps.datetime", wraps=datetime)
+    def test_bulk_run_retains_recent_verified_etf_aum_without_writing(self, clock):
+        clock.now.return_value = ETF_RUN_TIME
+        fetcher = MagicMock(side_effect=EtfAumUnavailable("providers unavailable"))
+        state_loader = MagicMock(return_value=PreviousMarketData(
+            market_cap=991_417_024_000,
+            price=None,
+            metric="aum",
+            source="nasdaq.etf.summary.AUM",
+            observed_at=datetime(2026, 11, 23, 1, tzinfo=timezone.utc),
+        ))
+        updater = MagicMock()
+
+        outcome = process_ticker(
+            "VOO", MagicMock(), fetcher=fetcher, state_loader=state_loader,
+            updater=updater, allow_recent_etf_retention=True,
+        )
+
+        self.assertEqual(outcome.status, "retained")
+        summary = RunSummary(outcomes=[outcome])
+        self.assertEqual((summary.updated, summary.retained, summary.failed), (0, 1, 0))
+        self.assertIn("VOO", build_log_details(summary)["retained"])
+        updater.assert_not_called()
+
+        clock.now.return_value = datetime(2026, 11, 25, 1, tzinfo=timezone.utc)
+        stale = process_ticker(
+            "VOO", MagicMock(), fetcher=fetcher, state_loader=state_loader,
+            updater=updater, allow_recent_etf_retention=True,
+        )
+        self.assertEqual(stale.status, "failed")
+        updater.assert_not_called()
+
+        clock.now.return_value = ETF_RUN_TIME
+        targeted = process_ticker(
+            "VOO", MagicMock(), fetcher=fetcher, state_loader=state_loader, updater=updater,
+        )
+        self.assertEqual(targeted.status, "failed")
+        updater.assert_not_called()
         updater.assert_not_called()
 
     def test_dry_run_validates_but_never_calls_updater(self):
@@ -264,7 +310,7 @@ class PrimaryProviderTests(unittest.TestCase):
         provider = MarketDataProvider(session=session)
         provider._try_yfinance = MagicMock(return_value=(None, None))
 
-        with patch("update_market_caps.time.sleep") as sleep:
+        with patch("audit_market_data.sleep") as sleep:
             for _ in range(2):
                 self.assertEqual(provider.fetch_observation("QQQ").market_cap, 451_205_472_000)
 
@@ -446,7 +492,7 @@ class PrimaryProviderTests(unittest.TestCase):
 
     def test_parses_nasdaq_etf_aum_thousands_unit(self):
         self.assertEqual(
-            _nasdaq_etf_aum(
+            parse_nasdaq_etf_aum(
                 {
                     "data": {
                         "summaryData": {
@@ -511,6 +557,69 @@ class PrimaryProviderTests(unittest.TestCase):
 
         provider._try_yfinance.assert_not_called()
 
+    @patch("audit_market_data.sleep")
+    @patch("update_market_caps.datetime", wraps=datetime)
+    def test_etf_uses_one_dated_backup_feed_after_nasdaq_failures(self, clock, _sleep):
+        clock.now.return_value = ETF_RUN_TIME
+        session = MagicMock()
+        blank_summary = {"data": {"summaryData": {
+            "AUM": {"value": "N/A"}, "MarketCap": {"value": "61648790000"},
+        }}}
+        response = MagicMock()
+        response.json.side_effect = [
+            blank_summary,
+            {"funds": {
+                "QQQ": {"aum": 422_872_505_013.33, "source": "issuer page",
+                        "basis": "as of", "asOf": "2026-11-20"},
+                "SOXQ": {"aum": 2_313_949_644, "source": "issuer page",
+                         "basis": "as of", "asOf": "2026-11-20"},
+            }},
+            blank_summary,
+            blank_summary,
+        ]
+        session.get.side_effect = [requests.Timeout("Nasdaq timeout")] + [response] * 4
+        provider = MarketDataProvider(session=session)
+        provider._try_yfinance = MagicMock()
+
+        observation = provider.fetch_observation("QQQ")
+        self.assertEqual(observation.market_cap, 422_872_505_013)
+        self.assertEqual(observation.source, "etfiq.aum")
+        self.assertIn("2026-11-20", observation.provider_note)
+        self.assertEqual(provider.fetch_observation("SOXQ").market_cap, 2_313_949_644)
+        self.assertEqual(provider.fetch_observation("QQQ"), observation)
+        self.assertEqual([call.args[0] for call in session.get.call_args_list].count(ETFIQ_AUM_URL), 1)
+        provider._try_yfinance.assert_not_called()
+
+    def test_etfiq_requires_valid_share_class_aum_from_a_recent_completed_session(self):
+        for changes, error in (
+            ({"asOf": "2026-10-31"}, "outside the usable window"),
+            ({"asOf": "2026-11-24"}, "outside the usable window"),
+            ({"basis": "read on"}, "no issuer-based share-class AUM"),
+            ({"source": "fund-wide assets"}, "no issuer-based share-class AUM"),
+            ({"aum": float("inf")}, "no positive USD AUM"),
+        ):
+            with self.subTest(changes=changes):
+                session = MagicMock()
+                session.get.return_value.json.return_value = {"funds": {"VTI": {
+                    "aum": 655_000_000_000, "source": "issuer daily",
+                    "basis": "as of", "asOf": "2026-11-20", **changes,
+                }}}
+                with self.assertRaisesRegex(ValueError, error):
+                    EtfAumProvider(session).fetch("VTI", now=ETF_RUN_TIME)
+
+    def test_state_street_uses_the_dated_aum_and_its_unit(self):
+        session = MagicMock()
+        session.get.return_value.text = """
+          <div><div class="label">Shares Outstanding</div><div class="data">88.74 M</div></div>
+          <div><div class="label">Assets Under Management</div>
+            <div class="data">$42,653.16 M</div><div class="date">as of Nov 20 2026</div>
+          </div>
+        """
+        aum = EtfAumProvider(session).fetch("DIA", now=ETF_RUN_TIME)
+        self.assertEqual((aum.amount, aum.source), (42_653_160_000, "statestreet.etf.aum"))
+        self.assertEqual(aum.as_of.isoformat(), "2026-11-20")
+        session.get.assert_called_once()
+
 
 class ProvenanceWriteTests(unittest.TestCase):
     def test_writes_current_and_snapshot_through_atomic_rpc(self):
@@ -553,6 +662,11 @@ class ProvenanceWriteTests(unittest.TestCase):
 
 
 class TickerSelectionTests(unittest.TestCase):
+    def test_workflow_ticker_input_accepts_commas_and_spaces(self):
+        self.assertEqual(resolve_tickers([], ["DIA,GLD TLT"], "all"), ["DIA", "GLD", "TLT"])
+        with self.assertRaisesRegex(ValueError, "specify at least one ticker"):
+            resolve_tickers([], [" , "], "all")
+
     def test_explicit_tickers_are_normalized_deduplicated_and_ordered(self):
         tickers = resolve_tickers(["mu,btc-usd", "MU"], ["qqq"], "all")
 

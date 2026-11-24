@@ -826,6 +826,15 @@ class NasdaqReferenceProvider:
     ) -> tuple[dict[str, ReferenceQuote], list[str]]:
         return self._fetch_us_assets(tickers, asset_class=ASSET_ETF, now=now)
 
+    def fetch_etf_aum(self, ticker: str) -> float:
+        return self._usable(
+            lambda: parse_nasdaq_etf_aum(self._get_json(
+                NASDAQ_ETF_SUMMARY_URL.format(ticker=ticker),
+                params={"assetclass": "etf"},
+            )),
+            f"Nasdaq ETF summary has no usable AUM for {ticker}",
+        )
+
     def _fetch_us_assets(
         self, tickers: Sequence[str], *, asset_class: str, now: datetime | None,
     ) -> tuple[dict[str, ReferenceQuote], list[str]]:
@@ -900,10 +909,11 @@ class NasdaqReferenceProvider:
                     )
 
         # Per-symbol summaries update with the dated quote, unlike screeners.
-        parse_cap = parse_nasdaq_etf_aum if asset_class == ASSET_ETF else parse_nasdaq_equity_cap
         def fetch_aum(ticker: str) -> tuple[str, float | None]:
+            if asset_class == ASSET_ETF:
+                return ticker, self.fetch_etf_aum(ticker)
             aum = self._usable(
-                lambda: parse_cap(self._get_json(
+                lambda: parse_nasdaq_equity_cap(self._get_json(
                     NASDAQ_ETF_SUMMARY_URL.format(ticker=ticker),
                     params={"assetclass": api_class},
                 )), f"Nasdaq {label} market value unavailable for {ticker}",
