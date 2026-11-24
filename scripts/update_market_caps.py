@@ -6,8 +6,8 @@ The ``stocks.market_cap`` column has three deliberately distinct semantics:
 * ETFs: assets under management (AUM)
 * crypto: circulating market capitalization
 
-Provider failures never fall back to a hand-maintained value.  The existing
-database value is left untouched instead.
+ETF collection can use recent share-class AUM from independent sources.
+When no verified observation is available, the existing value is preserved.
 
 Examples:
     python scripts/update_market_caps.py
@@ -26,6 +26,7 @@ import sys
 import time
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
+from functools import partial
 from typing import Any, Callable, Mapping, Sequence
 
 import requests
@@ -48,10 +49,11 @@ from tickers import (  # noqa: E402
 )
 from audit_market_data import (  # noqa: E402
     NasdaqReferenceProvider,
-    REFERENCE_ATTEMPTS,
-    REFERENCE_RETRY_DELAY_SECONDS,
     ReferenceQuote,
+    parse_datetime,
 )
+from etf_aum import EtfAumProvider, last_completed_session  # noqa: E402
+from market_calendar import previous_market_day  # noqa: E402
 
 
 load_dotenv(dotenv_path=os.path.join(SCRIPT_DIR, "..", ".env.local"))
@@ -84,7 +86,7 @@ EQUITY_CROSS_CHECK_TOLERANCE = 0.15
 DEFAULT_SLEEP_SECONDS = 0.3
 DB_WRITE_ATTEMPTS = 2
 DB_WRITE_RETRY_DELAY_SECONDS = 0.5
-FALLBACK_POLICY = "manual_fallbacks_disabled_preserve_last_known_good"
+FALLBACK_POLICY = "dated_etf_aum_or_preserve_last_known_good"
 HTTP_TIMEOUT_SECONDS = 30
 CRYPTO_REFERENCE_MAX_AGE_SECONDS = 15 * 60
 PROVIDER_FUTURE_SKEW_SECONDS = 5 * 60
@@ -96,15 +98,9 @@ TRUSTED_PRIMARY_SOURCE_PREFIXES = (
     "coingecko.markets.",
 )
 
-NASDAQ_ETF_SUMMARY_URL = "https://api.nasdaq.com/api/quote/{ticker}/summary"
+NASDAQ_ETF_AUM_SOURCE = "nasdaq.etf.summary.AUM"
 COINGECKO_MARKETS_URL = "https://api.coingecko.com/api/v3/coins/markets"
 COINGECKO_SIMPLE_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price"
-NASDAQ_HEADERS = {
-    "Accept": "application/json, text/plain, */*",
-    "Origin": "https://www.nasdaq.com",
-    "Referer": "https://www.nasdaq.com/",
-    "User-Agent": "Mozilla/5.0 (compatible; BHSLMarketData/1.0)",
-}
 
 CRYPTO_COINGECKO_IDS = {
     "BTC-USD": "bitcoin",
@@ -144,6 +140,10 @@ class MarketCapProviderError(RuntimeError):
     """Raised when the provider cannot supply a semantically valid value."""
 
 
+class EtfAumUnavailable(MarketCapProviderError):
+    """Raised after both Nasdaq and independent ETF AUM sources are unavailable."""
+
+
 class MarketCapStateError(RuntimeError):
     """Raised when last-known-good state cannot be loaded safely."""
 
@@ -169,6 +169,7 @@ class PreviousMarketData:
     price: float | None
     source: str | None = None
     metric: str | None = None
+    observed_at: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -210,6 +211,10 @@ class RunSummary:
     @property
     def failed(self) -> int:
         return sum(outcome.status == "failed" for outcome in self.outcomes)
+
+    @property
+    def retained(self) -> int:
+        return sum(outcome.status == "retained" for outcome in self.outcomes)
 
     @property
     def failed_tickers(self) -> list[str]:
@@ -268,31 +273,6 @@ def _first_positive(*values: Any) -> float | None:
         if number is not None:
             return number
     return None
-
-
-def _provider_number(value: Any) -> float | None:
-    """Parse provider numbers that may contain currency/percent formatting."""
-    if isinstance(value, str):
-        cleaned = value.strip().replace("$", "").replace(",", "")
-        cleaned = cleaned.removesuffix("%")
-        if cleaned.lower() in {"", "n/a", "na", "none", "null", "--"}:
-            return None
-        value = cleaned
-    return _positive_number(value)
-
-
-def _nasdaq_etf_aum(payload: Mapping[str, Any]) -> float | None:
-    """Parse Nasdaq's ETF share-class AUM, whose label may be in thousands."""
-    data = payload.get("data") or {}
-    summary = data.get("summaryData") if isinstance(data, Mapping) else None
-    aum = summary.get("AUM") if isinstance(summary, Mapping) else None
-    if not isinstance(aum, Mapping):
-        return None
-    value = _provider_number(aum.get("value"))
-    if value is None:
-        return None
-    label = str(aum.get("label") or "").lower()
-    return value * 1_000 if "000" in label else value
 
 
 def observation_from_provider_data(
@@ -457,8 +437,8 @@ class MarketDataProvider:
         self._coingecko_rows: dict[str, Mapping[str, Any]] | None = None
         self._coingecko_error: str | None = None
         self._coingecko_markets: dict[str, Mapping[str, Any]] | None = None
-        self._etf_aum: dict[str, float] = {}
-        self._etf_errors: dict[str, str] = {}
+        self._etf_fallback = EtfAumProvider(self.session)
+        self._etf_observations: dict[str, MarketCapObservation] = {}
 
     def _load_coingecko_rows(self) -> dict[str, Mapping[str, Any]]:
         if self._coingecko_rows is not None:
@@ -651,37 +631,33 @@ class MarketDataProvider:
             provider_note=f"CoinGecko markets last_updated={row['last_updated']}; simple last_updated_at={int(reference_epoch)}")
 
     def _fetch_etf(self, ticker: str) -> MarketCapObservation:
-        if ticker not in self._etf_aum and ticker not in self._etf_errors:
+        if ticker in self._etf_observations:
+            return self._etf_observations[ticker]
+
+        try:
+            aum = self._nasdaq.fetch_etf_aum(ticker)
+        except (requests.RequestException, ValueError, TypeError) as nasdaq_error:
             try:
-                for attempt in range(REFERENCE_ATTEMPTS):
-                    if attempt:
-                        time.sleep(REFERENCE_RETRY_DELAY_SECONDS)
-                    response = self.session.get(
-                        NASDAQ_ETF_SUMMARY_URL.format(ticker=ticker),
-                        params={"assetclass": "etf"},
-                        headers=NASDAQ_HEADERS,
-                        timeout=HTTP_TIMEOUT_SECONDS,
-                    )
-                    response.raise_for_status()
-                    payload = response.json()
-                    if not isinstance(payload, Mapping):
-                        raise ValueError("Nasdaq ETF summary is not an object")
-                    aum = _nasdaq_etf_aum(payload)
-                    if aum is not None:
-                        self._etf_aum[ticker] = aum
-                        break
-                else:
-                    raise ValueError("Nasdaq ETF summary has no usable AUM")
-            except Exception as exc:
-                self._etf_errors[ticker] = str(exc)
-
-        aum = self._etf_aum.get(ticker)
-        if aum is None:
-            raise MarketCapProviderError(
-                "Nasdaq ETF share-class AUM unavailable; preserving "
-                f"last-known-good value: {self._etf_errors.get(ticker, 'no value')}"
+                fallback = self._etf_fallback.fetch(ticker, now=datetime.now(timezone.utc))
+            except ValueError as fallback_error:
+                raise EtfAumUnavailable(
+                    "ETF share-class AUM unavailable; preserving last-known-good value: "
+                    f"{nasdaq_error}; {fallback_error}"
+                ) from fallback_error
+            observation = MarketCapObservation(
+                ticker=ticker,
+                asset_class=ASSET_ETF,
+                semantic=ASSET_SEMANTICS[ASSET_ETF],
+                market_cap=fallback.amount,
+                source=fallback.source,
+                provider_note=f"AUM as of {fallback.as_of} from {fallback.url}. {nasdaq_error}",
             )
+        else:
+            observation = self._nasdaq_etf_observation(ticker, aum)
+        self._etf_observations[ticker] = observation
+        return observation
 
+    def _nasdaq_etf_observation(self, ticker: str, aum: float) -> MarketCapObservation:
         yfinance_observation, yfinance_error = self._try_yfinance(ticker)
         note = (
             "Yahoo totalAssets/netAssets may include a broader fund share "
@@ -694,7 +670,7 @@ class MarketDataProvider:
             asset_class=ASSET_ETF,
             semantic=ASSET_SEMANTICS[ASSET_ETF],
             market_cap=int(round(aum)),
-            source="nasdaq.etf.summary.AUM",
+            source=NASDAQ_ETF_AUM_SOURCE,
             price=(yfinance_observation.price if yfinance_observation else None),
             # Yahoo's ETF shares and assets can refer to different fund share
             # classes, so neither is valid formula evidence for Nasdaq AUM.
@@ -753,7 +729,7 @@ def load_previous_market_data(
     try:
         stock_response = (
             client.table("stocks")
-            .select("market_cap,market_cap_source,market_cap_metric")
+            .select("market_cap,market_cap_source,market_cap_metric,market_cap_updated_at")
             .eq("ticker", normalized)
             .limit(1)
             .execute()
@@ -818,6 +794,10 @@ def load_previous_market_data(
         price=price,
         source=source,
         metric=metric,
+        observed_at=(
+            parse_datetime(stock_row.get("market_cap_updated_at"))
+            if market_cap_number is not None else None
+        ),
     )
 
 
@@ -992,11 +972,26 @@ def update_market_cap(
     )
 
 
+def _can_retain_etf_aum(previous: PreviousMarketData, now: datetime) -> bool:
+    if (
+        previous.market_cap is None
+        or previous.market_cap <= 0
+        or previous.metric != ASSET_SEMANTICS[ASSET_ETF]
+        or previous.source != NASDAQ_ETF_AUM_SOURCE
+        or previous.observed_at is None
+        or previous.observed_at > now
+    ):
+        return False
+    earliest = previous_market_day(last_completed_session(now))
+    return last_completed_session(previous.observed_at) >= earliest
+
+
 def process_ticker(
     ticker: str,
     client: Any,
     *,
     dry_run: bool = False,
+    allow_recent_etf_retention: bool = False,
     fetcher: Callable[[str], MarketCapObservation] = fetch_market_cap_observation,
     state_loader: Callable[[str, Any], PreviousMarketData] = load_previous_market_data,
     updater: Callable[[str, int, Any], None] = update_market_cap,
@@ -1009,6 +1004,27 @@ def process_ticker(
     try:
         observation = fetcher(normalized)
     except Exception as exc:
+        if (
+            allow_recent_etf_retention
+            and asset_class == ASSET_ETF
+            and isinstance(exc, EtfAumUnavailable)
+        ):
+            try:
+                previous = state_loader(normalized, client)
+            except Exception as state_error:
+                exc = MarketCapStateError(f"{exc}. State lookup failure: {state_error}")
+            else:
+                if _can_retain_etf_aum(previous, datetime.now(timezone.utc)):
+                    return TickerOutcome(
+                        ticker=normalized,
+                        asset_class=asset_class,
+                        semantic=semantic,
+                        status="retained",
+                        source=previous.source,
+                        previous_market_cap=previous.market_cap,
+                        reason=f"AUM last verified at {previous.observed_at.isoformat()}. {exc}",
+                        fallback_action="preserved_last_known_good",
+                    )
         return TickerOutcome(
             ticker=normalized,
             asset_class=asset_class,
@@ -1122,6 +1138,11 @@ def _print_outcome(outcome: TickerOutcome) -> None:
             f"  {outcome.ticker}: {_format_cap(outcome.candidate_market_cap)} "
             f"({verb}; {outcome.semantic}; {outcome.source})"
         )
+        if outcome.asset_class == ASSET_ETF and outcome.source != NASDAQ_ETF_AUM_SOURCE and outcome.provider_note:
+            print(f"    {outcome.provider_note}")
+        return
+    if outcome.status == "retained":
+        print(f"  {outcome.ticker}: RETAINED - {outcome.reason}")
         return
     print(f"  {outcome.ticker}: FAILED - {outcome.reason}")
 
@@ -1171,6 +1192,11 @@ def build_log_details(summary: RunSummary) -> dict[str, Any]:
             outcome.ticker: outcome.reason[:500]
             for outcome in summary.outcomes
             if outcome.status == "failed"
+        },
+        "retained": {
+            outcome.ticker: outcome.reason[:500]
+            for outcome in summary.outcomes
+            if outcome.status == "retained"
         },
         "fallback_action_by_ticker": {
             outcome.ticker: outcome.fallback_action
@@ -1249,9 +1275,7 @@ def log_result(
 def _split_requested_tickers(values: Sequence[str]) -> list[str]:
     tickers: list[str] = []
     for value in values:
-        tickers.extend(
-            part.strip().upper() for part in value.split(",") if part.strip()
-        )
+        tickers.extend(part.upper() for part in value.replace(",", " ").split())
     return list(dict.fromkeys(tickers))
 
 
@@ -1263,6 +1287,9 @@ def resolve_tickers(
     aliases = {"stocks": ASSET_EQUITY, "equities": ASSET_EQUITY}
     normalized_class = aliases.get(asset_class, asset_class)
     requested = _split_requested_tickers([*positional, *repeated])
+
+    if (positional or repeated) and not requested:
+        raise ValueError("specify at least one ticker for a targeted update")
 
     if requested:
         unknown = [ticker for ticker in requested if ticker not in _ALL_SET]
@@ -1304,14 +1331,14 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "tickers",
         nargs="*",
-        help="explicit tracked ticker(s); comma-separated values are accepted",
+        help="explicit tracked ticker(s), separated by commas or spaces",
     )
     parser.add_argument(
         "--ticker",
         dest="repeated_tickers",
         action="append",
         default=[],
-        help="explicit tracked ticker; repeat this option as needed",
+        help="explicit tracked ticker(s), separated by commas or spaces",
     )
     parser.add_argument(
         "--asset-class",
@@ -1344,7 +1371,8 @@ def main(argv: Sequence[str] | None = None) -> RunSummary:
         parser.error(str(exc))
 
     client = get_supabase_client()
-    if not args.tickers and not args.repeated_tickers:
+    explicit_tickers = bool(args.tickers or args.repeated_tickers)
+    if not explicit_tickers:
         from asset_retention import filter_collectable_tickers
         tickers = filter_collectable_tickers(client, tickers)
     mode = "Validating" if args.dry_run else "Updating"
@@ -1355,16 +1383,22 @@ def main(argv: Sequence[str] | None = None) -> RunSummary:
         client,
         dry_run=args.dry_run,
         sleep_seconds=args.sleep_seconds,
+        processor=partial(process_ticker, allow_recent_etf_retention=not explicit_tickers),
     )
+
+    if summary.retained and os.environ.get("GITHUB_ACTIONS") == "true":
+        retained = ", ".join(row.ticker for row in summary.outcomes if row.status == "retained")
+        print(f"::warning title=ETF AUM retained::Provider AUM unavailable for {retained}. See the run log for dates.")
 
     if args.dry_run:
         print(
             f"\nDry run complete. Would update: {summary.would_update}, "
+            f"Retained: {summary.retained}, "
             f"Failed validation/fetch: {summary.failed}. No writes performed."
         )
         return summary
 
-    status = "success" if summary.failed == 0 else "partial"
+    status = "partial" if summary.failed or summary.retained else "success"
     log_result(
         "market_caps",
         status,
@@ -1374,12 +1408,12 @@ def main(argv: Sequence[str] | None = None) -> RunSummary:
         source_details=build_log_details(summary),
         client=client,
     )
-    print(f"\nDone. Updated: {summary.updated}, Failed: {summary.failed}")
+    print(f"\nDone. Updated: {summary.updated}, Retained: {summary.retained}, Failed: {summary.failed}")
     return summary
 
 
 if __name__ == "__main__":
     run_summary = main()
-    # Surface partial provider/validation/write failures to schedulers so a
-    # stale last-known-good value is visible and can be retried or investigated.
+    # Fail on unresolved errors. Brief ETF publication gaps are visible in the
+    # run and fetch logs without rewriting the last verified observation.
     raise SystemExit(1 if run_summary.failed else 0)
