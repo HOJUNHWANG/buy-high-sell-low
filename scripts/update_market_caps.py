@@ -25,7 +25,7 @@ import os
 import sys
 import time
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
+from datetime import date, datetime, time as clock_time, timezone
 from functools import partial
 from typing import Any, Callable, Mapping, Sequence
 
@@ -52,7 +52,12 @@ from audit_market_data import (  # noqa: E402
     ReferenceQuote,
     parse_datetime,
 )
-from etf_aum import EtfAumProvider, last_completed_session  # noqa: E402
+from etf_aum import (  # noqa: E402
+    EASTERN,
+    VANGUARD_MONTH_END_SOURCE,
+    EtfAumProvider,
+    last_completed_session,
+)
 from market_calendar import previous_market_day  # noqa: E402
 
 
@@ -161,6 +166,7 @@ class MarketCapObservation:
     cross_check_market_cap: int | None = None
     cross_check_source: str | None = None
     provider_note: str | None = None
+    month_end: date | None = None
 
 
 @dataclass(frozen=True)
@@ -651,6 +657,7 @@ class MarketDataProvider:
                 market_cap=fallback.amount,
                 source=fallback.source,
                 provider_note=f"AUM as of {fallback.as_of} from {fallback.url}. {nasdaq_error}",
+                month_end=fallback.as_of if fallback.source == VANGUARD_MONTH_END_SOURCE else None,
             )
         else:
             observation = self._nasdaq_etf_observation(ticker, aum)
@@ -951,16 +958,17 @@ def update_market_cap(
     *,
     source: str = "unknown",
     metric: str | None = None,
+    observed_at: datetime | None = None,
 ) -> None:
     """Persist current value and daily snapshot in one database transaction."""
     client = client or get_supabase_client()
     normalized = ticker.upper()
-    observed_at = datetime.now(timezone.utc).isoformat()
+    observed_at = observed_at or datetime.now(timezone.utc)
     metric = metric or ASSET_SEMANTICS[asset_class_for_ticker(normalized)]
     params = {
         "p_ticker": normalized,
         "p_market_cap": market_cap,
-        "p_observed_at": observed_at,
+        "p_observed_at": observed_at.isoformat(),
         "p_source": source,
         "p_metric": metric,
     }
@@ -984,6 +992,18 @@ def _can_retain_etf_aum(previous: PreviousMarketData, now: datetime) -> bool:
         return False
     earliest = previous_market_day(last_completed_session(now))
     return last_completed_session(previous.observed_at) >= earliest
+
+
+def _has_aum_on_or_after(previous: PreviousMarketData, report_date: date) -> bool:
+    return (
+        previous.market_cap is not None
+        and previous.market_cap > 0
+        and previous.metric == ASSET_SEMANTICS[ASSET_ETF]
+        and previous.source in {NASDAQ_ETF_AUM_SOURCE, "etfiq.aum", VANGUARD_MONTH_END_SOURCE}
+        and previous.observed_at is not None
+        and previous.observed_at <= datetime.now(timezone.utc)
+        and previous.observed_at.astimezone(EASTERN).date() >= report_date
+    )
 
 
 def process_ticker(
@@ -1052,6 +1072,22 @@ def process_ticker(
             provider_note=observation.provider_note,
         )
 
+    if observation.month_end is not None and _has_aum_on_or_after(previous, observation.month_end):
+        return TickerOutcome(
+            ticker=normalized,
+            asset_class=asset_class,
+            semantic=semantic,
+            status="retained" if allow_recent_etf_retention else "failed",
+            source=previous.source,
+            previous_market_cap=previous.market_cap,
+            reason=(
+                f"Stored AUM already covers the Vanguard month-end report dated {observation.month_end}. "
+                "Daily AUM is unavailable."
+            ),
+            fallback_action="preserved_last_known_good",
+            provider_note=observation.provider_note,
+        )
+
     validation = validate_market_cap(observation, previous)
     if not validation.accepted:
         return TickerOutcome(
@@ -1084,6 +1120,11 @@ def process_ticker(
             provider_note=observation.provider_note,
         )
 
+    write_time = {}
+    if observation.month_end is not None:
+        write_time["observed_at"] = datetime.combine(
+            observation.month_end, clock_time(16), tzinfo=EASTERN,
+        ).astimezone(timezone.utc)
     try:
         updater(
             normalized,
@@ -1091,6 +1132,7 @@ def process_ticker(
             client,
             source=observation.source,
             metric=observation.semantic,
+            **write_time,
         )
     except Exception as exc:
         return TickerOutcome(
@@ -1143,6 +1185,8 @@ def _print_outcome(outcome: TickerOutcome) -> None:
         return
     if outcome.status == "retained":
         print(f"  {outcome.ticker}: RETAINED - {outcome.reason}")
+        if outcome.provider_note:
+            print(f"    {outcome.provider_note}")
         return
     print(f"  {outcome.ticker}: FAILED - {outcome.reason}")
 
@@ -1386,9 +1430,13 @@ def main(argv: Sequence[str] | None = None) -> RunSummary:
         processor=partial(process_ticker, allow_recent_etf_retention=not explicit_tickers),
     )
 
-    if summary.retained and os.environ.get("GITHUB_ACTIONS") == "true":
-        retained = ", ".join(row.ticker for row in summary.outcomes if row.status == "retained")
-        print(f"::warning title=ETF AUM retained::Provider AUM unavailable for {retained}. See the run log for dates.")
+    monthly_tickers = [
+        row.ticker for row in summary.outcomes
+        if row.source == VANGUARD_MONTH_END_SOURCE and row.status in {"updated", "would_update"}
+    ]
+    if (summary.retained or monthly_tickers) and os.environ.get("GITHUB_ACTIONS") == "true":
+        affected = monthly_tickers + [row.ticker for row in summary.outcomes if row.status == "retained"]
+        print(f"::warning title=Daily ETF AUM unavailable::{', '.join(affected)}. See the run log for valuation dates.")
 
     if args.dry_run:
         print(
@@ -1398,7 +1446,7 @@ def main(argv: Sequence[str] | None = None) -> RunSummary:
         )
         return summary
 
-    status = "partial" if summary.failed or summary.retained else "success"
+    status = "partial" if summary.failed or summary.retained or monthly_tickers else "success"
     log_result(
         "market_caps",
         status,

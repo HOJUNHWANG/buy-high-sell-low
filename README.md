@@ -147,14 +147,21 @@ check, the updater uses the dated Nasdaq price × Yahoo share count only when
 Yahoo's explicit cap independently confirms both the aligned formula and its own
 price × shares. Unconfirmed values still fail and preserve the previous value.
 
-For ETFs, a missing Nasdaq AUM is retried before using State Street's published
-ETF AUM or [ETFIQ's dated AUM dataset](https://etfiq.com/data/aum.json). The backup
-value must be for the ETF share class and one of the last two completed US market
-sessions. The provider and valuation date appear in the run log. A broad run
-can retain a recent Nasdaq observation for one trading session without a write.
-It records a partial result and a GitHub warning. Older values and explicitly
-requested tickers with unresolved errors cause the action to fail. The action's
-`tickers` and `dry_run` inputs support targeted checks and retries.
+For ETFs, Nasdaq retries come first. Daily fallbacks use State Street and iShares
+fund pages, [the Invesco fund feed](https://github.com/daggerok/Invesco#data-sources)
+for QQQ and SOXQ, or [ETFIQ's dated AUM dataset](https://etfiq.com/data/aum.json).
+Daily fallback values must identify the ETF and use one of the last two completed
+US market sessions. The provider and valuation date appear in the run log.
+
+When daily AUM for VOO, VTI or VXUS is unavailable, the updater checks the dated
+Vanguard ETF share-class month-end report in ETFIQ. A report can be up to 45 days
+old to allow for monthly publication timing. A newer report is recorded with its
+valuation date. If the database already has verified AUM as recent as the report,
+a broad run retains it with its existing timestamp. Both cases log partial
+coverage with a GitHub warning. A broad run can also retain a recent Nasdaq
+observation for one trading session. A missing or overdue report and unresolved
+targeted updates still fail. Use the `tickers` and `dry_run` inputs for targeted
+checks and retries.
 
 Public market and news reads share a one-minute cache window. The first request
 in a new window awaits a fresh read instead of receiving the previous window's

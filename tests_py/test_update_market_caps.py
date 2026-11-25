@@ -1,6 +1,6 @@
 import sys
 import unittest
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from unittest.mock import ANY, MagicMock, patch
 
@@ -29,10 +29,11 @@ from update_market_caps import (  # noqa: E402
     validate_market_cap,
 )
 from audit_market_data import ReferenceQuote, parse_nasdaq_etf_aum
-from etf_aum import ETFIQ_AUM_URL, EtfAumProvider
+from etf_aum import ETFIQ_AUM_URL, INVESCO_FUND_FEED_URL, VANGUARD_MONTH_END_SOURCE, EtfAumProvider
 
 
 ETF_RUN_TIME = datetime(2026, 11, 24, 1, tzinfo=timezone.utc)
+SECOND_ETF_RUN_TIME = datetime(2026, 11, 25, 1, tzinfo=timezone.utc)
 
 
 class ProviderNormalizationTests(unittest.TestCase):
@@ -182,6 +183,45 @@ class MarketCapValidationTests(unittest.TestCase):
 
 
 class SafeWriteTests(unittest.TestCase):
+    @patch("update_market_caps.datetime", wraps=datetime)
+    def test_vanguard_month_end_keeps_a_newer_verified_value_and_timestamp(self, clock):
+        clock.now.return_value = SECOND_ETF_RUN_TIME
+        fetcher = MagicMock(return_value=MarketCapObservation(
+            ticker="VOO", asset_class=ASSET_ETF, semantic="aum", market_cap=1_000_000_000_000,
+            source=VANGUARD_MONTH_END_SOURCE, month_end=date(2026, 10, 31),
+        ))
+        state_loader = MagicMock(return_value=PreviousMarketData(
+            market_cap=991_417_024_000, price=None, metric="aum",
+            source="nasdaq.etf.summary.AUM", observed_at=datetime(2026, 11, 23, 1, tzinfo=timezone.utc),
+        ))
+        updater = MagicMock()
+        outcome = process_ticker(
+            "VOO", MagicMock(), fetcher=fetcher, state_loader=state_loader, updater=updater,
+            allow_recent_etf_retention=True,
+        )
+        self.assertEqual(outcome.status, "retained")
+        self.assertIn("2026-10-31", outcome.reason)
+        targeted = process_ticker(
+            "VOO", MagicMock(), fetcher=fetcher, state_loader=state_loader, updater=updater,
+        )
+        self.assertEqual(targeted.status, "failed")
+        updater.assert_not_called()
+
+    def test_new_vanguard_month_end_writes_using_the_report_date(self):
+        client = MagicMock()
+        report_date = date(2026, 10, 31)
+        outcome = process_ticker(
+            "VOO", client, fetcher=MagicMock(return_value=MarketCapObservation(
+                ticker="VOO", asset_class=ASSET_ETF, semantic="aum", market_cap=1_000_000_000_000,
+                source=VANGUARD_MONTH_END_SOURCE, month_end=report_date,
+            )),
+            state_loader=MagicMock(return_value=PreviousMarketData(market_cap=None, price=None)),
+        )
+        self.assertEqual(outcome.status, "updated")
+        _, parameters = client.rpc.call_args.args
+        self.assertEqual(datetime.fromisoformat(parameters["p_observed_at"]).date(), report_date)
+        self.assertEqual(parameters["p_source"], VANGUARD_MONTH_END_SOURCE)
+
     def test_provider_error_never_calls_updater(self):
         updater = MagicMock()
 
@@ -577,7 +617,12 @@ class PrimaryProviderTests(unittest.TestCase):
             blank_summary,
             blank_summary,
         ]
-        session.get.side_effect = [requests.Timeout("Nasdaq timeout")] + [response] * 4
+        unavailable = MagicMock()
+        unavailable.raise_for_status.side_effect = requests.HTTPError("Fund feed unavailable")
+        session.get.side_effect = [
+            requests.Timeout("Nasdaq timeout"), response, unavailable, response,
+            response, response, unavailable,
+        ]
         provider = MarketDataProvider(session=session)
         provider._try_yfinance = MagicMock()
 
@@ -619,6 +664,58 @@ class PrimaryProviderTests(unittest.TestCase):
         self.assertEqual((aum.amount, aum.source), (42_653_160_000, "statestreet.etf.aum"))
         self.assertEqual(aum.as_of.isoformat(), "2026-11-20")
         session.get.assert_called_once()
+
+    def test_ishares_reads_the_issuer_net_assets_when_etfiq_would_be_stale(self):
+        session = MagicMock()
+        session.get.return_value.text = """
+          <div data-id="keyFundFacts-row-totalNetAssetsFundLevel">
+            <span data-id="keyFundFacts-totalNetAssetsFundLevel-data">$48,878,083,835</span>
+            <span data-id="keyFundFacts-totalNetAssetsFundLevel-asOf">as of Nov 24, 2026</span>
+          </div>
+        """
+        aum = EtfAumProvider(session).fetch("TLT", now=SECOND_ETF_RUN_TIME)
+        self.assertEqual((aum.amount, aum.source, aum.as_of), (
+            48_878_083_835, "ishares.etf.net_assets", date(2026, 11, 24),
+        ))
+        session.get.assert_called_once()
+
+    def test_invesco_feed_uses_dated_issuer_aum_for_the_requested_cusip(self):
+        session = MagicMock()
+        payload = {
+            "ticker": "SOXQ",
+            "identifiers": {"cusip": "46138G615"},
+            "aum": {"display": "$2,503.21 M", "value": 2_503_214_360.1,
+                    "asOfDate": "Nov 24 2026",
+                    "source": "Invesco fund API prices endpoint (net assets / market value)"},
+        }
+        session.get.return_value.json.return_value = payload
+        aum = EtfAumProvider(session).fetch("SOXQ", now=SECOND_ETF_RUN_TIME)
+        self.assertEqual(aum.amount, 2_503_214_360)
+        self.assertEqual(aum.as_of, date(2026, 11, 24))
+        self.assertEqual(aum.source, "invesco.etf.net_assets.via_fund_feed")
+        session.get.assert_called_once_with(INVESCO_FUND_FEED_URL.format(ticker="SOXQ"), timeout=10)
+
+        payload["identifiers"]["cusip"] = "46090E103"
+        with self.assertRaisesRegex(ValueError, "different share class"):
+            EtfAumProvider(session).fetch("SOXQ", now=SECOND_ETF_RUN_TIME)
+
+    def test_vanguard_monthly_uses_the_share_class_report_and_rejects_old_reports(self):
+        session = MagicMock()
+        report = {
+            "aum": 689_300_000_000, "source": "issuer month end", "basis": "as of",
+            "asOf": "2026-10-31", "asOfText": "shareClassTotalNetAssetsDate 10/31/2026",
+            "url": "https://investor.vanguard.com/investment-products/etfs/profile/vti",
+        }
+        session.get.return_value.json.return_value = {"funds": {"VTI": report}}
+        aum = EtfAumProvider(session).fetch("VTI", now=SECOND_ETF_RUN_TIME)
+        self.assertEqual((aum.source, aum.as_of), (VANGUARD_MONTH_END_SOURCE, date(2026, 10, 31)))
+
+        report["asOf"] = "2026-09-30"
+        with self.assertRaisesRegex(ValueError, "outside its publication window"):
+            EtfAumProvider(session).fetch("VTI", now=SECOND_ETF_RUN_TIME)
+        report["asOfText"] = "fundTotalNetAssetsDate 10/31/2026"
+        with self.assertRaisesRegex(ValueError, "no Vanguard ETF share-class report"):
+            EtfAumProvider(session).fetch("VTI", now=SECOND_ETF_RUN_TIME)
 
 
 class ProvenanceWriteTests(unittest.TestCase):
